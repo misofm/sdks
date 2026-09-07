@@ -52,7 +52,7 @@
     },
     "packages/streaming": {
       "name": "@misofm/streaming",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@types/bun": "^1.4.0",
         "hls.js": "1.6.13",
@@ -357,7 +357,11 @@
 
     "zod": ["zod@4.5.4", "", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
 
+    "@misofm/platform/@misofm/streaming": ["@misofm/streaming@0.1.0", "", { "peerDependencies": { "hls.js": "^1.6" }, "optionalPeers": ["hls.js"] }, "sha512-amxvRkj/OOjhFJrT8EPflglkSGHYDqiYV1HEjwAqYFuJTKNEVXuxG9s1jnDdaW1AzssKljx/umKB3vUKyrRO9w=="],
+
     "@misofm/platform/@mysten/codegen": ["@mysten/codegen@0.11.14", "", { "dependencies": { "@mysten/bcs": "^2.1.0", "@mysten/sui": "^2.24.0", "@stricli/auto-complete": "^1.2.7", "@stricli/core": "^1.2.7", "@types/node": "^25.9.3", "cosmiconfig": "^9.0.2", "prettier": "^3.8.4", "toml": "^4.1.1", "typescript": "^6.0.3", "zod": "^4.4.3" }, "bin": { "sui-ts-codegen": "dist/bin/cli.mjs", "__sui-ts-codegen_bash_complete": "dist/bin/bash-complete.mjs" } }, "sha512-QOMeI/uKzlHW9LblCDgGeByVxGBIHNRB0HpsqLGgk1hrXguv9QSZIQ5OqYEz/ZetyipncsTnyU4XQQppR7WoaA=="],
+
+    "@misofm/transcoding/@misofm/streaming": ["@misofm/streaming@0.1.0", "", { "peerDependencies": { "hls.js": "^1.6" }, "optionalPeers": ["hls.js"] }, "sha512-amxvRkj/OOjhFJrT8EPflglkSGHYDqiYV1HEjwAqYFuJTKNEVXuxG9s1jnDdaW1AzssKljx/umKB3vUKyrRO9w=="],
 
     "@misofm/transcoding/@types/bun": ["@types/bun@1.2.22", "", { "dependencies": { "bun-types": "1.2.22" } }, "sha512-5A/KrKos2ZcN0c6ljRSOa1fYIyCKhZfIVYeuyb4snnvomnpFqC0tTsEkdqNxbAgExV384OETQ//WAjl3XbYqQA=="],
 
