@@ -7,13 +7,31 @@ const [runtime, tarballArgument, ...extraTarballs] = process.argv.slice(2);
 if ((runtime !== "node" && runtime !== "bun") || tarballArgument === undefined)
   process.exit(64);
 const tarball = resolve(tarballArgument);
-// Sibling workspace tarballs (the @misofm/hls contract) so the install never
-// reaches the registry for an unpublished version.
+// Sibling workspace tarballs (the @misofm/streaming contract) so the install
+// never reaches the registry for an unpublished version.
 const extras = extraTarballs.map((path) => resolve(path));
+
+/** Read `name` out of a tarball's package/package.json without extracting it to disk. */
+async function tarballPackageName(path) {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const { stdout } = await promisify(execFile)("tar", ["-xOf", path, "package/package.json"]);
+  return JSON.parse(stdout).name;
+}
 const directory = await mkdtemp(join(tmpdir(), `transcoder-${runtime}-`));
+// Sibling workspace tarballs are pinned through overrides so neither runtime
+// resolves an unpublished version of a workspace dependency from the registry.
+const overrides = Object.fromEntries(
+  await Promise.all(
+    extras.map(async (path) => {
+      const name = await tarballPackageName(path);
+      return [name, `file:${path}`];
+    }),
+  ),
+);
 await writeFile(
   join(directory, "package.json"),
-  '{"type":"module","private":true}\n',
+  `${JSON.stringify({ type: "module", private: true, overrides, resolutions: overrides }, null, 2)}\n`,
 );
 
 const run = (file, args) =>
@@ -32,11 +50,12 @@ const run = (file, args) =>
   });
 
 if (runtime === "node") {
+  // npm refuses an override that is also a direct dependency, so the sibling
+  // tarballs reach npm only through `overrides`.
   await run("npm", [
     "install",
     "--ignore-scripts",
     tarball,
-    ...extras,
     "effect@4.0.0-rc.112",
     "@effect/platform-node@4.0.0-rc.112",
   ]);
