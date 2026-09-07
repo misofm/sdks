@@ -16,11 +16,12 @@
 export const WALRUS_N_SHARDS = 1000;
 
 /**
- * Storage duration for every blob Miso publishes. A mainnet Walrus epoch is
- * two weeks, so 26 epochs is one year. Not a release.json field: publication
+ * Initial storage duration for every blob Miso publishes. A mainnet Walrus
+ * epoch is two weeks, so four epochs is eight weeks; blobs are shared and
+ * permanent, so anyone can extend them. Not a release.json field: publication
  * policy is the platform's, not the release owner's.
  */
-export const WALRUS_STORAGE_EPOCHS = 26;
+export const WALRUS_STORAGE_EPOCHS = 4;
 
 /**
  * Published blobs are permanent (not deletable) and wrapped as shared blob

@@ -23,7 +23,7 @@ test("platform re-exports the miso-hls/v1 contract and resolves stream URLs per 
 
 test("Walrus publication policy is fixed by the platform, not release.json", () => {
   expect(WALRUS_N_SHARDS).toBe(1000);
-  expect(WALRUS_STORAGE_EPOCHS).toBe(26);
+  expect(WALRUS_STORAGE_EPOCHS).toBe(4);
   expect(WALRUS_BLOBS_DELETABLE).toBe(false);
   expect(WALRUS_BLOBS_SHARED).toBe(true);
   expect(walrusAggregatorUrl("mainnet")).toBe("https://aggregator.mainnet.walrus.mirai.cloud");
