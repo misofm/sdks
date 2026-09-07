@@ -40,8 +40,14 @@ the warm case happen:
 - **`HLS_COLD_ORIGIN_DEFAULTS`** — the hls.js config `HlsPlayer` builds its
   engine with: a deterministic `startLevel` (see `startLevelIndex`) so a warm
   primes what actually plays, buffer margin for aggregator tail latency, and
-  a longer `maxTimeToFirstByteMs` on fragment loads than hls.js's own
-  default. Pass `hlsConfig` to `HlsPlayer` to override any of it.
+  a longer `maxTimeToFirstByteMs` on both fragment and playlist loads than
+  hls.js's own defaults — a first play is a cold master playlist, rendition
+  playlist, init segment, and first segment alike. Pass `hlsConfig` to
+  `HlsPlayer` to override any of it; overrides are merged with
+  `mergeHlsConfig`, which merges `*LoadPolicy` keys (`default`, and its
+  `timeoutRetry`/`errorRetry`) one level deeper instead of replacing them
+  outright, so a partial override like `{ fragLoadPolicy: { default: {
+  maxTimeToFirstByteMs: 5_000 } } }` keeps the rest of the retry policy.
 - **`warmTrack` / `HlsPlayer#warm`** — issues the same anonymous-CORS
   requests hls.js's loader will make for a track's opening playlists, init
   segment, and first few media segments, and drains every body so the

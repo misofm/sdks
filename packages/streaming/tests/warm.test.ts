@@ -75,6 +75,29 @@ test("warmTrack tolerates a non-2xx response instead of throwing", async () => {
   await expect(warmTrack(BASE, QUILT, { segments: 0, fetch: fetchImpl })).resolves.toBeUndefined();
 });
 
+test("warmTrack tolerates one item's network error while draining the others", async () => {
+  const drained: string[] = [];
+  const fetchImpl = ((url: string) => {
+    if (url.endsWith("aac-256.m3u8")) {
+      return Promise.reject(new TypeError("Failed to fetch"));
+    }
+    return Promise.resolve({
+      ok: true,
+      arrayBuffer: () => {
+        drained.push(url);
+        return Promise.resolve(new ArrayBuffer(0));
+      },
+    } as unknown as Response);
+  }) as unknown as typeof fetch;
+
+  await expect(warmTrack(BASE, QUILT, { segments: 1, fetch: fetchImpl })).resolves.toBeUndefined();
+  expect(drained).toEqual([
+    quiltItemUrl(BASE, QUILT, "master.m3u8"),
+    quiltItemUrl(BASE, QUILT, "aac-256-init.mp4"),
+    quiltItemUrl(BASE, QUILT, "aac-256-00000.m4s"),
+  ]);
+});
+
 test("warmTrack rejects with the AbortError when its signal is aborted", async () => {
   const controller = new AbortController();
   const fetchImpl = ((_url: string, init: RequestInit) => {

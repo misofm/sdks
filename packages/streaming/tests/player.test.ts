@@ -3,7 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { startLevelIndex } from "../src/index.ts";
-import { HLS_COLD_ORIGIN_DEFAULTS, HlsPlayer } from "../src/player.ts";
+import { HLS_COLD_ORIGIN_DEFAULTS, HlsPlayer, mergeHlsConfig } from "../src/player.ts";
 
 interface FakeAudio {
   crossOrigin: string | null;
@@ -115,6 +115,11 @@ test("hls.js is constructed with the cold-origin defaults, and a caller override
   expect(hls.config.startLevel).toBe(startLevelIndex());
   expect(hls.config.maxBufferLength).toBe(HLS_COLD_ORIGIN_DEFAULTS.maxBufferLength);
   expect(hls.config.fragLoadPolicy).toEqual(HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy);
+  expect(hls.config.playlistLoadPolicy).toEqual(HLS_COLD_ORIGIN_DEFAULTS.playlistLoadPolicy);
+  expect((hls.config.playlistLoadPolicy as { default: { maxTimeToFirstByteMs: number } }).default.maxTimeToFirstByteMs).toBe(
+    20_000,
+  );
+  expect(hls.config.manifestLoadPolicy).toBeUndefined();
   stream.destroy();
 
   FakeHls.instances = [];
@@ -156,4 +161,42 @@ test("destroying before hls.js resolves never attaches", async () => {
   await Promise.resolve();
   await Promise.resolve();
   expect(FakeHls.instances).toHaveLength(0);
+});
+
+test("mergeHlsConfig keeps default retry sub-objects when only one leaf is overridden", () => {
+  const merged = mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, {
+    fragLoadPolicy: { default: { maxTimeToFirstByteMs: 5_000 } },
+  });
+  expect(merged.fragLoadPolicy).toEqual({
+    default: {
+      maxTimeToFirstByteMs: 5_000,
+      maxLoadTimeMs: HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy!.default.maxLoadTimeMs,
+      timeoutRetry: HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy!.default.timeoutRetry,
+      errorRetry: HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy!.default.errorRetry,
+    },
+  });
+});
+
+test("mergeHlsConfig merges a partial retry sub-object leaf by leaf, caller winning", () => {
+  const merged = mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, {
+    fragLoadPolicy: { default: { timeoutRetry: { maxNumRetry: 1 } } },
+  });
+  const defaultTimeoutRetry = HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy!.default.timeoutRetry!;
+  expect((merged.fragLoadPolicy as { default: { timeoutRetry: unknown } }).default.timeoutRetry).toEqual({
+    maxNumRetry: 1,
+    retryDelayMs: defaultTimeoutRetry.retryDelayMs,
+    maxRetryDelayMs: defaultTimeoutRetry.maxRetryDelayMs,
+  });
+});
+
+test("mergeHlsConfig replaces a top-level scalar key entirely", () => {
+  const merged = mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, { maxBufferLength: 30 });
+  expect(merged.maxBufferLength).toBe(30);
+  expect(merged.fragLoadPolicy).toEqual(HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy);
+});
+
+test("mergeHlsConfig passes an unrelated key through untouched", () => {
+  const merged = mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, { debug: true });
+  expect(merged.debug).toBe(true);
+  expect(merged.startLevel).toBe(HLS_COLD_ORIGIN_DEFAULTS.startLevel);
 });

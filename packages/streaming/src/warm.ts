@@ -62,11 +62,19 @@ export async function warmTrack(baseUrl: string, quiltId: string, options: WarmO
   await Promise.all(
     identifiers.map(async (identifier) => {
       const url = quiltItemUrl(baseUrl, quiltId, identifier);
-      const response = await doFetch(url, { mode: "cors", credentials: "omit", signal: options.signal });
-      // Drain the body regardless of status: a warm must never throw for a
-      // missing item, and even an error response's body must be fully read
-      // for the browser to keep the cache entry.
-      await response.arrayBuffer();
+      try {
+        const response = await doFetch(url, { mode: "cors", credentials: "omit", signal: options.signal });
+        // Drain the body regardless of status: a warm must never throw for a
+        // missing item, and even an error response's body must be fully read
+        // for the browser to keep the cache entry.
+        await response.arrayBuffer();
+      } catch (error) {
+        // A network-level failure (offline, CORS failure, DNS) on one item
+        // must not sink its siblings' warming. An abort is the one thing
+        // that still throws, per this function's contract.
+        const aborted = options.signal?.aborted || (error instanceof Error && error.name === "AbortError");
+        if (aborted) throw error;
+      }
     }),
   );
 }

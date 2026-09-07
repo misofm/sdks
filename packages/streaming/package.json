@@ -1,6 +1,6 @@
 {
   "name": "@misofm/streaming",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "packageManager": "bun@1.4.0",
   "description": "The miso-hls/v1 streaming transcode contract (rendition ladder, segment policy, Quilt item naming) plus a browser player for Miso streams.",
   "license": "Apache-2.0",

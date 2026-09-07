@@ -14,18 +14,37 @@
 // The light build has the same class shape; its own types are not resolvable
 // under bundler resolution, so type against the main entry.
 import type HlsType from "hls.js";
-import type { HlsConfig } from "hls.js";
+import type { HlsConfig, HlsLoadPolicies, LoadPolicy, LoaderConfig, RetryConfig } from "hls.js";
 import { MASTER_PLAYLIST, quiltItemUrl, startLevelIndex } from "./index.ts";
 import { warmTrack, type WarmOptions } from "./warm.ts";
 
 type HlsConstructor = typeof HlsType;
 type HlsModule = { default: HlsConstructor };
 
+/** A `LoadPolicy` override good enough to merge: `default`, and inside it
+ *  `timeoutRetry`/`errorRetry`, may each be partial — {@link mergeHlsConfig}
+ *  fills in whatever a caller omits from the merge base. `null` for a retry
+ *  sub-object means "no retry," not "unspecified," and replaces it whole. */
+export type PartialLoadPolicy = {
+  default?: Partial<Omit<LoaderConfig, "timeoutRetry" | "errorRetry">> & {
+    timeoutRetry?: Partial<RetryConfig> | null;
+    errorRetry?: Partial<RetryConfig> | null;
+  };
+};
+
+/** `hls.js` config overrides: every field is a shallow override of
+ *  {@link HLS_COLD_ORIGIN_DEFAULTS} except the `*LoadPolicy` keys, which may
+ *  be partial — see {@link mergeHlsConfig}. */
+export type HlsConfigOverrides = Partial<Omit<HlsConfig, keyof HlsLoadPolicies>> &
+  Partial<Record<keyof HlsLoadPolicies, PartialLoadPolicy>>;
+
 /**
- * Defaults tuned for playback off a Walrus aggregator origin: a cold segment
- * costs ~2.7 s (2.2 s time-to-first-byte), a warm one ~0.1 s. Every field not
- * called out below is hls.js's own default, restated so the object is
- * complete; see `node_modules/hls.js/dist/hls.d.ts` for `LoadPolicy`'s shape.
+ * Defaults tuned for playback off a Walrus aggregator origin: the first play
+ * is a cold master playlist, rendition playlist, init segment, and first
+ * media segment — each costing ~2.7 s (2.2 s time-to-first-byte), vs. ~0.1 s
+ * warm. Every field not called out below is hls.js's own default, restated
+ * so the object is complete; see `node_modules/hls.js/dist/hls.d.ts` for
+ * `LoadPolicy`'s shape.
  */
 export const HLS_COLD_ORIGIN_DEFAULTS: Partial<HlsConfig> = {
   // Start on the rendition a warm (see `warmTrack`) actually primes, rather
@@ -43,7 +62,69 @@ export const HLS_COLD_ORIGIN_DEFAULTS: Partial<HlsConfig> = {
       errorRetry: { maxNumRetry: 6, retryDelayMs: 1_000, maxRetryDelayMs: 8_000 },
     },
   },
+  // The master and rendition playlists are cold too, on the very first
+  // request a player makes. Same TTFB bump as fragLoadPolicy; the rest is
+  // hls.js's own playlistLoadPolicy default, restated.
+  playlistLoadPolicy: {
+    default: {
+      maxTimeToFirstByteMs: 20_000,
+      maxLoadTimeMs: 20_000,
+      timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 },
+      errorRetry: { maxNumRetry: 2, retryDelayMs: 1_000, maxRetryDelayMs: 8_000 },
+    },
+  },
+  // manifestLoadPolicy is deliberately left at hls.js's default: its
+  // maxTimeToFirstByteMs is already Infinity.
 };
+
+type PartialRetryConfig = Partial<RetryConfig> | null;
+type PartialLoaderConfig = NonNullable<PartialLoadPolicy["default"]>;
+
+function mergeRetryConfig(base: RetryConfig | null | undefined, override: PartialRetryConfig | undefined) {
+  if (override === undefined) return base;
+  if (override === null || base == null) return override;
+  return { ...base, ...override };
+}
+
+function mergeLoaderConfig(base: LoaderConfig | undefined, override: PartialLoaderConfig | undefined) {
+  if (override === undefined) return base;
+  if (base === undefined) return override;
+  return {
+    ...base,
+    ...override,
+    timeoutRetry: mergeRetryConfig(base.timeoutRetry, override.timeoutRetry),
+    errorRetry: mergeRetryConfig(base.errorRetry, override.errorRetry),
+  };
+}
+
+function mergeLoadPolicy(base: LoadPolicy | undefined, override: PartialLoadPolicy | undefined) {
+  if (override === undefined) return base;
+  if (base === undefined) return override;
+  return { ...base, ...override, default: mergeLoaderConfig(base.default, override.default) };
+}
+
+/**
+ * Merge hls.js config `overrides` over `defaults`. Every key is a shallow
+ * override except one ending in `LoadPolicy` (`fragLoadPolicy`,
+ * `playlistLoadPolicy`, `manifestLoadPolicy`, `steeringManifestLoadPolicy`,
+ * …): there, `default` is merged one level deeper, and inside it
+ * `timeoutRetry`/`errorRetry` one level deeper still — so a caller can
+ * override e.g. just `fragLoadPolicy.default.maxTimeToFirstByteMs` without
+ * losing the retry sub-objects. The caller's value always wins at the leaf;
+ * `null` for a retry sub-object is a whole replacement ("no retry"), not a
+ * partial one. Every other key, including a whole unrelated `*LoadPolicy`
+ * one the caller never mentions, passes through untouched.
+ */
+export function mergeHlsConfig(defaults: Partial<HlsConfig>, overrides: HlsConfigOverrides): Partial<HlsConfig> {
+  const merged: Record<string, unknown> = { ...defaults };
+  const defaultsRecord = defaults as Record<string, unknown>;
+  for (const [key, value] of Object.entries(overrides)) {
+    merged[key] = key.endsWith("LoadPolicy")
+      ? mergeLoadPolicy(defaultsRecord[key] as LoadPolicy | undefined, value as PartialLoadPolicy)
+      : value;
+  }
+  return merged as Partial<HlsConfig>;
+}
 
 export interface AudioStream {
   /** Begin playback. Safe immediately after `open`: on the hls.js path the
@@ -62,7 +143,7 @@ export interface HlsPlayerOptions {
   readonly mseUsable?: () => boolean;
   /** hls.js config, merged over {@link HLS_COLD_ORIGIN_DEFAULTS}. Ignored on
    *  the native/no-MSE path. */
-  readonly hlsConfig?: Partial<HlsConfig>;
+  readonly hlsConfig?: HlsConfigOverrides;
 }
 
 const MSE_TYPE = 'audio/mp4; codecs="mp4a.40.2"';
@@ -80,7 +161,7 @@ export class HlsPlayer {
   readonly #baseUrl: string;
   readonly #loadHls: () => Promise<HlsModule>;
   readonly #mseUsable: () => boolean;
-  readonly #hlsConfig: Partial<HlsConfig>;
+  readonly #hlsConfig: HlsConfigOverrides;
   #hlsModule: Promise<HlsModule> | null = null;
 
   constructor(options: HlsPlayerOptions) {
@@ -143,7 +224,7 @@ export class HlsPlayer {
         }
         return;
       }
-      hls = new Hls({ ...HLS_COLD_ORIGIN_DEFAULTS, ...this.#hlsConfig });
+      hls = new Hls(mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, this.#hlsConfig) as HlsConfig);
       hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
         if (data.fatal) {
           hls?.destroy();
