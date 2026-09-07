@@ -44,6 +44,7 @@ describe("getPartiesByIds", () => {
 
     expect(getObjects).toHaveBeenCalledTimes(1);
     expect(getObjects).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
       objectIds: [soloId, groupId],
       include: { content: true },
     });

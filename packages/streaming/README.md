@@ -51,6 +51,33 @@ The split is deliberate: this package owns the mechanics of warming and cold
 tolerance; the app decides *when* and *what* to warm (on hover, on queue, on
 route) by calling `warm` or `warmTrack` itself.
 
+## Effects and lifecycle
+
+The `/warm` and `/player` entries use `effect@4.0.0-rc.112`; the root
+contract still imports no runtime dependencies. `warmTrackEffect` composes
+fetching and body draining with a default concurrency of 6, configurable with
+`concurrency`. Non-2xx responses are also drained. `warmTrack` preserves the
+original rejection object, including fetch AbortErrors. An options `signal`
+aborts requests; interrupting the Effect also aborts active fetch/body reads.
+
+```ts
+import { Effect } from "effect";
+import { warmTrackEffect } from "@misofm/streaming/warm";
+
+const program = warmTrackEffect(origin, quiltId, { concurrency: 4 });
+await Effect.runPromise(program); // typed SdkError failures carry the original cause
+```
+
+`getMasterPlaylistUrl`, `warmTrack`, `preloadEngine`, and `openStream` are
+player aliases for `masterPlaylistUrl`, `warm`, `preload`, and `open`.
+`openStream`, `play`, and `destroy` are synchronous. Native `play()` invokes
+the audio element immediately to preserve iOS user activation; MSE remembers
+play intent until attachment. Load failures, fatal engine errors, and play
+rejections call `onError`. `preloadEngine(onError)` optionally reports load
+failure too, and a failed module load can be retried on the next call.
+Opening another stream on the same element destroys the previous owner.
+Destroy cancels pending startup and prevents late attachment or stale cleanup.
+
 ## License
 
 Apache-2.0

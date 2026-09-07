@@ -185,6 +185,7 @@ test("getExtensionField reads a fieldless ExtensionKey and returns null only for
   expect(calls).toEqual([
     {
       parentId: PKG,
+      signal: expect.any(AbortSignal),
       name: {
         type: `${PKG}::release_description::ExtensionKey`,
         bcs: new Uint8Array([0]),
@@ -239,6 +240,7 @@ test("DSP fields use their platform-keyed dynamic-field names", async () => {
   expect(calls).toEqual([
     {
       parentId: PKG,
+      signal: expect.any(AbortSignal),
       name: {
         type: `${PKG}::release_dsp_link::ReleaseLinkKey`,
         bcs: new Uint8Array([7]),
@@ -250,6 +252,7 @@ test("DSP fields use their platform-keyed dynamic-field names", async () => {
         type: `${PKG}::release_dsp_link::TrackLinksKey`,
         bcs: new Uint8Array([7]),
       },
+      signal: expect.any(AbortSignal),
     },
   ]);
   await expect(

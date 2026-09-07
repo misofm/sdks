@@ -133,11 +133,13 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "dependencies": {
-    "@misofm/streaming": "0.1.0",
+    "@misofm/streaming": "0.2.0",
+    "@misofm/utils": "0.1.0",
     "@misofm/protocol": "0.16.0",
     "@mysten/bcs": "^2.1.1"
   },
   "devDependencies": {
+    "effect": "4.0.0-rc.112",
     "@mysten/codegen": "^0.11.14",
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
@@ -145,9 +147,10 @@
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
+    "effect": "4.0.0-rc.112",
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
-    "typescript": "^5.7 || ^6 || ^7"
+    "typescript": "^5.9 || ^6 || ^7"
   },
   "main": "./dist/index.js"
 }

@@ -1,0 +1,30 @@
+{
+  "name": "@misofm/utils",
+  "version": "0.1.0",
+  "description": "Shared exact scalar, canonical encoding, and Effect boundaries for Miso SDKs.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "repository": { "type": "git", "url": "git+https://github.com/misofm/sdks.git", "directory": "packages/utils" },
+  "publishConfig": { "access": "public" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./numeric": { "types": "./dist/numeric.d.ts", "default": "./dist/numeric.js" },
+    "./encoding": { "types": "./dist/encoding.d.ts", "default": "./dist/encoding.js" },
+    "./effect": { "types": "./dist/effect.d.ts", "default": "./dist/effect.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "src", "README.md", "LICENSE"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json --noCheck"
+  },
+  "dependencies": { "@mysten/bcs": "^2.1.1" },
+  "peerDependencies": { "effect": "4.0.0-rc.112" },
+  "devDependencies": { "effect": "4.0.0-rc.112", "@types/bun": "^1.4.0", "typescript": "^7.0.2" }
+}

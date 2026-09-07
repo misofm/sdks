@@ -1,10 +1,17 @@
+import {
+  inspectAndHash,
+  readBounded as readBoundedFile,
+  joinedPromise,
+} from "../workspace/files.js";
 import { createHash, randomBytes } from "node:crypto";
-import { constants } from "node:fs";
-import { chmod, lstat, mkdir, open, readdir, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, rm } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { Effect } from "effect";
-import { MASTER_PLAYLIST, renditionPlaylistIdentifier } from "@misofm/streaming";
+import {
+  MASTER_PLAYLIST,
+  renditionPlaylistIdentifier,
+} from "@misofm/streaming";
 
 import {
   InvalidRequestError,
@@ -103,66 +110,8 @@ const playlistFailure = (subject: string, message: string) =>
     message,
   });
 
-const hashFile = async (
-  path: string,
-  maximum = Number.MAX_SAFE_INTEGER,
-): Promise<string> => {
-  const handle = await open(
-    path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metadata = await handle.stat();
-    if (!metadata.isFile() || metadata.size > maximum) throw new TypeError();
-    const hash = createHash("sha256");
-    let bytes = 0;
-    for await (const chunk of handle.createReadStream({
-      autoClose: false,
-      highWaterMark: 64 * 1024,
-    })) {
-      bytes += chunk.byteLength;
-      if (bytes > metadata.size || bytes > maximum) throw new RangeError();
-      hash.update(chunk);
-    }
-    if (bytes !== metadata.size) throw new RangeError();
-    return hash.digest("hex");
-  } finally {
-    await handle.close();
-  }
-};
-
-const readBoundedFile = async (
-  path: string,
-  maximum: number,
-): Promise<Buffer> => {
-  const handle = await open(
-    path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metadata = await handle.stat();
-    if (!metadata.isFile() || metadata.size < 1 || metadata.size > maximum)
-      throw new RangeError("file outside bounded read limit");
-    const bytes = Buffer.allocUnsafe(metadata.size);
-    let offset = 0;
-    while (offset < bytes.byteLength) {
-      const { bytesRead } = await handle.read(
-        bytes,
-        offset,
-        bytes.byteLength - offset,
-        null,
-      );
-      if (bytesRead === 0)
-        throw new RangeError("file shrank during bounded read");
-      offset += bytesRead;
-    }
-    if ((await handle.read(Buffer.alloc(1), 0, 1, null)).bytesRead !== 0)
-      throw new RangeError("file grew during bounded read");
-    return bytes;
-  } finally {
-    await handle.close();
-  }
-};
+const hashFile = (path: string, maximum = Number.MAX_SAFE_INTEGER) =>
+  inspectAndHash(path, maximum, undefined, 0).then((file) => file.sha256);
 
 const sourceIdentity = (value: {
   readonly dev: number;
@@ -184,45 +133,46 @@ const plaintextIdentifiers = (
   ...RENDITIONS.map((rendition) => renditionPlaylistIdentifier(rendition.id)),
 ];
 
-const collectPlaintextFiles = async (
+const collectPlaintextFiles = (
   rootPath: string,
   playlists: readonly MediaPlaylist[],
   secureModes: boolean,
-): Promise<PreparedCheckpoint["files"]> => {
-  const identifiers = [...new Set(plaintextIdentifiers(playlists))].sort();
-  if (identifiers.some((identifier) => identifier.length === 0))
-    throw playlistFailure(rootPath, "Plaintext inventory is incomplete");
-  const files = [];
-  for (const identifier of identifiers) {
-    const path = join(rootPath, identifier);
-    const metadata = await lstat(path);
-    const maximum = identifier.endsWith(".m3u8")
-      ? 1_048_576
-      : 256 * 1024 * 1024;
-    if (
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.size < 1 ||
-      metadata.size > maximum
-    )
-      throw playlistFailure(
+) =>
+  Effect.gen(function* () {
+    const identifiers = [...new Set(plaintextIdentifiers(playlists))].sort();
+    if (identifiers.some((identifier) => identifier.length === 0))
+      throw playlistFailure(rootPath, "Plaintext inventory is incomplete");
+    const files = [];
+    for (const identifier of identifiers) {
+      const path = join(rootPath, identifier);
+      const metadata = yield* joinedPromise(() => lstat(path));
+      const maximum = identifier.endsWith(".m3u8")
+        ? 1_048_576
+        : 256 * 1024 * 1024;
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        metadata.size < 1 ||
+        metadata.size > maximum
+      )
+        throw playlistFailure(
+          identifier,
+          "Plaintext output is not a regular file",
+        );
+      if (secureModes) yield* joinedPromise(() => chmod(path, 0o600));
+      else if ((metadata.mode & 0o777) !== 0o600)
+        throw playlistFailure(
+          identifier,
+          "Cached plaintext permissions are not mode 0600",
+        );
+      files.push({
         identifier,
-        "Plaintext output is not a regular file",
-      );
-    if (secureModes) await chmod(path, 0o600);
-    else if ((metadata.mode & 0o777) !== 0o600)
-      throw playlistFailure(
-        identifier,
-        "Cached plaintext permissions are not mode 0600",
-      );
-    files.push({
-      identifier,
-      bytes: metadata.size,
-      sha256: await hashFile(path, maximum),
-    });
-  }
-  return files;
-};
+        bytes: metadata.size,
+        sha256: yield* joinedPromise(() => hashFile(path, maximum)),
+      });
+    }
+    return files;
+  }).pipe(Effect.catchDefect((error) => Effect.fail(error)));
 
 const parsePreparedCheckpoint = (
   value: unknown,
@@ -417,96 +367,102 @@ const readWorkspacePrepareDigest = async (
   }
 };
 
-const validatePlaylistSet = async (
+const validatePlaylistSet = (
   rootPath: string,
   segmentTargetMs: number,
   sampleRateHz: 44_100 | 48_000,
   allowCheckpoint: boolean,
   maxSegmentsPerRendition = Number.MAX_SAFE_INTEGER,
-): Promise<readonly MediaPlaylist[]> => {
-  try {
-    assertMasterPlaylistParses(
-      await readBoundedFile(join(rootPath, "master.m3u8"), 1_048_576),
+) =>
+  Effect.gen(function* () {
+    yield* joinedPromise(() =>
+      readBoundedFile(join(rootPath, "master.m3u8"), 1_048_576),
+    ).pipe(
+      Effect.flatMap((bytes) =>
+        Effect.try(() => assertMasterPlaylistParses(bytes)),
+      ),
+      Effect.mapError(() =>
+        playlistFailure("master.m3u8", "Master playlist validation failed"),
+      ),
     );
-  } catch {
-    throw playlistFailure("master.m3u8", "Master playlist validation failed");
-  }
-  const playlists: MediaPlaylist[] = [];
-  const expected = new Set(["master.m3u8"]);
-  const frameMs = (AAC_FRAME_SAMPLES * 1_000) / sampleRateHz;
-  for (const rendition of RENDITIONS) {
-    const name = `${rendition.id}.m3u8`;
-    expected.add(name);
-    const playlist = parsePlaintextMediaPlaylist(
-      await readBoundedFile(join(rootPath, name), 1_048_576),
-    );
-    if (playlist.mapIdentifier !== `${rendition.id}-init.mp4`)
-      throw playlistFailure(name, "Unexpected init identifier");
-    expected.add(playlist.mapIdentifier);
-    for (const [position, segment] of playlist.segments.entries()) {
-      if (
-        segment.identifier !==
-        `${rendition.id}-${String(position).padStart(5, "0")}.m4s`
-      )
-        throw playlistFailure(name, "Non-canonical segment identifier");
-      if (
-        position < playlist.segments.length - 1 &&
-        Math.abs(segment.durationMs - segmentTargetMs) > Math.ceil(frameMs)
-      ) {
-        throw playlistFailure(
-          name,
-          "Non-final segment is outside one AAC frame of target",
-        );
+    const playlists: MediaPlaylist[] = [];
+    const expected = new Set(["master.m3u8"]);
+    const frameMs = (AAC_FRAME_SAMPLES * 1_000) / sampleRateHz;
+    for (const rendition of RENDITIONS) {
+      const name = `${rendition.id}.m3u8`;
+      expected.add(name);
+      const playlist = parsePlaintextMediaPlaylist(
+        yield* joinedPromise(() =>
+          readBoundedFile(join(rootPath, name), 1_048_576),
+        ),
+      );
+      if (playlist.mapIdentifier !== `${rendition.id}-init.mp4`)
+        throw playlistFailure(name, "Unexpected init identifier");
+      expected.add(playlist.mapIdentifier);
+      for (const [position, segment] of playlist.segments.entries()) {
+        if (
+          segment.identifier !==
+          `${rendition.id}-${String(position).padStart(5, "0")}.m4s`
+        )
+          throw playlistFailure(name, "Non-canonical segment identifier");
+        if (
+          position < playlist.segments.length - 1 &&
+          Math.abs(segment.durationMs - segmentTargetMs) > Math.ceil(frameMs)
+        ) {
+          throw playlistFailure(
+            name,
+            "Non-final segment is outside one AAC frame of target",
+          );
+        }
+        if (
+          position === playlist.segments.length - 1 &&
+          segment.durationMs >
+            Math.min(10_000, segmentTargetMs + Math.ceil(frameMs))
+        ) {
+          throw playlistFailure(
+            name,
+            "Final segment exceeds the representable target tolerance",
+          );
+        }
+        expected.add(segment.identifier);
       }
-      if (
-        position === playlist.segments.length - 1 &&
-        segment.durationMs >
-          Math.min(10_000, segmentTargetMs + Math.ceil(frameMs))
-      ) {
-        throw playlistFailure(
-          name,
-          "Final segment exceeds the representable target tolerance",
-        );
-      }
-      expected.add(segment.identifier);
+      playlists.push(playlist);
     }
-    playlists.push(playlist);
-  }
-  const counts = playlists.map((playlist) => playlist.segments.length);
-  if (!counts.every((count) => count === counts[0]))
-    throw playlistFailure(rootPath, "Rendition segment counts differ");
-  const segmentCount = counts[0] ?? 0;
-  if (segmentCount > maxSegmentsPerRendition)
-    throw new SegmentLimitExceededError({
-      code: "SEGMENT_LIMIT_EXCEEDED",
-      phase: "validate",
-      subject: rootPath,
-      message: "Encoded ladder exceeds the configured segment ceiling",
-      segmentCount,
-      segmentLimit: maxSegmentsPerRendition,
-    });
-  for (let sequence = 0; sequence < (counts[0] ?? 0); sequence += 1) {
-    const durations = playlists.map(
-      (playlist) => playlist.segments[sequence]?.durationMs,
-    );
-    if (!durations.every((duration) => duration === durations[0]))
+    const counts = playlists.map((playlist) => playlist.segments.length);
+    if (!counts.every((count) => count === counts[0]))
+      throw playlistFailure(rootPath, "Rendition segment counts differ");
+    const segmentCount = counts[0] ?? 0;
+    if (segmentCount > maxSegmentsPerRendition)
+      throw new SegmentLimitExceededError({
+        code: "SEGMENT_LIMIT_EXCEEDED",
+        phase: "validate",
+        subject: rootPath,
+        message: "Encoded ladder exceeds the configured segment ceiling",
+        segmentCount,
+        segmentLimit: maxSegmentsPerRendition,
+      });
+    for (let sequence = 0; sequence < (counts[0] ?? 0); sequence += 1) {
+      const durations = playlists.map(
+        (playlist) => playlist.segments[sequence]?.durationMs,
+      );
+      if (!durations.every((duration) => duration === durations[0]))
+        throw playlistFailure(
+          rootPath,
+          "Rendition segment durations are not aligned",
+        );
+    }
+    if (allowCheckpoint) expected.add("prepared.json");
+    const actual = yield* joinedPromise(() => readdir(rootPath));
+    if (
+      actual.length !== expected.size ||
+      actual.some((identifier) => !expected.has(identifier))
+    )
       throw playlistFailure(
         rootPath,
-        "Rendition segment durations are not aligned",
+        "Plaintext directory contains missing or unknown files",
       );
-  }
-  if (allowCheckpoint) expected.add("prepared.json");
-  const actual = await readdir(rootPath);
-  if (
-    actual.length !== expected.size ||
-    actual.some((identifier) => !expected.has(identifier))
-  )
-    throw playlistFailure(
-      rootPath,
-      "Plaintext directory contains missing or unknown files",
-    );
-  return playlists;
-};
+    return playlists;
+  }).pipe(Effect.catchDefect((error) => Effect.fail(error)));
 
 export const prepareTranscode = (
   request: PrepareRequest,
@@ -527,10 +483,11 @@ export const prepareTranscode = (
         ),
       );
     }
-    const inputMetadata = yield* Effect.tryPromise({
-      try: () => lstat(request.inputPath),
-      catch: () => invalid("inputPath", "Source inspection failed"),
-    });
+    const inputMetadata = yield* joinedPromise(() =>
+      lstat(request.inputPath),
+    ).pipe(
+      Effect.mapError(() => invalid("inputPath", "Source inspection failed")),
+    );
     if (!inputMetadata.isFile() || inputMetadata.isSymbolicLink())
       return yield* Effect.fail(
         invalid(
@@ -585,14 +542,20 @@ export const prepareTranscode = (
               ),
             );
           }
-          const sourceSha256 = yield* Effect.tryPromise({
-            try: () => hashFile(request.inputPath),
-            catch: () => invalid("inputPath", "Source hashing failed"),
-          });
-          const boundSourceMetadata = yield* Effect.tryPromise({
-            try: () => lstat(request.inputPath),
-            catch: () => invalid("inputPath", "Source changed during hashing"),
-          });
+          const sourceSha256 = yield* joinedPromise(() =>
+            hashFile(request.inputPath),
+          ).pipe(
+            Effect.mapError(() =>
+              invalid("inputPath", "Source hashing failed"),
+            ),
+          );
+          const boundSourceMetadata = yield* joinedPromise(() =>
+            lstat(request.inputPath),
+          ).pipe(
+            Effect.mapError(() =>
+              invalid("inputPath", "Source changed during hashing"),
+            ),
+          );
           if (
             sourceIdentity(boundSourceMetadata) !==
             sourceIdentity(inputMetadata)
@@ -648,10 +611,9 @@ export const prepareTranscode = (
               scan: "pcm_f32le-exact-abs-finite/1",
             },
           });
-          const priorDigest = yield* Effect.tryPromise({
-            try: () => readWorkspacePrepareDigest(request.workspacePath),
-            catch: (error) => error as StaleWorkspaceError,
-          });
+          const priorDigest = yield* joinedPromise(() =>
+            readWorkspacePrepareDigest(request.workspacePath),
+          ).pipe(Effect.mapError((error) => error as StaleWorkspaceError));
           if (
             priorDigest !== undefined &&
             priorDigest !== prepareDigest &&
@@ -682,38 +644,39 @@ export const prepareTranscode = (
             toolchain,
             argvSpecification,
           } satisfies PreparedCheckpointBase;
-          const cached = yield* Effect.tryPromise({
-            try: async () => {
-              try {
-                return parsePreparedCheckpoint(
-                  JSON.parse(
-                    (
-                      await readBoundedFile(
-                        join(target, "prepared.json"),
-                        4_194_304,
-                      )
-                    ).toString("utf8"),
-                  ),
-                  expectedCheckpoint,
-                );
-              } catch (error) {
-                if (
-                  error instanceof Error &&
-                  "code" in error &&
-                  error.code === "ENOENT"
-                )
-                  return undefined;
-                throw error;
-              }
-            },
-            catch: () =>
-              new StaleWorkspaceError({
-                code: "STALE_WORKSPACE",
-                phase: "workspace",
-                subject: target,
-                message: "Cached plaintext checkpoint is invalid",
-              }),
-          });
+          const cached = yield* joinedPromise(async () => {
+            try {
+              return parsePreparedCheckpoint(
+                JSON.parse(
+                  (
+                    await readBoundedFile(
+                      join(target, "prepared.json"),
+                      4_194_304,
+                    )
+                  ).toString("utf8"),
+                ),
+                expectedCheckpoint,
+              );
+            } catch (error) {
+              if (
+                error instanceof Error &&
+                "code" in error &&
+                error.code === "ENOENT"
+              )
+                return undefined;
+              throw error;
+            }
+          }).pipe(
+            Effect.mapError(
+              () =>
+                new StaleWorkspaceError({
+                  code: "STALE_WORKSPACE",
+                  phase: "workspace",
+                  subject: target,
+                  message: "Cached plaintext checkpoint is invalid",
+                }),
+            ),
+          );
           if (cached !== undefined) {
             if (request.fresh === true)
               return yield* Effect.fail(
@@ -725,33 +688,38 @@ export const prepareTranscode = (
                     "Fresh preparation requires explicit cleanup of existing plaintext",
                 }),
               );
-            const cachedPlaylists = yield* Effect.tryPromise({
-              try: () =>
-                validatePlaylistSet(
-                  target,
-                  segmentTargetMs,
-                  source.sampleRateHz,
-                  true,
-                  segmentLimit,
-                ),
-              catch: () =>
-                new StaleWorkspaceError({
-                  code: "STALE_WORKSPACE",
-                  phase: "workspace",
-                  subject: target,
-                  message: "Cached plaintext failed validation",
-                }),
-            });
-            const cachedFiles = yield* Effect.tryPromise({
-              try: () => collectPlaintextFiles(target, cachedPlaylists, false),
-              catch: () =>
-                new StaleWorkspaceError({
-                  code: "STALE_WORKSPACE",
-                  phase: "workspace",
-                  subject: target,
-                  message: "Cached plaintext bytes or permissions changed",
-                }),
-            });
+            const cachedPlaylists = yield* validatePlaylistSet(
+              target,
+              segmentTargetMs,
+              source.sampleRateHz,
+              true,
+              segmentLimit,
+            ).pipe(
+              Effect.mapError(
+                () =>
+                  new StaleWorkspaceError({
+                    code: "STALE_WORKSPACE",
+                    phase: "workspace",
+                    subject: target,
+                    message: "Cached plaintext failed validation",
+                  }),
+              ),
+            );
+            const cachedFiles = yield* collectPlaintextFiles(
+              target,
+              cachedPlaylists,
+              false,
+            ).pipe(
+              Effect.mapError(
+                () =>
+                  new StaleWorkspaceError({
+                    code: "STALE_WORKSPACE",
+                    phase: "workspace",
+                    subject: target,
+                    message: "Cached plaintext bytes or permissions changed",
+                  }),
+              ),
+            );
             if (JSON.stringify(cachedFiles) !== JSON.stringify(cached.files))
               return yield* Effect.fail(
                 new StaleWorkspaceError({
@@ -852,28 +820,28 @@ export const prepareTranscode = (
           }
           const temporaryPaths: string[] = [];
           const makeTemporary = () =>
-            Effect.tryPromise({
-              try: async () => {
-                const path = join(
-                  request.workspacePath,
-                  `.tmp-${process.pid}-${randomBytes(12).toString("hex")}`,
-                );
-                await mkdir(path, { mode: 0o700 });
-                temporaryPaths.push(path);
-                return path;
-              },
-              catch: () =>
+            joinedPromise(async () => {
+              const path = join(
+                request.workspacePath,
+                `.tmp-${process.pid}-${randomBytes(12).toString("hex")}`,
+              );
+              await mkdir(path, { mode: 0o700 });
+              temporaryPaths.push(path);
+              return path;
+            }).pipe(
+              Effect.mapError(() =>
                 invalid("workspace", "Temporary workspace creation failed"),
-            });
-          const cleanup = Effect.tryPromise({
-            try: () =>
-              Promise.all(
-                temporaryPaths.map((path) =>
-                  rm(path, { recursive: true, force: true }),
-                ),
-              ).then(() => undefined),
-            catch: () => undefined,
-          }).pipe(Effect.orDie);
+              ),
+            );
+          const cleanup = Effect.forEach(
+            temporaryPaths,
+            (path) =>
+              joinedPromise(() => rm(path, { recursive: true, force: true })),
+            { concurrency: 4, discard: true },
+          ).pipe(
+            Effect.mapError(() => undefined),
+            Effect.orDie,
+          );
           const prepared = yield* Effect.gen(function* () {
             const sourceMeasurement = yield* ffmpeg.measureAudio(
               request.ffmpegPath,
@@ -884,16 +852,14 @@ export const prepareTranscode = (
             );
             const inspectCandidate = (directory: string) =>
               Effect.gen(function* () {
-                const playlists = yield* Effect.tryPromise({
-                  try: () =>
-                    validatePlaylistSet(
-                      directory,
-                      segmentTargetMs,
-                      source.sampleRateHz,
-                      false,
-                      segmentLimit,
-                    ),
-                  catch: (error) =>
+                const playlists = yield* validatePlaylistSet(
+                  directory,
+                  segmentTargetMs,
+                  source.sampleRateHz,
+                  false,
+                  segmentLimit,
+                ).pipe(
+                  Effect.mapError((error) =>
                     error instanceof PlaylistValidationError ||
                     error instanceof SegmentLimitExceededError
                       ? error
@@ -901,7 +867,8 @@ export const prepareTranscode = (
                           directory,
                           "Plaintext playlist validation failed",
                         ),
-                });
+                  ),
+                );
                 const timelines: TimelineValidation[] = [];
                 const measurements: DecodedAudioMeasurement[] = [];
                 for (const rendition of RENDITIONS) {
@@ -990,20 +957,27 @@ export const prepareTranscode = (
                       "Second-pass AAC ladder exceeds the final true-peak or decoded sample ceiling",
                   }),
                 );
-              yield* Effect.tryPromise({
-                try: () =>
-                  rm(previewDirectory, { recursive: true, force: true }),
-                catch: () => invalid("workspace", "Preview cleanup failed"),
-              });
+              yield* joinedPromise(() =>
+                rm(previewDirectory, { recursive: true, force: true }),
+              ).pipe(
+                Effect.mapError(() =>
+                  invalid("workspace", "Preview cleanup failed"),
+                ),
+              );
             }
-            const finalSource = yield* Effect.tryPromise({
-              try: async () => ({
-                metadata: await lstat(request.inputPath),
-                sha256: await hashFile(request.inputPath),
-              }),
-              catch: () =>
+            const finalSource = yield* Effect.gen(function* () {
+              const metadata = yield* joinedPromise(() =>
+                lstat(request.inputPath),
+              );
+              const sha256 = yield* joinedPromise(() =>
+                hashFile(request.inputPath),
+              );
+              return { metadata, sha256 };
+            }).pipe(
+              Effect.mapError(() =>
                 invalid("inputPath", "Source changed during encoding"),
-            });
+              ),
+            );
             if (
               sourceIdentity(finalSource.metadata) !==
                 sourceIdentity(boundSourceMetadata) ||
@@ -1012,21 +986,20 @@ export const prepareTranscode = (
               return yield* Effect.fail(
                 invalid("inputPath", "Source changed during encoding"),
               );
-            const files = yield* Effect.tryPromise({
-              try: () =>
-                collectPlaintextFiles(
-                  finalDirectory,
-                  finalCandidate.playlists,
-                  true,
-                ),
-              catch: (error) =>
+            const files = yield* collectPlaintextFiles(
+              finalDirectory,
+              finalCandidate.playlists,
+              true,
+            ).pipe(
+              Effect.mapError((error) =>
                 error instanceof PlaylistValidationError
                   ? error
                   : playlistFailure(
                       finalDirectory,
                       "Plaintext inventory hashing failed",
                     ),
-            });
+              ),
+            );
             const audio: PreparedAudioEvidence = {
               policyId: AUDIO_POLICY_ID,
               appliedGainCentiDb,
@@ -1083,39 +1056,40 @@ export const verifyPreparedTranscode = (
 ): Effect.Effect<PreparedTranscode, PrepareError, Ffmpeg> =>
   Effect.gen(function* () {
     const ffmpeg = yield* Ffmpeg;
-    const checkpoint = yield* Effect.tryPromise({
-      try: async () => {
-        const value: unknown = JSON.parse(
-          (
-            await readBoundedFile(
-              join(prepared.rootPath, "prepared.json"),
-              4_194_304,
-            )
-          ).toString("utf8"),
-        );
-        if (typeof value !== "object" || value === null || Array.isArray(value))
-          throw new TypeError();
-        const raw = value as Record<string, unknown>;
-        if (!Array.isArray(raw["argvSpecification"])) throw new TypeError();
-        return parsePreparedCheckpoint(value, {
-          prepareDigest: prepared.prepareDigest,
-          rootPath: prepared.rootPath,
-          sourceSha256: prepared.sourceSha256,
-          durationMs: prepared.durationMs,
-          sampleRateHz: prepared.sampleRateHz,
-          segmentTargetMs: prepared.segmentTargetMs,
-          toolchain: prepared.toolchain,
-          argvSpecification: raw["argvSpecification"] as readonly string[],
-        });
-      },
-      catch: () =>
-        new StaleWorkspaceError({
-          code: "STALE_WORKSPACE",
-          phase: "workspace",
-          subject: prepared.rootPath,
-          message: "Prepared checkpoint is missing, invalid, or mismatched",
-        }),
-    });
+    const checkpoint = yield* joinedPromise(async () => {
+      const value: unknown = JSON.parse(
+        (
+          await readBoundedFile(
+            join(prepared.rootPath, "prepared.json"),
+            4_194_304,
+          )
+        ).toString("utf8"),
+      );
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        throw new TypeError();
+      const raw = value as Record<string, unknown>;
+      if (!Array.isArray(raw["argvSpecification"])) throw new TypeError();
+      return parsePreparedCheckpoint(value, {
+        prepareDigest: prepared.prepareDigest,
+        rootPath: prepared.rootPath,
+        sourceSha256: prepared.sourceSha256,
+        durationMs: prepared.durationMs,
+        sampleRateHz: prepared.sampleRateHz,
+        segmentTargetMs: prepared.segmentTargetMs,
+        toolchain: prepared.toolchain,
+        argvSpecification: raw["argvSpecification"] as readonly string[],
+      });
+    }).pipe(
+      Effect.mapError(
+        () =>
+          new StaleWorkspaceError({
+            code: "STALE_WORKSPACE",
+            phase: "workspace",
+            subject: prepared.rootPath,
+            message: "Prepared checkpoint is missing, invalid, or mismatched",
+          }),
+      ),
+    );
     if (
       checkpoint.resultDigest !== prepared.resultDigest ||
       JSON.stringify(checkpoint.audio) !== JSON.stringify(prepared.audio)
@@ -1128,32 +1102,37 @@ export const verifyPreparedTranscode = (
           message: "Prepared audio evidence or result identity mismatched",
         }),
       );
-    const playlists = yield* Effect.tryPromise({
-      try: () =>
-        validatePlaylistSet(
-          prepared.rootPath,
-          prepared.segmentTargetMs,
-          prepared.sampleRateHz,
-          true,
-        ),
-      catch: () =>
-        new StaleWorkspaceError({
-          code: "STALE_WORKSPACE",
-          phase: "workspace",
-          subject: prepared.rootPath,
-          message: "Prepared playlists failed revalidation",
-        }),
-    });
-    const files = yield* Effect.tryPromise({
-      try: () => collectPlaintextFiles(prepared.rootPath, playlists, false),
-      catch: () =>
-        new StaleWorkspaceError({
-          code: "STALE_WORKSPACE",
-          phase: "workspace",
-          subject: prepared.rootPath,
-          message: "Prepared bytes or permissions changed",
-        }),
-    });
+    const playlists = yield* validatePlaylistSet(
+      prepared.rootPath,
+      prepared.segmentTargetMs,
+      prepared.sampleRateHz,
+      true,
+    ).pipe(
+      Effect.mapError(
+        () =>
+          new StaleWorkspaceError({
+            code: "STALE_WORKSPACE",
+            phase: "workspace",
+            subject: prepared.rootPath,
+            message: "Prepared playlists failed revalidation",
+          }),
+      ),
+    );
+    const files = yield* collectPlaintextFiles(
+      prepared.rootPath,
+      playlists,
+      false,
+    ).pipe(
+      Effect.mapError(
+        () =>
+          new StaleWorkspaceError({
+            code: "STALE_WORKSPACE",
+            phase: "workspace",
+            subject: prepared.rootPath,
+            message: "Prepared bytes or permissions changed",
+          }),
+      ),
+    );
     if (JSON.stringify(files) !== JSON.stringify(checkpoint.files))
       return yield* Effect.fail(
         new StaleWorkspaceError({

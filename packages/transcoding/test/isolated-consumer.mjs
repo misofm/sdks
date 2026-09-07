@@ -15,7 +15,11 @@ const extras = extraTarballs.map((path) => resolve(path));
 async function tarballPackageName(path) {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
-  const { stdout } = await promisify(execFile)("tar", ["-xOf", path, "package/package.json"]);
+  const { stdout } = await promisify(execFile)("tar", [
+    "-xOf",
+    path,
+    "package/package.json",
+  ]);
   return JSON.parse(stdout).name;
 }
 const directory = await mkdtemp(join(tmpdir(), `transcoding-${runtime}-`));

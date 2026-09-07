@@ -15,11 +15,14 @@
 // under bundler resolution, so type against the main entry.
 import type HlsType from "hls.js";
 import type { HlsConfig } from "hls.js";
+import { Effect, Fiber } from "effect";
+import { tryPromise, trySync } from "@misofm/utils/effect";
 import { MASTER_PLAYLIST, quiltItemUrl, startLevelIndex } from "./index.ts";
 import { warmTrack, type WarmOptions } from "./warm.ts";
 
 type HlsConstructor = typeof HlsType;
 type HlsModule = { default: HlsConstructor };
+const audioOwners = new WeakMap<HTMLAudioElement, AudioStream>();
 
 /**
  * Defaults tuned for playback off a Walrus aggregator origin: a cold segment
@@ -96,6 +99,13 @@ export class HlsPlayer {
     return quiltItemUrl(this.#baseUrl, quiltId, MASTER_PLAYLIST);
   }
 
+  getMasterPlaylistUrl(quiltId: string): string { return this.masterPlaylistUrl(quiltId); }
+  warmTrack(quiltId: string, options?: WarmOptions): Promise<void> { return this.warm(quiltId, options); }
+  preloadEngine(onError?: () => void): void { this.preload(onError); }
+  openStream(audio: HTMLAudioElement, quiltId: string, onError?: () => void): AudioStream {
+    return this.open(audio, quiltId, onError);
+  }
+
   /**
    * Prime the browser cache and delivery edge for a track's first moments,
    * ahead of `open`. Delegates to `warmTrack`; see `@misofm/streaming/warm`.
@@ -105,9 +115,11 @@ export class HlsPlayer {
   }
 
   /** Warm the hls.js chunk on browsers that will use it. SSR-safe no-op. */
-  preload(): void {
+  preload(onError?: () => void): void {
     if (typeof document === "undefined") return;
-    if (this.#mseUsable()) void this.#engine();
+    if (this.#mseUsable()) Effect.runFork(tryPromise("player.preload", () => this.#engine()).pipe(
+      Effect.catchCause(() => Effect.sync(() => onError?.())),
+    ));
   }
 
   /**
@@ -119,56 +131,94 @@ export class HlsPlayer {
    */
   open(audio: HTMLAudioElement, quiltId: string, onError?: () => void): AudioStream {
     const url = this.masterPlaylistUrl(quiltId);
+    audioOwners.get(audio)?.destroy();
     // The native path fetches the playlist and segments through the element,
     // a no-cors request that COEP: require-corp blocks. Asking for CORS keeps
     // isolation intact; it is harmless on the hls.js path.
     audio.crossOrigin = "anonymous";
-    if (!this.#mseUsable()) {
-      if (canPlayNatively(audio)) audio.src = url;
-      return {
-        play: () => void audio.play().catch(() => onError?.()),
-        destroy: () => {},
-      };
-    }
-
     let destroyed = false;
     let wantPlay = false;
+    let ready = false;
     let hls: HlsType | null = null;
-    void this.#engine().then(({ default: Hls }) => {
+    let startup: Fiber.Fiber<void> | undefined;
+    const report = () => { if (!destroyed) onError?.(); };
+    const play = () => {
       if (destroyed) return;
-      if (!Hls.isSupported()) {
-        if (canPlayNatively(audio)) {
-          audio.src = url;
-          if (wantPlay) void audio.play().catch(() => {});
-        }
-        return;
-      }
-      hls = new Hls({ ...HLS_COLD_ORIGIN_DEFAULTS, ...this.#hlsConfig });
-      hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
-        if (data.fatal) {
-          hls?.destroy();
-          hls = null;
-          onError?.();
-        }
-      });
-      hls.loadSource(url);
-      hls.attachMedia(audio);
-      if (wantPlay) void audio.play().catch(() => {});
-    });
-    return {
+      // Invoke directly: wrapping this in an Effect would lose iOS user activation.
+      try { void audio.play().catch(report); } catch { report(); }
+    };
+    const stream: AudioStream = {
       play: () => {
+        if (destroyed) return;
         wantPlay = true;
-        if (hls) void audio.play().catch(() => {});
+        if (ready) play();
       },
       destroy: () => {
+        if (destroyed) return;
         destroyed = true;
+        if (startup) Effect.runFork(Fiber.interrupt(startup));
         hls?.destroy();
         hls = null;
+        if (audioOwners.get(audio) === stream) {
+          audioOwners.delete(audio);
+          audio.removeAttribute?.("src");
+          audio.load?.();
+        }
       },
     };
+    audioOwners.set(audio, stream);
+    if (!this.#mseUsable()) {
+      if (canPlayNatively(audio)) audio.src = url;
+      ready = true;
+      return stream;
+    }
+    const engine = () => this.#engine();
+    const config = this.#hlsConfig;
+    startup = Effect.runFork(Effect.gen(function*() {
+      const { default: Hls } = yield* tryPromise("player.loadEngine", engine);
+      yield* trySync("player.attach", () => {
+        if (destroyed || audioOwners.get(audio) !== stream) return;
+        if (!Hls.isSupported()) {
+          if (canPlayNatively(audio)) {
+            audio.src = url;
+            ready = true;
+            if (wantPlay) play();
+          } else {
+            report();
+          }
+          return;
+        }
+        hls = new Hls({ ...HLS_COLD_ORIGIN_DEFAULTS, ...config });
+        hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
+          if (data.fatal) {
+            hls?.destroy();
+            hls = null;
+            ready = false;
+            report();
+          }
+        });
+        hls.loadSource(url);
+        hls.attachMedia(audio);
+        ready = true;
+        if (wantPlay) play();
+      });
+    }).pipe(Effect.catchCause(() => Effect.sync(() => {
+      hls?.destroy();
+      hls = null;
+      ready = false;
+      report();
+    }))));
+    return stream;
   }
 
   #engine(): Promise<HlsModule> {
-    return (this.#hlsModule ??= this.#loadHls());
+    if (!this.#hlsModule) {
+      const pending = this.#loadHls();
+      this.#hlsModule = pending;
+      void pending.catch(() => {
+        if (this.#hlsModule === pending) this.#hlsModule = null;
+      });
+    }
+    return this.#hlsModule;
   }
 }

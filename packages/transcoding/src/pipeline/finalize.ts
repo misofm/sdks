@@ -39,7 +39,12 @@ import {
 import { promoteWorkspaceDirectory } from "../workspace/state.js";
 import { verifyArtifact } from "./verify.js";
 
-const MAX_ARTIFACT_FILE_BYTES = 256 * 1024 * 1024;
+import {
+  inspectAndHash,
+  readBounded,
+  joinedPromise,
+  MAX_ARTIFACT_FILE_BYTES,
+} from "../workspace/files.js";
 const MAX_FILE_CONCURRENCY = 16;
 const AUDIO_CONTENT_TYPE = MEDIA_CONTENT_TYPE;
 
@@ -69,71 +74,6 @@ const removeTree = async (path: string): Promise<void> => {
   }
 };
 
-const inspectAndHash = async (
-  path: string,
-): Promise<{ bytes: number; sha256: string }> => {
-  const handle = await open(
-    path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metadata = await handle.stat();
-    if (
-      !metadata.isFile() ||
-      metadata.size < 1 ||
-      metadata.size > MAX_ARTIFACT_FILE_BYTES
-    )
-      throw new RangeError("artifact file outside bounds");
-    const hash = createHash("sha256");
-    let bytes = 0;
-    for await (const chunk of handle.createReadStream({
-      autoClose: false,
-      highWaterMark: 64 * 1024,
-    })) {
-      bytes += chunk.byteLength;
-      if (bytes > metadata.size)
-        throw new RangeError("artifact file grew while hashing");
-      hash.update(chunk);
-    }
-    if (bytes !== metadata.size)
-      throw new RangeError("artifact file changed while hashing");
-    return { bytes, sha256: hash.digest("hex") };
-  } finally {
-    await handle.close();
-  }
-};
-
-const readBounded = async (
-  path: string,
-  ceiling: number,
-): Promise<Uint8Array> => {
-  const handle = await open(
-    path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metadata = await handle.stat();
-    if (!metadata.isFile() || metadata.size < 1 || metadata.size > ceiling)
-      throw new RangeError("file outside bounds");
-    const bytes = Buffer.allocUnsafe(metadata.size);
-    let offset = 0;
-    while (offset < bytes.length) {
-      const result = await handle.read(
-        bytes,
-        offset,
-        bytes.length - offset,
-        null,
-      );
-      if (result.bytesRead === 0)
-        throw new RangeError("file changed during read");
-      offset += result.bytesRead;
-    }
-    return bytes;
-  } finally {
-    await handle.close();
-  }
-};
-
 export type FileCopyTransition = "file-fsync" | "rename" | "parent-fsync";
 
 /** @internal Exported only for durable-transition fault injection. */
@@ -153,20 +93,18 @@ export const copyFileAtomic = async (
     sourcePath,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
   );
-  const metadata = await input.stat();
-  if (
-    !metadata.isFile() ||
-    metadata.size < 1 ||
-    metadata.size > MAX_ARTIFACT_FILE_BYTES
-  ) {
-    await input.close();
-    throw new RangeError("source size outside supported bounds");
-  }
   const temporary = `${destinationPath}.tmp-${process.pid}-${randomBytes(8).toString("hex")}`;
   let output: Awaited<ReturnType<typeof open>> | undefined;
   const hash = createHash("sha256");
   let copiedBytes = 0;
   try {
+    const metadata = await input.stat();
+    if (
+      !metadata.isFile() ||
+      metadata.size < 1 ||
+      metadata.size > MAX_ARTIFACT_FILE_BYTES
+    )
+      throw new RangeError("source size outside supported bounds");
     output = await open(
       temporary,
       constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY,
@@ -242,221 +180,236 @@ const descriptor = (
   ...measured,
 });
 
-const buildArtifact = async (
+const readRenditions = (
   rootPath: string,
-  transcodeDigest: string,
-  request: FinalizeRequest,
-): Promise<TranscodeArtifact> => {
-  const renditions: RenditionDescriptor[] = [];
-  for (const rendition of RENDITIONS) {
-    const playlistIdentifier = renditionPlaylistIdentifier(rendition.id);
-    const parsed = parsePlaintextMediaPlaylist(
-      await readBounded(join(rootPath, playlistIdentifier), 1_048_576),
-    );
-    const playlist = descriptor(
-      rootPath,
-      playlistIdentifier,
-      await inspectAndHash(join(rootPath, playlistIdentifier)),
-    );
-    const init = descriptor(
-      rootPath,
-      parsed.mapIdentifier,
-      await inspectAndHash(join(rootPath, parsed.mapIdentifier)),
-    );
-    const segments: SegmentDescriptor[] = [];
-    for (const segment of parsed.segments) {
-      segments.push({
-        ...descriptor(
-          rootPath,
-          segment.identifier,
-          await inspectAndHash(join(rootPath, segment.identifier)),
-        ),
-        contentType: AUDIO_CONTENT_TYPE,
-        sequence: segment.sequence,
-        durationMs: segment.durationMs,
-      });
-    }
-    renditions.push({
-      id: rendition.id,
-      codec: CODEC,
-      nominalBitrate: rendition.nominalBitrate,
-      ...calculateBandwidth(segments),
-      sampleRateHz: request.prepared.sampleRateHz,
-      channels: 2,
-      playlist,
-      init,
-      segments,
-    });
-  }
-  const masterPlaylist = descriptor(
-    rootPath,
-    MASTER_PLAYLIST,
-    await inspectAndHash(join(rootPath, MASTER_PLAYLIST)),
-  );
-  const files = [
-    masterPlaylist,
-    ...renditions.flatMap((item) => [
-      item.playlist,
-      item.init,
-      ...item.segments,
-    ]),
-  ];
-  return {
-    transcodeDigest,
-    rootPath,
-    segmentTargetMs: request.prepared.segmentTargetMs,
-    masterPlaylist,
-    files,
-    renditions,
-    toolchain: request.prepared.toolchain,
-    audio: request.prepared.audio,
-  };
-};
-
-const transcodeIdentity = async (request: FinalizeRequest): Promise<string> => {
-  const hash = createHash("sha256");
-  hash.update("miso.transcoder.hls-artifact/1\0");
-  hash.update(request.prepared.resultDigest);
-  for (const rendition of RENDITIONS) {
-    const parsed = parsePlaintextMediaPlaylist(
-      await readBounded(
-        join(request.prepared.rootPath, `${rendition.id}.m3u8`),
-        1_048_576,
-      ),
-    );
-    for (const identifier of [
-      `${rendition.id}.m3u8`,
-      parsed.mapIdentifier,
-      ...parsed.segments.map((item) => item.identifier),
-    ]) {
-      const value = await inspectAndHash(
-        join(request.prepared.rootPath, identifier),
-      );
-      hash.update(`\0${identifier}\0${value.bytes}\0${value.sha256}`);
-    }
-  }
-  return hash.digest("hex");
-};
-
-const finalizeUnsafe = async (
+  descriptorPath: string,
   request: FinalizeRequest,
   concurrency: number,
-  signal: AbortSignal,
-): Promise<TranscodeArtifact> => {
-  throwIfAborted(signal);
-  const transcodeDigest = await transcodeIdentity(request);
-  const generations = join(
-    request.prepared.rootPath,
-    "..",
-    "..",
-    "generations",
-  );
-  await assertNoSymlinkComponentsPromise(join(generations, ".."));
-  await mkdir(generations, { recursive: true, mode: 0o700 });
-  await chmod(generations, 0o700);
-  const target = join(generations, transcodeDigest);
-  try {
-    const existing = await buildArtifact(target, transcodeDigest, request);
-    if (request.fresh === true)
-      throw failure(target, "Fresh transcode requires explicit cleanup");
-    return await Effect.runPromise(verifyArtifact(existing));
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT"))
-      throw error;
-  }
-  const temporary = join(
-    generations,
-    `.tmp-${process.pid}-${randomBytes(8).toString("hex")}`,
-  );
-  await mkdir(temporary, { mode: 0o700 });
-  try {
-    const copyIdentifiers: string[] = [];
-    const descriptors: RenditionDescriptor[] = [];
+) =>
+  Effect.gen(function* () {
+    const renditions: RenditionDescriptor[] = [];
     for (const rendition of RENDITIONS) {
       const playlistIdentifier = renditionPlaylistIdentifier(rendition.id);
-      const playlistBytes = await readBounded(
-        join(request.prepared.rootPath, playlistIdentifier),
-        1_048_576,
-      );
-      const parsed = parsePlaintextMediaPlaylist(playlistBytes);
-      copyIdentifiers.push(
-        parsed.mapIdentifier,
-        ...parsed.segments.map((item) => item.identifier),
-      );
-      await atomicWriteFilePromise(
-        join(temporary, playlistIdentifier),
-        playlistBytes,
-      );
-      // Only the master renderer needs rendition metadata; hashes are rebuilt after promotion.
-      const segments = await Effect.runPromise(
-        Effect.forEach(
-          parsed.segments,
-          (segment) =>
-            Effect.promise(async () => ({
-              sequence: segment.sequence,
-              identifier: segment.identifier,
-              path: join(target, segment.identifier),
-              contentType: AUDIO_CONTENT_TYPE,
-              durationMs: segment.durationMs,
-              ...(await inspectAndHash(
-                join(request.prepared.rootPath, segment.identifier),
-              )),
-            })),
-          { concurrency },
+      const parsed = parsePlaintextMediaPlaylist(
+        yield* joinedPromise(() =>
+          readBounded(join(rootPath, playlistIdentifier), 1_048_576),
         ),
       );
-      descriptors.push({
+      const playlist = descriptor(
+        descriptorPath,
+        playlistIdentifier,
+        yield* joinedPromise(() =>
+          inspectAndHash(join(rootPath, playlistIdentifier)),
+        ),
+      );
+      const init = descriptor(
+        descriptorPath,
+        parsed.mapIdentifier,
+        yield* joinedPromise(() =>
+          inspectAndHash(join(rootPath, parsed.mapIdentifier)),
+        ),
+      );
+      const segments = yield* Effect.forEach(
+        parsed.segments,
+        (segment) =>
+          joinedPromise(() =>
+            inspectAndHash(join(rootPath, segment.identifier)),
+          ).pipe(
+            Effect.map(
+              (measured): SegmentDescriptor => ({
+                ...descriptor(descriptorPath, segment.identifier, measured),
+                contentType: AUDIO_CONTENT_TYPE,
+                sequence: segment.sequence,
+                durationMs: segment.durationMs,
+              }),
+            ),
+          ),
+        { concurrency },
+      );
+      renditions.push({
         id: rendition.id,
         codec: CODEC,
         nominalBitrate: rendition.nominalBitrate,
         ...calculateBandwidth(segments),
         sampleRateHz: request.prepared.sampleRateHz,
         channels: 2,
-        playlist: descriptor(
-          target,
-          playlistIdentifier,
-          await inspectAndHash(
-            join(request.prepared.rootPath, playlistIdentifier),
-          ),
-        ),
-        init: descriptor(
-          target,
-          parsed.mapIdentifier,
-          await inspectAndHash(
-            join(request.prepared.rootPath, parsed.mapIdentifier),
-          ),
-        ),
+        playlist,
+        init,
         segments,
       });
     }
-    await Effect.runPromise(
-      Effect.forEach(
-        copyIdentifiers,
-        (identifier) =>
-          Effect.promise(() =>
-            copyFileAtomic(
-              join(request.prepared.rootPath, identifier),
-              join(temporary, identifier),
-              signal,
-            ),
-          ),
-        { concurrency },
+    return renditions;
+  });
+
+const buildArtifact = (
+  rootPath: string,
+  transcodeDigest: string,
+  request: FinalizeRequest,
+  concurrency: number,
+) =>
+  Effect.gen(function* () {
+    const renditions = yield* readRenditions(
+      rootPath,
+      rootPath,
+      request,
+      concurrency,
+    );
+    const masterPlaylist = descriptor(
+      rootPath,
+      MASTER_PLAYLIST,
+      yield* joinedPromise(() =>
+        inspectAndHash(join(rootPath, MASTER_PLAYLIST)),
       ),
     );
-    await atomicWriteFilePromise(
-      join(temporary, "master.m3u8"),
-      renderMasterPlaylist(descriptors),
+    const files = [
+      masterPlaylist,
+      ...renditions.flatMap((item) => [
+        item.playlist,
+        item.init,
+        ...item.segments,
+      ]),
+    ];
+    return {
+      transcodeDigest,
+      rootPath,
+      segmentTargetMs: request.prepared.segmentTargetMs,
+      masterPlaylist,
+      files,
+      renditions,
+      toolchain: request.prepared.toolchain,
+      audio: request.prepared.audio,
+    };
+  });
+
+const transcodeIdentity = (request: FinalizeRequest) =>
+  Effect.gen(function* () {
+    const hash = createHash("sha256");
+    hash.update("miso.transcoder.hls-artifact/1\0");
+    hash.update(request.prepared.resultDigest);
+    for (const rendition of RENDITIONS) {
+      const parsed = parsePlaintextMediaPlaylist(
+        yield* joinedPromise(() =>
+          readBounded(
+            join(request.prepared.rootPath, `${rendition.id}.m3u8`),
+            1_048_576,
+          ),
+        ),
+      );
+      for (const identifier of [
+        `${rendition.id}.m3u8`,
+        parsed.mapIdentifier,
+        ...parsed.segments.map((item) => item.identifier),
+      ]) {
+        const value = yield* joinedPromise(() =>
+          inspectAndHash(join(request.prepared.rootPath, identifier)),
+        );
+        hash.update(`\0${identifier}\0${value.bytes}\0${value.sha256}`);
+      }
+    }
+    return hash.digest("hex");
+  });
+
+const finalize = (request: FinalizeRequest, concurrency: number) =>
+  Effect.gen(function* () {
+    const transcodeDigest = yield* transcodeIdentity(request);
+    const generations = join(
+      request.prepared.rootPath,
+      "..",
+      "..",
+      "generations",
     );
-    throwIfAborted(signal);
-    await Effect.runPromise(promoteWorkspaceDirectory(temporary, target));
-    return await Effect.runPromise(
-      verifyArtifact(await buildArtifact(target, transcodeDigest, request)),
+    yield* joinedPromise(() =>
+      assertNoSymlinkComponentsPromise(join(generations, "..")),
     );
-  } catch (error) {
-    await removeTree(temporary);
-    throw error;
-  }
-};
+    yield* joinedPromise(() =>
+      mkdir(generations, { recursive: true, mode: 0o700 }),
+    );
+    yield* joinedPromise(() => chmod(generations, 0o700));
+    const target = join(generations, transcodeDigest);
+    const existing = yield* buildArtifact(
+      target,
+      transcodeDigest,
+      request,
+      concurrency,
+    ).pipe(
+      Effect.catch((error) =>
+        error instanceof Error && "code" in error && error.code === "ENOENT"
+          ? Effect.succeed(undefined)
+          : Effect.fail(error),
+      ),
+    );
+    if (existing !== undefined) {
+      if (request.fresh === true)
+        return yield* Effect.fail(
+          failure(target, "Fresh transcode requires explicit cleanup"),
+        );
+      return yield* verifyArtifact(existing);
+    }
+    const temporary = join(
+      generations,
+      `.tmp-${process.pid}-${randomBytes(8).toString("hex")}`,
+    );
+    return yield* Effect.acquireUseRelease(
+      Effect.uninterruptible(
+        joinedPromise(() => mkdir(temporary, { mode: 0o700 })),
+      ),
+      () =>
+        Effect.gen(function* () {
+          const copyIdentifiers: string[] = [];
+          const descriptors = yield* readRenditions(
+            request.prepared.rootPath,
+            target,
+            request,
+            concurrency,
+          );
+          for (const rendition of RENDITIONS) {
+            const playlistIdentifier = renditionPlaylistIdentifier(
+              rendition.id,
+            );
+            const playlistBytes = yield* joinedPromise(() =>
+              readBounded(
+                join(request.prepared.rootPath, playlistIdentifier),
+                1_048_576,
+              ),
+            );
+            const parsed = parsePlaintextMediaPlaylist(playlistBytes);
+            copyIdentifiers.push(
+              parsed.mapIdentifier,
+              ...parsed.segments.map((item) => item.identifier),
+            );
+            yield* joinedPromise(() =>
+              atomicWriteFilePromise(
+                join(temporary, playlistIdentifier),
+                playlistBytes,
+              ),
+            );
+          }
+          yield* Effect.forEach(
+            copyIdentifiers,
+            (identifier) =>
+              joinedPromise((signal) =>
+                copyFileAtomic(
+                  join(request.prepared.rootPath, identifier),
+                  join(temporary, identifier),
+                  signal,
+                ),
+              ),
+            { concurrency },
+          );
+          yield* joinedPromise(() =>
+            atomicWriteFilePromise(
+              join(temporary, "master.m3u8"),
+              renderMasterPlaylist(descriptors),
+            ),
+          );
+          yield* promoteWorkspaceDirectory(temporary, target);
+          return yield* verifyArtifact(
+            yield* buildArtifact(target, transcodeDigest, request, concurrency),
+          );
+        }),
+      () => Effect.promise(() => removeTree(temporary)),
+    );
+  });
 
 export const finalizeTranscode = (
   request: FinalizeRequest,
@@ -477,31 +430,16 @@ export const finalizeTranscode = (
           "File concurrency is outside the supported range",
         ),
       );
-    return Effect.callback<
-      TranscodeArtifact,
-      ArtifactValidationError | WorkspaceIoError
-    >((resume, signal) => {
-      const worker = finalizeUnsafe(request, concurrency, signal);
-      void worker.then(
-        (artifact) => resume(Effect.succeed(artifact)),
-        (error) =>
-          resume(
-            Effect.fail(
-              error instanceof ArtifactValidationError ||
-                error instanceof WorkspaceIoError
-                ? error
-                : failure(
-                    basename(request.prepared.rootPath),
-                    "Transcode finalization failed",
-                  ),
+    return finalize(request, concurrency).pipe(
+      Effect.catchDefect((error) => Effect.fail(error)),
+      Effect.mapError((error) =>
+        error instanceof ArtifactValidationError ||
+        error instanceof WorkspaceIoError
+          ? error
+          : failure(
+              basename(request.prepared.rootPath),
+              "Transcode finalization failed",
             ),
-          ),
-      );
-      return Effect.promise(() =>
-        worker.then(
-          () => undefined,
-          () => undefined,
-        ),
-      );
-    });
+      ),
+    );
   });

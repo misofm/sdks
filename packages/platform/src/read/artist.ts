@@ -1,5 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
 //
 // Artist reads: a `Party` plus every extension attached to its UID.
 //
@@ -10,8 +13,8 @@
 //
 // `roles` and `tags` are opt-in via `include`.
 
-import { resolveGenreNames } from "./genres.ts";
 import type { MisoClient } from "./client.ts";
+import { resolveGenreNamesEffect } from "./genres.ts";
 import type {
   ArtistProfile,
   PartyMember,
@@ -35,84 +38,117 @@ export function partyAvatarUrl(apiBaseUrl: string, partyId: string): string {
  * every extension is optional by design (a party with no profile set is a new
  * party, not a broken one), so each decoration read falls back to its empty value.
  */
-export async function getArtistProfile(
+export function getArtistProfileEffect(
   client: MisoClient,
   partyId: string,
   options: GetArtistOptions = {},
-): Promise<ArtistProfile> {
-  const include = new Set(options.include ?? []);
-  const { party } = client.sui.miso;
+): Effect.Effect<ArtistProfile, SdkError> {
+  return workflow("getArtistProfile", function* () {
+    const include = new Set(options.include ?? []);
+    const { party } = client.sui.miso;
 
-  const [profile, ctas, genreIds, links, roles, tags, entity] =
-    await Promise.all([
-      party.getProfile(partyId).catch(() => null),
-      party.getCtas(partyId).catch(() => []),
-      party.getGenres(partyId).catch(() => [] as string[]),
-      party.getLinks(partyId).catch(() => []),
-      include.has("roles")
-        ? party.getRoles(partyId).catch(() => [] as string[])
-        : Promise.resolve(undefined),
-      include.has("tags")
-        ? party.getTags(partyId).catch(() => [] as string[])
-        : Promise.resolve(undefined),
-      party.getPartyById(partyId),
-    ]);
+    const [profile, ctas, genreIds, links, roles, tags, entity] = yield* Effect.all(
+      [
+        Effect.catch(
+          party.getProfileEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getProfile(partyId)),
+          () => Effect.succeed(null),
+        ),
+        Effect.catch(
+          party.getCtasEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getCtas(partyId)),
+          () => Effect.succeed([]),
+        ),
+        Effect.catch(
+          party.getGenresEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getGenres(partyId)),
+          () => Effect.succeed([] as string[]),
+        ),
+        Effect.catch(
+          party.getLinksEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getLinks(partyId)),
+          () => Effect.succeed([]),
+        ),
+        include.has("roles")
+          ? Effect.catch(
+              party.getRolesEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getRoles(partyId)),
+              () => Effect.succeed([] as string[]),
+            )
+          : Effect.succeed(undefined),
+        include.has("tags")
+          ? Effect.catch(
+              party.getTagsEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getTags(partyId)),
+              () => Effect.succeed([] as string[]),
+            )
+          : Effect.succeed(undefined),
+        party.getPartyByIdEffect?.(partyId) ?? tryPromise("getArtistProfile", () => party.getPartyById(partyId)),
+      ],
+      { concurrency: 8 },
+    );
 
-  const [genres, members] = await Promise.all([
-    resolveGenreNames(client, genreIds),
-    resolveMembers(
-      client,
-      entity.kind === "group" ? (entity.members ?? []) : [],
-    ),
-  ]);
+    const [genres, members] = yield* Effect.all(
+      [
+        resolveGenreNamesEffect(client, genreIds),
+        resolveMembersEffect(client, entity.kind === "group" ? (entity.members ?? []) : []),
+      ],
+      { concurrency: 8 },
+    );
 
-  return {
-    id: entity.id,
-    kind: entity.kind,
-    name: entity.name,
-    createdAtMs: entity.createdAtMs,
-    bioShort: profile?.bioShort ?? null,
-    bioLong: profile?.bioLong ?? null,
-    country: profile?.country ?? null,
-    languages: profile?.languages ?? [],
-    genres,
-    links: links.map((l) => ({
-      platform: l.platform,
-      value: l.value,
-      url: l.url,
-    })),
-    ctas: ctas.map((c) => ({ label: c.label, url: c.url })),
-    members,
-    ...(roles !== undefined ? { roles } : {}),
-    ...(tags !== undefined ? { tags } : {}),
-    avatarUrl: partyAvatarUrl(client.config.apiBaseUrl, entity.id),
-  };
+    return {
+      id: entity.id,
+      kind: entity.kind,
+      name: entity.name,
+      createdAtMs: entity.createdAtMs,
+      bioShort: profile?.bioShort ?? null,
+      bioLong: profile?.bioLong ?? null,
+      country: profile?.country ?? null,
+      languages: profile?.languages ?? [],
+      genres,
+      links: links.map((l) => ({
+        platform: l.platform,
+        value: l.value,
+        url: l.url,
+      })),
+      ctas: ctas.map((c) => ({ label: c.label, url: c.url })),
+      members,
+      ...(roles !== undefined ? { roles } : {}),
+      ...(tags !== undefined ? { tags } : {}),
+      avatarUrl: partyAvatarUrl(client.config.apiBaseUrl, entity.id),
+    };
+  });
 }
 
+export const getArtistProfile = toPromise(getArtistProfileEffect);
+
 /** Group members with names resolved. A member that fails to read is dropped. */
-async function resolveMembers(
+function resolveMembersEffect(
   client: MisoClient,
   memberIds: readonly string[],
-): Promise<PartyMember[]> {
-  if (memberIds.length === 0) return [];
-  const parties = await client.sui.miso.party
-    .getPartiesByIds([...memberIds])
-    .catch(() => ({}) as Record<string, undefined>);
-  return memberIds.flatMap((id) => {
-    const p = parties[id];
-    return p ? [{ id, name: p.name }] : [];
+): Effect.Effect<PartyMember[], SdkError> {
+  return workflow("resolveMembers", function* () {
+    if (memberIds.length === 0) return [];
+    const parties = yield* Effect.catch(
+      client.sui.miso.party.getPartiesByIdsEffect?.([...memberIds]) ??
+        tryPromise("resolveMembers", () => client.sui.miso.party.getPartiesByIds([...memberIds])),
+      () => Effect.succeed({} as Record<string, undefined>),
+    );
+    return memberIds.flatMap((id) => {
+      const p = parties[id];
+      return p ? [{ id, name: p.name }] : [];
+    });
   });
 }
 
 /** Name + kind for many parties at once. Ids that don't resolve are omitted. */
-export async function getPartySummaries(
+export function getPartySummariesEffect(
   client: MisoClient,
   ids: readonly string[],
-): Promise<PartySummary[]> {
-  if (ids.length === 0) return [];
-  const parties = await client.sui.miso.party.getPartiesByIds([...ids]);
-  return ids.flatMap((id) => {
-    const p = parties[id];
-    return p ? [{ id, name: p.name, kind: p.kind }] : [];
+): Effect.Effect<PartySummary[], SdkError> {
+  return workflow("getPartySummaries", function* () {
+    if (ids.length === 0) return [];
+    const parties = yield* client.sui.miso.party.getPartiesByIdsEffect?.([...ids]) ??
+      tryPromise("getPartySummaries", () => client.sui.miso.party.getPartiesByIds([...ids]));
+    return ids.flatMap((id) => {
+      const p = parties[id];
+      return p ? [{ id, name: p.name, kind: p.kind }] : [];
+    });
   });
 }
+
+export const getPartySummaries = toPromise(getPartySummariesEffect);

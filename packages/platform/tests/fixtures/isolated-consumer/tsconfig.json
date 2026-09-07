@@ -8,5 +8,5 @@
     "skipLibCheck": false,
     "noEmit": true
   },
-  "include": ["imports.ts"]
+  "include": ["imports.ts", "exports.ts"]
 }

@@ -1,4 +1,4 @@
-import { constants } from "node:fs";
+import { readBounded, joinedPromise } from "./files.js";
 import {
   chmod,
   mkdir,
@@ -81,51 +81,50 @@ export const initializeWorkspacePromise = async (
 export const initializeWorkspace = (
   workspacePath: string,
 ): Effect.Effect<void, InvalidRequestError | WorkspaceIoError> =>
-  Effect.tryPromise({
-    try: () => initializeWorkspacePromise(workspacePath),
-    catch: (error) =>
+  joinedPromise(() => initializeWorkspacePromise(workspacePath)).pipe(
+    Effect.mapError((error) =>
       error instanceof InvalidRequestError || error instanceof WorkspaceIoError
         ? error
         : io(workspacePath, "Workspace initialization failed"),
-  });
+    ),
+  );
 
 /** Removes only abandoned atomic-write and staging names while the caller holds the workspace lock. */
 export const cleanupWorkspaceTemporaries = (
   workspacePath: string,
 ): Effect.Effect<void, InvalidRequestError | WorkspaceIoError> =>
   Effect.uninterruptible(
-    Effect.tryPromise({
-      try: async () => {
-        await assertNoSymlinkComponentsPromise(workspacePath);
-        const roots = [
-          workspacePath,
-          join(workspacePath, "plaintext"),
-          join(workspacePath, "generations"),
-        ];
-        for (const root of roots) {
-          await assertNoSymlinkComponentsPromise(root);
-          for (const entry of await readdir(root, { withFileTypes: true })) {
-            const stagingDirectory =
-              entry.isDirectory() &&
-              /^\.tmp-[0-9]+-[0-9a-f]+$/u.test(entry.name);
-            const atomicFile =
-              entry.isFile() &&
-              /^\.?[A-Za-z0-9._-]+\.tmp-[0-9]+-[0-9a-f]+$/u.test(entry.name);
-            if (stagingDirectory || atomicFile) {
-              await rm(join(root, entry.name), {
-                recursive: stagingDirectory,
-                force: true,
-              });
-            }
+    joinedPromise(async () => {
+      await assertNoSymlinkComponentsPromise(workspacePath);
+      const roots = [
+        workspacePath,
+        join(workspacePath, "plaintext"),
+        join(workspacePath, "generations"),
+      ];
+      for (const root of roots) {
+        await assertNoSymlinkComponentsPromise(root);
+        for (const entry of await readdir(root, { withFileTypes: true })) {
+          const stagingDirectory =
+            entry.isDirectory() && /^\.tmp-[0-9]+-[0-9a-f]+$/u.test(entry.name);
+          const atomicFile =
+            entry.isFile() &&
+            /^\.?[A-Za-z0-9._-]+\.tmp-[0-9]+-[0-9a-f]+$/u.test(entry.name);
+          if (stagingDirectory || atomicFile) {
+            await rm(join(root, entry.name), {
+              recursive: stagingDirectory,
+              force: true,
+            });
           }
         }
-      },
-      catch: (error) =>
+      }
+    }).pipe(
+      Effect.mapError((error) =>
         error instanceof InvalidRequestError ||
         error instanceof WorkspaceIoError
           ? error
           : io(workspacePath, "Abandoned workspace cleanup failed"),
-    }),
+      ),
+    ),
   );
 
 export const writeWorkspaceState = (
@@ -180,50 +179,27 @@ export const parseWorkspaceState = (text: string): WorkspaceState => {
 export const readWorkspaceState = (
   workspacePath: string,
 ): Effect.Effect<WorkspaceState, InvalidRequestError | WorkspaceIoError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const path = join(workspacePath, "workspace.json");
-      await assertNoSymlinkComponentsPromise(path);
-      const handle = await open(
+  joinedPromise(async () => {
+    const path = join(workspacePath, "workspace.json");
+    await assertNoSymlinkComponentsPromise(path);
+    const bytes = await readBounded(path, 64 * 1024, (kind) =>
+      io(
         path,
-        constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-      );
-      let bytes: Buffer;
-      try {
-        const metadata = await handle.stat();
-        if (
-          !metadata.isFile() ||
-          metadata.size < 1 ||
-          metadata.size > 64 * 1024
-        )
-          throw io(path, "Workspace checkpoint exceeds its byte limit");
-        bytes = Buffer.allocUnsafe(metadata.size);
-        let offset = 0;
-        while (offset < bytes.byteLength) {
-          const result = await handle.read(
-            bytes,
-            offset,
-            bytes.byteLength - offset,
-            null,
-          );
-          if (result.bytesRead === 0)
-            throw io(path, "Workspace checkpoint changed during read");
-          offset += result.bytesRead;
-        }
-        if ((await handle.read(Buffer.alloc(1), 0, 1, null)).bytesRead !== 0)
-          throw io(path, "Workspace checkpoint changed during read");
-      } finally {
-        await handle.close();
-      }
-      return parseWorkspaceState(
-        new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-      );
-    },
-    catch: (error) =>
+        kind === "bounds"
+          ? "Workspace checkpoint exceeds its byte limit"
+          : "Workspace checkpoint changed during read",
+      ),
+    );
+    return parseWorkspaceState(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    );
+  }).pipe(
+    Effect.mapError((error) =>
       error instanceof InvalidRequestError || error instanceof WorkspaceIoError
         ? error
         : io(workspacePath, "Workspace checkpoint read failed"),
-  });
+    ),
+  );
 
 export const promoteWorkspaceDirectory = (
   temporaryPath: string,
@@ -245,27 +221,25 @@ export const promoteWorkspaceDirectory = (
     );
   }
   return Effect.uninterruptible(
-    Effect.tryPromise({
-      try: async () => {
-        await assertNoSymlinkComponentsPromise(temporaryPath);
-        await assertNoSymlinkComponentsPromise(destinationPath, true);
-        await rename(temporaryPath, destinationPath);
-        await hooks.afterTransition?.("rename");
-        const parent = await import("node:fs/promises").then((fs) =>
-          fs.open(join(destinationPath, ".."), "r"),
-        );
-        try {
-          await parent.sync();
-          await hooks.afterTransition?.("parent-fsync");
-        } finally {
-          await parent.close();
-        }
-      },
-      catch: (error) =>
+    joinedPromise(async () => {
+      await assertNoSymlinkComponentsPromise(temporaryPath);
+      await assertNoSymlinkComponentsPromise(destinationPath, true);
+      await rename(temporaryPath, destinationPath);
+      await hooks.afterTransition?.("rename");
+      const parent = await open(join(destinationPath, ".."), "r");
+      try {
+        await parent.sync();
+        await hooks.afterTransition?.("parent-fsync");
+      } finally {
+        await parent.close();
+      }
+    }).pipe(
+      Effect.mapError((error) =>
         error instanceof InvalidRequestError ||
         error instanceof WorkspaceIoError
           ? error
           : io(destinationPath, "Atomic workspace promotion failed"),
-    }),
+      ),
+    ),
   );
 };

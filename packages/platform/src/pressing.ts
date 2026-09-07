@@ -1,9 +1,15 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
+
 // Primary Record sales. `miso_record` owns concrete Records and edition-scoped
 // Pressings; immutable `miso_record_shop` owns per-currency Listings and payment.
 
+import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
+import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
+import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import {
   deriveObjectID,
@@ -11,12 +17,9 @@ import {
   normalizeSuiAddress,
   parseStructTag,
 } from "@mysten/sui/utils";
-import type { TxThunk } from "./transactions.ts";
 import { isNotFound } from "./queries.ts";
+import type { TxThunk } from "./transactions.ts";
 import { asU64, type U64Input } from "./vault.ts";
-import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
 
 const MAX_U16 = 0xffff;
 const MAX_U32 = 0xffff_ffff;
@@ -436,23 +439,18 @@ export interface RecordView {
   purchasedTimestampMs: string;
 }
 
-async function fetch(
+function fetchEffect(
   client: ClientWithCoreApi,
   objectId: string,
-): Promise<{ content: Uint8Array; type: string } | null> {
-  try {
-    const { object } = await client.core.getObject({
-      objectId,
-      include: { content: true },
-    });
+): Effect.Effect<{ content: Uint8Array; type: string } | null, SdkError> {
+  return workflow("fetch", function* () {
+    const { object } = yield* tryPromise("fetch", (signal) =>
+      client.core.getObject({ signal, objectId, include: { content: true } }),
+    );
     if (!object) return null;
-    if (!object.content || !object.type)
-      throw new Error(`object ${objectId} has no BCS content or full type`);
+    if (!object.content || !object.type) throw new Error(`object ${objectId} has no BCS content or full type`);
     return { content: object.content, type: object.type };
-  } catch (error) {
-    if (isNotFound(error)) return null;
-    throw error;
-  }
+  }).pipe(Effect.catch((error) => (isNotFound(error.cause) ? Effect.succeed(null) : Effect.fail(error))));
 }
 
 function sameId(a: string, b: string): boolean {
@@ -589,38 +587,44 @@ function parseRecord(
   };
 }
 
-export async function getPressing(
+export function getPressingEffect(
   client: ClientWithCoreApi,
   pressingId: string,
   recordPackageId: string,
-): Promise<PressingView | null> {
-  const got = await fetch(client, pressingId);
-  return got
-    ? parsePressing(pressingId, got.content, got.type, recordPackageId)
-    : null;
+): Effect.Effect<PressingView | null, SdkError> {
+  return workflow("getPressing", function* () {
+    const got = yield* fetchEffect(client, pressingId);
+    return got ? parsePressing(pressingId, got.content, got.type, recordPackageId) : null;
+  });
 }
 
-export async function getListing(
+export const getPressing = toPromise(getPressingEffect);
+
+export function getListingEffect(
   client: ClientWithCoreApi,
   listingId: string,
   recordShopPackageId: string,
-): Promise<ListingView | null> {
-  const got = await fetch(client, listingId);
-  return got
-    ? parseListing(listingId, got.content, got.type, recordShopPackageId)
-    : null;
+): Effect.Effect<ListingView | null, SdkError> {
+  return workflow("getListing", function* () {
+    const got = yield* fetchEffect(client, listingId);
+    return got ? parseListing(listingId, got.content, got.type, recordShopPackageId) : null;
+  });
 }
 
-export async function getRecord(
+export const getListing = toPromise(getListingEffect);
+
+export function getRecordEffect(
   client: ClientWithCoreApi,
   recordId: string,
   recordPackageId: string,
-): Promise<RecordView | null> {
-  const got = await fetch(client, recordId);
-  return got
-    ? parseRecord(recordId, got.content, got.type, recordPackageId)
-    : null;
+): Effect.Effect<RecordView | null, SdkError> {
+  return workflow("getRecord", function* () {
+    const got = yield* fetchEffect(client, recordId);
+    return got ? parseRecord(recordId, got.content, got.type, recordPackageId) : null;
+  });
 }
+
+export const getRecord = toPromise(getRecordEffect);
 
 export interface GetSaleParams {
   releaseId: string;
@@ -630,57 +634,47 @@ export interface GetSaleParams {
   recordShopPackageId: string;
 }
 
-export async function getSale(
+export function getSaleEffect(
   client: ClientWithCoreApi,
   p: GetSaleParams,
-): Promise<{ pressing: PressingView | null; listing: ListingView | null }> {
-  const { pressingId, listingId } = deriveSaleIds(
-    p.releaseId,
-    p.edition,
-    p.currencyType,
-    p.recordPackageId,
-    p.recordShopPackageId,
-  );
-  const { objects } = await client.core.getObjects({
-    objectIds: [pressingId, listingId],
-    include: { content: true },
-  });
-  const [pressingObject, listingObject] = objects;
-  if (pressingObject instanceof Error && !isNotFound(pressingObject))
-    throw pressingObject;
-  if (listingObject instanceof Error && !isNotFound(listingObject))
-    throw listingObject;
-  const pressing =
-    !pressingObject || pressingObject instanceof Error
-      ? null
-      : parseBatchPressing(
-          pressingId,
-          pressingObject.content,
-          pressingObject.type,
-          p.recordPackageId,
+): Effect.Effect<{ pressing: PressingView | null; listing: ListingView | null }, SdkError> {
+  return workflow("getSale", function* () {
+    const { pressingId, listingId } = deriveSaleIds(
+      p.releaseId,
+      p.edition,
+      p.currencyType,
+      p.recordPackageId,
+      p.recordShopPackageId,
+    );
+    const { objects } = yield* tryPromise("getSale", (signal) =>
+      client.core.getObjects({ signal, objectIds: [pressingId, listingId], include: { content: true } }),
+    );
+    const [pressingObject, listingObject] = objects;
+    if (pressingObject instanceof Error && !isNotFound(pressingObject)) throw pressingObject;
+    if (listingObject instanceof Error && !isNotFound(listingObject)) throw listingObject;
+    const pressing =
+      !pressingObject || pressingObject instanceof Error
+        ? null
+        : parseBatchPressing(pressingId, pressingObject.content, pressingObject.type, p.recordPackageId);
+    const listing =
+      !listingObject || listingObject instanceof Error
+        ? null
+        : parseBatchListing(listingId, listingObject.content, listingObject.type, p.recordShopPackageId);
+    if (pressing) requireId("Sale pressing release", pressing.releaseId, p.releaseId);
+    if (listing) {
+      requireId("Sale listing release", listing.releaseId, p.releaseId);
+      requireId("Sale listing pressing", listing.pressingId, pressingId);
+      if (listing.currencyType !== normalizeStructTag(p.currencyType)) {
+        throw new Error(
+          `Sale listing currency ${listing.currencyType} does not match requested ${normalizeStructTag(p.currencyType)}`,
         );
-  const listing =
-    !listingObject || listingObject instanceof Error
-      ? null
-      : parseBatchListing(
-          listingId,
-          listingObject.content,
-          listingObject.type,
-          p.recordShopPackageId,
-        );
-  if (pressing)
-    requireId("Sale pressing release", pressing.releaseId, p.releaseId);
-  if (listing) {
-    requireId("Sale listing release", listing.releaseId, p.releaseId);
-    requireId("Sale listing pressing", listing.pressingId, pressingId);
-    if (listing.currencyType !== normalizeStructTag(p.currencyType)) {
-      throw new Error(
-        `Sale listing currency ${listing.currencyType} does not match requested ${normalizeStructTag(p.currencyType)}`,
-      );
+      }
     }
-  }
-  return { pressing, listing };
+    return { pressing, listing };
+  });
 }
+
+export const getSale = toPromise(getSaleEffect);
 
 function parseBatchPressing(
   id: string,

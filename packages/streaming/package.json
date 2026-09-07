@@ -57,6 +57,7 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "peerDependencies": {
+    "effect": "4.0.0-rc.112",
     "hls.js": "^1.6"
   },
   "peerDependenciesMeta": {
@@ -65,8 +66,12 @@
     }
   },
   "devDependencies": {
+    "effect": "4.0.0-rc.112",
     "@types/bun": "^1.4.0",
     "hls.js": "1.6.13",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@misofm/utils": "0.1.0"
   }
 }

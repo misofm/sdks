@@ -1,6 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -13,6 +20,11 @@ import {
   type TranscodeArtifact,
 } from "../src/model.js";
 import { verifyArtifact } from "../src/pipeline/verify.js";
+import { finalizeTranscode } from "../src/pipeline/finalize.js";
+import {
+  cleanupPreparedTranscode,
+  cleanupTranscodeArtifact,
+} from "../src/pipeline/cleanup.js";
 
 const roots: string[] = [];
 afterEach(async () =>
@@ -171,6 +183,91 @@ test("loose artifact verification enforces stable descriptors and detects tamper
   await invalid((copy) => {
     (copy.renditions[0] as { channels: number }).channels = 1;
   });
+  // The finalizer does not need FFmpeg to prove byte identity, stable ordering,
+  // idempotent reuse, and the explicit fresh-generation policy.
+  const preparedRoot = join(rootPath, "workspace", "plaintext", "c".repeat(64));
+  await mkdir(preparedRoot, { recursive: true });
+  for (const file of artifact.files)
+    await copyFile(file.path, join(preparedRoot, file.identifier));
+  const prepared = {
+    prepareDigest: "c".repeat(64),
+    resultDigest: "d".repeat(64),
+    rootPath: preparedRoot,
+    sourceSha256: "e".repeat(64),
+    durationMs: 6000,
+    sampleRateHz: 48000 as const,
+    segmentTargetMs: 6000,
+    toolchain,
+    audio,
+  };
+  const finalized = await Effect.runPromise(
+    finalizeTranscode({ prepared, fileConcurrency: 2 }),
+  );
+  expect(
+    finalized.files.map(({ identifier, bytes, sha256 }) => ({
+      identifier,
+      bytes,
+      sha256,
+    })),
+  ).toEqual(
+    artifact.files.map(({ identifier, bytes, sha256 }) => ({
+      identifier,
+      bytes,
+      sha256,
+    })),
+  );
+  expect(
+    await Effect.runPromise(
+      finalizeTranscode({ prepared, fileConcurrency: 1 }),
+    ),
+  ).toEqual(finalized);
+  await expect(
+    Effect.runPromise(finalizeTranscode({ prepared, fresh: true })),
+  ).rejects.toMatchObject({
+    _tag: "ArtifactValidationError",
+    message: "Fresh transcode requires explicit cleanup",
+  });
+  const tampered = structuredClone(finalized);
+  (tampered.files[0] as { sha256: string }).sha256 = "0".repeat(64);
+  (tampered.files[1] as { sha256: string }).sha256 = "0".repeat(64);
+  await expect(
+    Effect.runPromise(verifyArtifact(tampered)),
+  ).rejects.toMatchObject({
+    subject: "master.m3u8",
+    message: "File size or digest mismatch",
+  });
+  await Effect.runPromise(cleanupTranscodeArtifact(finalized));
+  await Effect.runPromise(cleanupTranscodeArtifact(finalized));
+  expect(await Bun.file(finalized.masterPlaylist.path).exists()).toBe(false);
+  await writeFile(
+    join(preparedRoot, "prepared.json"),
+    JSON.stringify({
+      schema: "miso.transcoder-prepared/1",
+      prepareDigest: prepared.prepareDigest,
+      rootPath: "mismatched",
+    }),
+  );
+  await expect(
+    Effect.runPromise(cleanupPreparedTranscode(prepared)),
+  ).rejects.toMatchObject({
+    _tag: "WorkspaceIoError",
+    message: "Cleanup checkpoint does not match its target",
+  });
+  expect(await Bun.file(join(preparedRoot, "master.m3u8")).exists()).toBe(true);
+  await writeFile(
+    join(preparedRoot, "prepared.json"),
+    JSON.stringify({
+      schema: "miso.transcoder-prepared/1",
+      prepareDigest: prepared.prepareDigest,
+      rootPath: preparedRoot,
+    }),
+  );
+  await Effect.runPromise(cleanupPreparedTranscode(prepared));
+  await Effect.runPromise(cleanupPreparedTranscode(prepared));
+  expect(await Bun.file(join(preparedRoot, "master.m3u8")).exists()).toBe(
+    false,
+  );
+  await rm(join(rootPath, "workspace"), { recursive: true });
   await writeFile(renditions[0]!.segments[0]!.path, "tampered");
   await expect(
     Effect.runPromise(verifyArtifact(artifact)),

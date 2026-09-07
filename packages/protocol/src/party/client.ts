@@ -1,6 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { moduleBinder } from "../module-binding.ts";
+
 // Party queries and transaction builders bound to the same complete deployment
 // as `MisoProtocolClient`. Consumers reach this through `client.miso.party`.
 
@@ -29,66 +31,18 @@ import * as socialMod from "../contracts/party_social/party_social.ts";
 import * as musicMod from "../contracts/party_music/party_music.ts";
 import * as proLinkMod from "../contracts/party_pro_link/party_pro_link.ts";
 
-type BoundMoveFunction<F> = F extends (options: infer Options) => infer Result
-  ? Options extends { package?: unknown }
-    ? (options: Omit<Options, "package">) => Result
-    : F
-  : F;
-type BoundModule<M extends object, Removed extends PropertyKey> = {
-  [Key in Exclude<keyof M, Removed>]: BoundMoveFunction<M[Key]>;
-};
 
-/** Defaults generated calls to one package and removes reference-returning calls. */
-function bindModulePackage<M extends object, K extends readonly (keyof M)[]>(
-  mod: M,
-  pkg: string,
-  unavailable: K = [] as unknown as K,
-): BoundModule<M, K[number]> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries({ ...mod })) {
-    if ((unavailable as readonly string[]).includes(key)) continue;
-    out[key] =
-      typeof value === "function"
-        ? (options: { package?: string }) => (value as (o: unknown) => unknown)({ package: pkg, ...options })
-        : value;
-  }
-  return out as BoundModule<M, K[number]>;
-}
+// Preserve the legacy Party caller-override policy.
+const bindModulePackage = moduleBinder("default");
 
 /** Package-bound Party client exposed at `client.miso.party`. */
 export class PartyProtocolClient {
   #client: ClientWithCoreApi;
-  #pkg: string;
-  #profilePkg: string;
-  #countryCodePkg: string;
-  #languageCodePkg: string;
-  #mediaPkg: string;
-  #rolesPkg: string;
-  #tagsPkg: string;
-  #partyGenrePkg: string;
-  #ctaPkg: string;
-  #platformLinkPkg: string;
-  #socialPkg: string;
-  #musicPkg: string;
-  #proLinkPkg: string;
-  #genrePkg: string;
+  readonly #deployment: Readonly<MisoDeployment>;
 
   constructor(client: ClientWithCoreApi, o: MisoDeployment) {
     this.#client = client;
-    this.#pkg = o.misoParty;
-    this.#profilePkg = o.partyProfile;
-    this.#countryCodePkg = o.countryCode;
-    this.#languageCodePkg = o.languageCode;
-    this.#mediaPkg = o.partyMedia;
-    this.#rolesPkg = o.partyRoles;
-    this.#tagsPkg = o.partyTags;
-    this.#partyGenrePkg = o.partyGenre;
-    this.#ctaPkg = o.partyCta;
-    this.#platformLinkPkg = o.partyPlatformLink;
-    this.#socialPkg = o.partySocial;
-    this.#musicPkg = o.partyMusic;
-    this.#proLinkPkg = o.partyProLink;
-    this.#genrePkg = o.genre;
+    this.#deployment = { ...o };
   }
 
   /**
@@ -96,82 +50,123 @@ export class PartyProtocolClient {
    * pass to `tx.addGenre` (which takes a genre object id, not this package).
    */
   get genrePackageId(): string {
-    return this.#genrePkg;
+    return this.#deployment.genre;
   }
 
   // === Queries ===
 
-  async getPartyById(partyId: string): Promise<Party> {
-    return queries.getPartyById(this.#client, partyId, this.#pkg);
+  getPartyById(partyId: string): Promise<Party> {
+    return queries.getPartyById(this.#client, partyId, this.#deployment.misoParty);
   }
-  async getPartiesByIds(
+  getPartyByIdEffect(partyId: string) {
+    return queries.getPartyByIdEffect(this.#client, partyId, this.#deployment.misoParty);
+  }
+  getPartiesByIds(
     partyIds: readonly string[],
   ): Promise<Partial<Record<string, Party>>> {
-    return queries.getPartiesByIds(this.#client, partyIds, this.#pkg);
+    return queries.getPartiesByIds(this.#client, partyIds, this.#deployment.misoParty);
+  }
+  getPartiesByIdsEffect(
+    partyIds: readonly string[],
+  ) {
+    return queries.getPartiesByIdsEffect(this.#client, partyIds, this.#deployment.misoParty);
   }
   derivePartyAdminCapId(partyId: string): string {
-    return queries.derivePartyAdminCapId(partyId, this.#pkg);
+    return queries.derivePartyAdminCapId(partyId, this.#deployment.misoParty);
   }
-  async getProfile(partyId: string): Promise<Profile | null> {
-    return queries.getProfile(this.#client, partyId, this.#profilePkg);
+  getProfile(partyId: string): Promise<Profile | null> {
+    return queries.getProfile(this.#client, partyId, this.#deployment.partyProfile);
   }
-  async getMedia(partyId: string): Promise<Media | null> {
-    return queries.getMedia(this.#client, partyId, this.#mediaPkg);
+  getProfileEffect(partyId: string) {
+    return queries.getProfileEffect(this.#client, partyId, this.#deployment.partyProfile);
+  }
+  getMedia(partyId: string): Promise<Media | null> {
+    return queries.getMedia(this.#client, partyId, this.#deployment.partyMedia);
+  }
+  getMediaEffect(partyId: string) {
+    return queries.getMediaEffect(this.#client, partyId, this.#deployment.partyMedia);
   }
   /** The party's artist-type roles (display names). */
-  async getRoles(partyId: string): Promise<string[]> {
-    return queries.getRoles(this.#client, partyId, this.#rolesPkg);
+  getRoles(partyId: string): Promise<string[]> {
+    return queries.getRoles(this.#client, partyId, this.#deployment.partyRoles);
+  }
+  getRolesEffect(partyId: string) {
+    return queries.getRolesEffect(this.#client, partyId, this.#deployment.partyRoles);
   }
   /** The party's free-form tags. */
-  async getTags(partyId: string): Promise<string[]> {
-    return queries.getTags(this.#client, partyId, this.#tagsPkg);
+  getTags(partyId: string): Promise<string[]> {
+    return queries.getTags(this.#client, partyId, this.#deployment.partyTags);
+  }
+  getTagsEffect(partyId: string) {
+    return queries.getTagsEffect(this.#client, partyId, this.#deployment.partyTags);
   }
   /** The party's genre object ids. */
-  async getGenres(partyId: string): Promise<string[]> {
-    return queries.getGenres(this.#client, partyId, this.#partyGenrePkg);
+  getGenres(partyId: string): Promise<string[]> {
+    return queries.getGenres(this.#client, partyId, this.#deployment.partyGenre);
+  }
+  getGenresEffect(partyId: string) {
+    return queries.getGenresEffect(this.#client, partyId, this.#deployment.partyGenre);
   }
   /** The party's ordered CTA list (position is priority). */
-  async getCtas(partyId: string): Promise<Cta[]> {
-    return queries.getCtas(this.#client, partyId, this.#ctaPkg);
+  getCtas(partyId: string): Promise<Cta[]> {
+    return queries.getCtas(this.#client, partyId, this.#deployment.partyCta);
+  }
+  getCtasEffect(partyId: string) {
+    return queries.getCtasEffect(this.#client, partyId, this.#deployment.partyCta);
   }
   /** All external-platform links attached to the party (social, music, professional). */
-  async getLinks(partyId: string): Promise<PlatformLink[]> {
+  getLinks(partyId: string): Promise<PlatformLink[]> {
     return queries.getLinks(this.#client, partyId);
   }
+  getLinksEffect(partyId: string) {
+    return queries.getLinksEffect(this.#client, partyId);
+  }
   /** Group ids a party belongs to (member-side membership records). */
-  async getMemberships(partyId: string): Promise<string[]> {
+  getMemberships(partyId: string): Promise<string[]> {
     return queries.getMemberships(this.#client, partyId);
   }
+  getMembershipsEffect(partyId: string) {
+    return queries.getMembershipsEffect(this.#client, partyId);
+  }
   /** Member ids invited to a group but not yet accepted. */
-  async getPendingInvites(groupId: string): Promise<string[]> {
+  getPendingInvites(groupId: string): Promise<string[]> {
     return queries.getPendingInvites(this.#client, groupId);
   }
+  getPendingInvitesEffect(groupId: string) {
+    return queries.getPendingInvitesEffect(this.#client, groupId);
+  }
   /** Group ids that have invited this party but are awaiting its response. */
-  async getPendingMemberships(partyId: string): Promise<string[]> {
+  getPendingMemberships(partyId: string): Promise<string[]> {
     return queries.getPendingMemberships(this.#client, partyId);
   }
+  getPendingMembershipsEffect(partyId: string) {
+    return queries.getPendingMembershipsEffect(this.#client, partyId);
+  }
   /** Whether a party is a member of a group. */
-  async isMember(memberId: string, groupId: string): Promise<boolean> {
-    return queries.isMember(this.#client, memberId, groupId, this.#pkg);
+  isMember(memberId: string, groupId: string): Promise<boolean> {
+    return queries.isMember(this.#client, memberId, groupId, this.#deployment.misoParty);
+  }
+  isMemberEffect(memberId: string, groupId: string) {
+    return queries.isMemberEffect(this.#client, memberId, groupId, this.#deployment.misoParty);
   }
 
   // === Transaction builders (thunks; package ids bound from the client) ===
 
   get tx() {
-    const pkg = this.#pkg;
-    const profilePkg = this.#profilePkg;
-    const cc = this.#countryCodePkg;
-    const lc = this.#languageCodePkg;
-    const mediaPkg = this.#mediaPkg;
-    const rolesPkg = this.#rolesPkg;
-    const tagsPkg = this.#tagsPkg;
-    const ctaPkg = this.#ctaPkg;
-    const partyGenrePkg = this.#partyGenrePkg;
+    const pkg = this.#deployment.misoParty;
+    const profilePkg = this.#deployment.partyProfile;
+    const cc = this.#deployment.countryCode;
+    const lc = this.#deployment.languageCode;
+    const mediaPkg = this.#deployment.partyMedia;
+    const rolesPkg = this.#deployment.partyRoles;
+    const tagsPkg = this.#deployment.partyTags;
+    const ctaPkg = this.#deployment.partyCta;
+    const partyGenrePkg = this.#deployment.partyGenre;
     const linkIds: linksExt.LinkPackageIds = {
-      partyPlatformLinkPackageId: this.#platformLinkPkg,
-      partySocialPackageId: this.#socialPkg,
-      partyMusicPackageId: this.#musicPkg,
-      partyProLinkPackageId: this.#proLinkPkg,
+      partyPlatformLinkPackageId: this.#deployment.partyPlatformLink,
+      partySocialPackageId: this.#deployment.partySocial,
+      partyMusicPackageId: this.#deployment.partyMusic,
+      partyProLinkPackageId: this.#deployment.partyProLink,
     };
     return {
       createIndividualParty: (p: Omit<transactions.CreatePartyParams, "partyPackageId">): TxThunk =>
@@ -246,17 +241,17 @@ export class PartyProtocolClient {
 
   get call() {
     return {
-      party: bindModulePackage(partyMod, this.#pkg, ["groupMembers", "uid", "uidMut"] as const),
-      profile: bindModulePackage(profileMod, this.#profilePkg, ["profile"] as const),
-      media: bindModulePackage(mediaMod, this.#mediaPkg),
-      roles: bindModulePackage(rolesMod, this.#rolesPkg),
-      tags: bindModulePackage(tagsMod, this.#tagsPkg),
-      cta: bindModulePackage(ctaMod, this.#ctaPkg),
-      genre: bindModulePackage(genreMod, this.#partyGenrePkg),
-      platformLink: bindModulePackage(platformLinkMod, this.#platformLinkPkg),
-      social: bindModulePackage(socialMod, this.#socialPkg),
-      music: bindModulePackage(musicMod, this.#musicPkg),
-      proLink: bindModulePackage(proLinkMod, this.#proLinkPkg),
+      party: bindModulePackage(partyMod, this.#deployment.misoParty, ["groupMembers", "uid", "uidMut"] as const),
+      profile: bindModulePackage(profileMod, this.#deployment.partyProfile, ["profile"] as const),
+      media: bindModulePackage(mediaMod, this.#deployment.partyMedia),
+      roles: bindModulePackage(rolesMod, this.#deployment.partyRoles),
+      tags: bindModulePackage(tagsMod, this.#deployment.partyTags),
+      cta: bindModulePackage(ctaMod, this.#deployment.partyCta),
+      genre: bindModulePackage(genreMod, this.#deployment.partyGenre),
+      platformLink: bindModulePackage(platformLinkMod, this.#deployment.partyPlatformLink),
+      social: bindModulePackage(socialMod, this.#deployment.partySocial),
+      music: bindModulePackage(musicMod, this.#deployment.partyMusic),
+      proLink: bindModulePackage(proLinkMod, this.#deployment.partyProLink),
     };
   }
 

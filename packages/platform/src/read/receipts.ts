@@ -1,5 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
 //
 // What one record sale actually was, read back from its transaction.
 //
@@ -20,18 +23,15 @@
 // read walks. We show the buyer that arithmetic, in the same truncating integer
 // math the chain does.
 
+import { extractTypeParams2, getCompositionsByIdsEffect } from "@misofm/protocol";
 import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
-import {
-  extractTypeParams2,
-  getCompositionsByIds,
-} from "@misofm/protocol";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
-import { getPressingDetail } from "./catalog.ts";
+import { requireRecordSalesDeployment } from "../deployments.ts";
+import { getPressingDetailEffect } from "./catalog.ts";
 import type { MisoClient } from "./client.ts";
 import { int } from "./internal/scalars.ts";
-import { requireRecordSalesDeployment } from "../deployments.ts";
-import type { Price, PressingDetail, PurchaseReceipt, RecordSale, TrackRoyalty } from "./types.ts";
-import { getWorkAddressesByShareTypes } from "./works.ts";
+import type { PressingDetail, Price, PurchaseReceipt, RecordSale, TrackRoyalty } from "./types.ts";
+import { getWorkAddressesByShareTypesEffect } from "./works.ts";
 
 const BPS = 10_000n;
 const U64_MAX = (1n << 64n) - 1n;
@@ -270,22 +270,19 @@ export function findRecordSale(
 }
 
 /** Every canonical sale, read from the fullnode in event order. */
-async function salesFromFullnode(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  const result = await client.sui.waitForTransaction({
-    digest: txDigest,
-    include: { events: true },
-    timeout: FULLNODE_WAIT_MS,
+function salesFromFullnodeEffect(client: MisoClient, txDigest: string): Effect.Effect<RecordSale[], SdkError> {
+  return workflow("salesFromFullnode", function* () {
+    const result = yield* tryPromise("salesFromFullnode", (signal) =>
+      client.sui.waitForTransaction({ signal, digest: txDigest, include: { events: true }, timeout: FULLNODE_WAIT_MS }),
+    );
+    if (result.$kind !== "Transaction" || !result.Transaction.status.success) {
+      throw new Error(`Transaction did not succeed: ${txDigest}`);
+    }
+    const sales = requireRecordSalesDeployment(client.config.recordSales);
+    const found = findRecordSales(result.Transaction.events, sales.recordShopPackageId);
+    if (found.length === 0) throw new Error(`No record purchase in transaction ${txDigest}`);
+    return found;
   });
-  if (result.$kind !== "Transaction" || !result.Transaction.status.success) {
-    throw new Error(`Transaction did not succeed: ${txDigest}`);
-  }
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const found = findRecordSales(
-    result.Transaction.events,
-    sales.recordShopPackageId,
-  );
-  if (found.length === 0) throw new Error(`No record purchase in transaction ${txDigest}`);
-  return found;
 }
 
 const TX_EVENTS_QUERY = `query TransactionEvents($digest: String!) {
@@ -307,42 +304,49 @@ interface TxEventsResult {
 }
 
 /** Every canonical sale, read from the GraphQL indexer in event order. */
-async function salesFromIndexer(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  const { data, errors } = await client.graphqlRaw.query<TxEventsResult, { digest: string }>({
-    query: TX_EVENTS_QUERY,
-    variables: { digest: txDigest },
-  });
-  if (errors?.length) throw new Error(errors[0]!.message);
-
-  const effects = data?.transaction?.effects;
-  if (!effects) throw new Error(`Transaction not found: ${txDigest}`);
-  if (effects.status !== "SUCCESS") throw new Error(`Transaction did not succeed: ${txDigest}`);
-
-  const salesDeployment = requireRecordSalesDeployment(client.config.recordSales);
-  const sales: RecordSale[] = [];
-  for (const node of effects.events?.nodes ?? []) {
-    const contents = node.contents;
-    if (!contents) continue;
-    const currencyType = recordSoldCurrencyType(
-      contents.type.repr,
-      salesDeployment.recordShopPackageId,
+function salesFromIndexerEffect(client: MisoClient, txDigest: string): Effect.Effect<RecordSale[], SdkError> {
+  return workflow("salesFromIndexer", function* () {
+    const { data, errors } = yield* tryPromise("salesFromIndexer", (signal) =>
+      client.graphqlRaw.query<TxEventsResult, { digest: string }>({
+        signal,
+        query: TX_EVENTS_QUERY,
+        variables: { digest: txDigest },
+      }),
     );
-    if (!currencyType) continue;
-    const sale =
-      typeof contents.json === "object" && contents.json !== null
-        ? saleFromJson(contents.json as Record<string, unknown>, currencyType)
-        : null;
-    if (!sale) throw new MalformedRecordSoldEventError("malformed canonical RecordSoldEvent JSON");
-    sales.push(sale);
-  }
-  if (sales.length > 0) return sales;
-  throw new Error(`No record purchase in transaction ${txDigest}`);
+    if (errors?.length) throw new Error(errors[0]!.message);
+
+    const effects = data?.transaction?.effects;
+    if (!effects) throw new Error(`Transaction not found: ${txDigest}`);
+    if (effects.status !== "SUCCESS") throw new Error(`Transaction did not succeed: ${txDigest}`);
+
+    const salesDeployment = requireRecordSalesDeployment(client.config.recordSales);
+    const sales: RecordSale[] = [];
+    for (const node of effects.events?.nodes ?? []) {
+      const contents = node.contents;
+      if (!contents) continue;
+      const currencyType = recordSoldCurrencyType(contents.type.repr, salesDeployment.recordShopPackageId);
+      if (!currencyType) continue;
+      const sale =
+        typeof contents.json === "object" && contents.json !== null
+          ? saleFromJson(contents.json as Record<string, unknown>, currencyType)
+          : null;
+      if (!sale) throw new MalformedRecordSoldEventError("malformed canonical RecordSoldEvent JSON");
+      sales.push(sale);
+    }
+    if (sales.length > 0) return sales;
+    throw new Error(`No record purchase in transaction ${txDigest}`);
+  });
 }
 
-async function salesFromChain(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  return salesFromFullnode(client, txDigest).catch((error) => {
-    if (error instanceof MalformedRecordSoldEventError) throw error;
-    return salesFromIndexer(client, txDigest);
+function salesFromChainEffect(client: MisoClient, txDigest: string): Effect.Effect<RecordSale[], SdkError> {
+  return workflow("salesFromChain", function* () {
+    return yield* Effect.catch(salesFromFullnodeEffect(client, txDigest), (failure) =>
+      workflow("salesFromChain", function* () {
+        const error = failure.cause;
+        if (error instanceof MalformedRecordSoldEventError) throw error;
+        return yield* salesFromIndexerEffect(client, txDigest);
+      }),
+    );
   });
 }
 
@@ -357,39 +361,46 @@ async function salesFromChain(client: MisoClient, txDigest: string): Promise<Rec
  * Best-effort by design: any failure returns the rates resolved so far, and the
  * receipt drops to a track-level breakdown rather than failing the whole page.
  */
-async function compositionRatesByRecording(client: MisoClient, recordingIds: string[]): Promise<CompositionRates> {
-  if (recordingIds.length === 0) return {};
+function compositionRatesByRecordingEffect(
+  client: MisoClient,
+  recordingIds: string[],
+): Effect.Effect<CompositionRates, SdkError> {
+  return workflow("compositionRatesByRecording", function* () {
+    if (recordingIds.length === 0) return {};
 
-  const shareTypeByRecording: Record<string, string> = {};
-  const { objects } = await client.protocol.core.getObjects({ objectIds: [...new Set(recordingIds)] });
-  for (const obj of objects) {
-    if (obj instanceof Error || !obj.type) continue;
-    try {
-      const [, compositionShareType] = extractTypeParams2(obj.type);
-      shareTypeByRecording[obj.objectId] = compositionShareType;
-    } catch {
-      // A recording type we can't read the parent off — skip this track.
+    const shareTypeByRecording: Record<string, string> = {};
+    const { objects } = yield* tryPromise("compositionRatesByRecording", (signal) =>
+      client.protocol.core.getObjects({ signal, objectIds: [...new Set(recordingIds)] }),
+    );
+    for (const obj of objects) {
+      if (obj instanceof Error || !obj.type) continue;
+      try {
+        const [, compositionShareType] = extractTypeParams2(obj.type);
+        shareTypeByRecording[obj.objectId] = compositionShareType;
+      } catch {
+        // A recording type we can't read the parent off — skip this track.
+      }
     }
-  }
 
-  const shareTypes = Object.values(shareTypeByRecording);
-  if (shareTypes.length === 0) return {};
+    const shareTypes = Object.values(shareTypeByRecording);
+    if (shareTypes.length === 0) return {};
 
-  const addresses = await getWorkAddressesByShareTypes(
-    client.graphql,
-    { compositions: shareTypes, recordings: [] },
-    client.config.deployment.miso,
-  );
-  const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
-  const compositions = await getCompositionsByIds(client.protocol, compositionIds);
+    const addresses = yield* getWorkAddressesByShareTypesEffect(
+      client.graphql,
+      { compositions: shareTypes, recordings: [] },
+      client.config.deployment.miso,
+    );
+    const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
+    const compositions = yield* getCompositionsByIdsEffect(client.protocol, compositionIds);
 
-  const rates: CompositionRates = {};
-  for (const [recordingId, shareType] of Object.entries(shareTypeByRecording)) {
-    const compositionId = addresses.compositions[shareType];
-    const composition = compositionId ? compositions[compositionId] : undefined;
-    if (composition) rates[recordingId] = int(composition.royaltyRate.value);
-  }
-  return rates;
+    const rates: CompositionRates = {};
+    for (const [recordingId, shareType] of Object.entries(shareTypeByRecording)) {
+      const compositionId = addresses.compositions[shareType];
+      const composition = compositionId ? compositions[compositionId] : undefined;
+      if (composition) rates[recordingId] = int(composition.royaltyRate.value);
+    }
+    return rates;
+  });
 }
 
 /**
@@ -428,49 +439,69 @@ export function breakdown(
  * The sale identifies the Pressing before its detail is fetched. `null` only when
  * that immutable Pressing cannot be read; it is never superseded or destroyed.
  */
-async function hydratePurchaseReceipt(
+function hydratePurchaseReceiptEffect(
   client: MisoClient,
   sale: RecordSale,
-): Promise<PurchaseReceipt | null> {
-  const detail = await getPressingDetail(client, sale.pressingId);
-  if (!detail) return null;
+): Effect.Effect<PurchaseReceipt | null, SdkError> {
+  return workflow("hydratePurchaseReceipt", function* () {
+    const detail = yield* getPressingDetailEffect(client, sale.pressingId);
+    if (!detail) return null;
 
-  // Best-effort: a failed composition lookup costs the sub-rows, not the page.
-  const rates = await compositionRatesByRecording(
-    client,
-    detail.release.tracks.map((t) => t.recordingId),
-  ).catch(() => ({}));
+    // Best-effort: a failed composition lookup costs the sub-rows, not the page.
+    const rates = yield* Effect.catch(
+      compositionRatesByRecordingEffect(
+        client,
+        detail.release.tracks.map((t) => t.recordingId),
+      ),
+      () => Effect.succeed({}),
+    );
 
-  return {
-    sale,
-    detail,
-    price: sale.pricing.amount,
-    tracks: breakdown(detail.release.tracks, sale.purchasePrice, rates),
-  };
+    return {
+      sale,
+      detail,
+      price: sale.pricing.amount,
+      tracks: breakdown(detail.release.tracks, sale.purchasePrice, rates),
+    };
+  });
 }
 
 /** Read and hydrate every canonical Record sale in transaction event order. */
-export async function getPurchaseReceipts(
+export function getPurchaseReceiptsEffect(
   client: MisoClient,
   txDigest: string,
-): Promise<PurchaseReceipt[]> {
-  const sales = await salesFromChain(client, txDigest);
-  const hydrated = await Promise.all(sales.map((sale) => hydratePurchaseReceipt(client, sale)));
-  if (hydrated.some((receipt) => receipt === null)) {
-    throw new Error(`A canonical Record sale in transaction ${txDigest} references an unreadable Pressing`);
-  }
-  return hydrated as PurchaseReceipt[];
+): Effect.Effect<PurchaseReceipt[], SdkError> {
+  return workflow("getPurchaseReceipts", function* () {
+    const sales = yield* salesFromChainEffect(client, txDigest);
+    const hydrated = yield* Effect.forEach(
+      sales,
+      (sale) =>
+        workflow("getPurchaseReceipts", function* () {
+          return yield* hydratePurchaseReceiptEffect(client, sale);
+        }),
+      { concurrency: 8 },
+    );
+    if (hydrated.some((receipt) => receipt === null)) {
+      throw new Error(`A canonical Record sale in transaction ${txDigest} references an unreadable Pressing`);
+    }
+    return hydrated as PurchaseReceipt[];
+  });
 }
+
+export const getPurchaseReceipts = toPromise(getPurchaseReceiptsEffect);
 
 /** Read one canonical receipt selected by its Record ID. Selection is mandatory:
  * one transaction may purchase multiple Records from the same Pressing. */
-export async function getPurchaseReceipt(
+export function getPurchaseReceiptEffect(
   client: MisoClient,
   txDigest: string,
   recordId: string,
-): Promise<PurchaseReceipt | null> {
-  const sales = await salesFromChain(client, txDigest);
-  const wanted = normalizeSuiAddress(recordId);
-  const sale = sales.find((candidate) => normalizeSuiAddress(candidate.recordId) === wanted);
-  return sale ? hydratePurchaseReceipt(client, sale) : null;
+): Effect.Effect<PurchaseReceipt | null, SdkError> {
+  return workflow("getPurchaseReceipt", function* () {
+    const sales = yield* salesFromChainEffect(client, txDigest);
+    const wanted = normalizeSuiAddress(recordId);
+    const sale = sales.find((candidate) => normalizeSuiAddress(candidate.recordId) === wanted);
+    return sale ? yield* hydratePurchaseReceiptEffect(client, sale) : null;
+  });
 }
+
+export const getPurchaseReceipt = toPromise(getPurchaseReceiptEffect);

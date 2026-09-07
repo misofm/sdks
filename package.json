@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
-    "build": "bun run --filter '*' build",
+    "build": "bun run --filter @misofm/utils build && bun run --filter @misofm/streaming build && bun run --filter @misofm/protocol build && bun run --filter @misofm/platform build && bun run --filter @misofm/transcoding build",
+    "test:consumer": "bun scripts/check-consumer.ts",
     "codegen": "bun scripts/codegen.ts",
     "codegen:check": "bun run codegen && git diff --exit-code -- packages/protocol/src/contracts"
   },

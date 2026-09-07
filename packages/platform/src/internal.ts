@@ -20,6 +20,12 @@ import type { Transaction, TransactionArgument } from "@mysten/sui/transactions"
 export const OPTION_NONE = "0x1::option::none";
 export const OPTION_SOME = "0x1::option::some";
 
+export function requiredAt<T>(items: readonly T[], index: number, description: string): T {
+  const value = items[index];
+  if (value === undefined) throw new Error(`${description} index ${index} is out of range`);
+  return value;
+}
+
 /**
  * Build a plaintext `ori::data::WalrusBlob` in the PTB: `confidentiality::new_unencrypted()`
  * followed by `data::new_blob(blob_id, confidentiality)`. `ori` is an external

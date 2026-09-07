@@ -1,7 +1,9 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { toPromise, SdkError, tryPromise } from "@misofm/utils/effect";
 import { isValidSuiAddress, normalizeSuiAddress } from "@mysten/sui/utils";
+import { Effect } from "effect";
 
 export type AuthNetwork = "testnet" | "mainnet";
 
@@ -148,15 +150,28 @@ function parseChallenge(
   return challenge;
 }
 
-async function responseMessage(response: Response): Promise<string> {
-  const body = await response.clone().json().catch(() => null) as {
+function responseMessage(response: Response, input: unknown): string {
+  const body = input as {
     error?: { message?: unknown } | string;
     message?: unknown;
   } | null;
-  if (typeof body?.error === "object" && typeof body.error.message === "string") return body.error.message;
+  if (body?.error && typeof body.error === "object" && typeof body.error.message === "string")
+    return body.error.message;
   if (typeof body?.error === "string") return body.error;
   if (typeof body?.message === "string") return body.message;
   return `Authorization challenge failed (${response.status}).`;
+}
+
+export type AuthorizationError = MisoAuthError | SdkError;
+function authSync<A>(evaluate: () => A): Effect.Effect<A, AuthorizationError> {
+  return Effect.try({
+    try: evaluate,
+    catch: (cause) => (cause instanceof MisoAuthError ? cause : new SdkError("authorization", cause)),
+  });
+}
+
+function requestSignal(caller: AbortSignal | null | undefined, fiber: AbortSignal): AbortSignal {
+  return caller ? AbortSignal.any([caller, fiber]) : fiber;
 }
 
 export interface RequestAuthorizationChallengeOptions {
@@ -169,71 +184,97 @@ export interface RequestAuthorizationChallengeOptions {
   challengeUrl?: string | URL;
   fetch?: typeof globalThis.fetch;
   nowMs?: number;
+  signal?: AbortSignal | null;
 }
 
 /** Ask Miso to verify the Enoki account and issue the exact message to sign. */
-export async function requestAuthorizationChallenge(
+export function requestAuthorizationChallengeEffect(
   options: RequestAuthorizationChallengeOptions,
-): Promise<AuthorizationChallenge> {
-  const expected = target(options.method, options.path);
-  if (!options.token || !isValidSuiAddress(options.address)) {
-    throw new MisoAuthError("challenge_rejected", "A valid Enoki token and Sui address are required.");
-  }
-  const apiUrl = new URL(options.apiUrl);
-  const challengeUrl = options.challengeUrl === undefined
-    ? new URL("/platform/auth/challenge", apiUrl.origin)
-    : new URL(options.challengeUrl, apiUrl);
-  const fetcher = options.fetch ?? globalThis.fetch;
-  const response = await fetcher(challengeUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${options.token}`,
-      [MISO_AUTH_HEADERS.address]: normalizeSuiAddress(options.address),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(expected),
-  });
-  if (!response.ok) {
-    throw new MisoAuthError("challenge_rejected", await responseMessage(response), { status: response.status });
-  }
-  const body = await response.json().catch(() => null);
-  return parseChallenge(body, {
-    ...expected,
-    address: options.address,
-    network: options.network,
-    nowMs: options.nowMs,
+): Effect.Effect<AuthorizationChallenge, AuthorizationError> {
+  return Effect.gen(function* () {
+    const expected = yield* authSync(() => target(options.method, options.path));
+    if (!options.token || !isValidSuiAddress(options.address)) {
+      return yield* Effect.fail(
+        new MisoAuthError("challenge_rejected", "A valid Enoki token and Sui address are required."),
+      );
+    }
+    const apiUrl = yield* authSync(() => new URL(options.apiUrl));
+    const challengeUrl = yield* authSync(() =>
+      options.challengeUrl === undefined
+        ? new URL("/platform/auth/challenge", apiUrl.origin)
+        : new URL(options.challengeUrl, apiUrl),
+    );
+    const fetcher = options.fetch ?? globalThis.fetch;
+    // The transport owns the response body until decoding completes, so one
+    // cancellation signal spans both headers and body consumption.
+    const { response, body } = yield* tryPromise("authorization.challenge", async (signal) => {
+      const linked = requestSignal(options.signal, signal);
+      const response = await fetcher(challengeUrl, {
+        signal: linked,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.token}`,
+          [MISO_AUTH_HEADERS.address]: normalizeSuiAddress(options.address),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(expected),
+      });
+      const body: unknown = await response.json().catch((cause: unknown) => {
+        if (linked.aborted) throw cause;
+        return null;
+      });
+      return { response, body };
+    });
+    if (!response.ok) {
+      return yield* Effect.fail(
+        new MisoAuthError("challenge_rejected", responseMessage(response, body), { status: response.status }),
+      );
+    }
+    return yield* authSync(() =>
+      parseChallenge(body, {
+        ...expected,
+        address: options.address,
+        network: options.network,
+        nowMs: options.nowMs,
+      }),
+    );
   });
 }
+
+export const requestAuthorizationChallenge = toPromise(requestAuthorizationChallengeEffect);
 
 export interface CreateAuthorizationHeadersOptions extends RequestAuthorizationChallengeOptions {
   signer: PersonalMessageSigner;
 }
 
 /** Verify the challenge locally, sign it as a Sui personal message, and produce API headers. */
-export async function createAuthorizationHeaders(
+export function createAuthorizationHeadersEffect(
   options: CreateAuthorizationHeadersOptions,
-): Promise<{ challenge: AuthorizationChallenge; headers: Headers }> {
-  const challenge = await requestAuthorizationChallenge(options);
-  let signature: string;
-  try {
-    const signed = await options.signer.signPersonalMessage(new TextEncoder().encode(challenge.payload));
-    signature = signed.signature;
-  } catch (cause) {
-    throw new MisoAuthError("signing_failed", "The authorization request was not signed.", { cause });
-  }
-  if (!signature) {
-    throw new MisoAuthError("signing_failed", "The signer returned an empty authorization signature.");
-  }
-  return {
-    challenge,
-    headers: new Headers({
-      Authorization: `Bearer ${options.token}`,
-      [MISO_AUTH_HEADERS.address]: challenge.address,
-      [MISO_AUTH_HEADERS.signature]: signature,
-      [MISO_AUTH_HEADERS.issuedAt]: challenge.issuedAt,
-    }),
-  };
+): Effect.Effect<{ challenge: AuthorizationChallenge; headers: Headers }, AuthorizationError> {
+  return Effect.gen(function* () {
+    const challenge = yield* requestAuthorizationChallengeEffect(options);
+    const { signature } = yield* Effect.tryPromise({
+      try: () => options.signer.signPersonalMessage(new TextEncoder().encode(challenge.payload)),
+      catch: (cause) => new MisoAuthError("signing_failed", "The authorization request was not signed.", { cause }),
+    });
+    if (!signature) {
+      return yield* Effect.fail(
+        new MisoAuthError("signing_failed", "The signer returned an empty authorization signature."),
+      );
+    }
+    return yield* authSync(() => ({
+      challenge,
+      headers: new Headers({
+        Authorization: `Bearer ${options.token}`,
+        [MISO_AUTH_HEADERS.address]: challenge.address,
+        [MISO_AUTH_HEADERS.signature]: signature,
+        [MISO_AUTH_HEADERS.issuedAt]: challenge.issuedAt,
+      }),
+    }));
+  });
 }
+
+export const createAuthorizationHeaders = toPromise(createAuthorizationHeadersEffect);
 
 export interface AuthenticatedFetchOptions extends RequestInit {
   auth: {
@@ -247,29 +288,41 @@ export interface AuthenticatedFetchOptions extends RequestInit {
 }
 
 /** Perform a protected Miso API mutation with a fresh Enoki-verified Sui signature. */
-export async function authenticatedFetch(
+export function authenticatedFetchEffect(
   input: string | URL,
   options: AuthenticatedFetchOptions,
-): Promise<Response> {
-  const { auth, challengeUrl, fetch: fetchOption, ...init } = options;
-  const url = new URL(input);
-  const method = (init.method ?? "").toUpperCase();
-  if (url.search || url.hash) {
-    throw new MisoAuthError("invalid_target", "Authenticated request URLs cannot include a query or fragment.");
-  }
-  const fetcher = fetchOption ?? globalThis.fetch;
-  const authorization = await createAuthorizationHeaders({
-    apiUrl: url,
-    challengeUrl,
-    fetch: fetcher,
-    token: auth.token,
-    address: auth.address,
-    signer: auth.signer,
-    network: auth.network,
-    method,
-    path: url.pathname,
+): Effect.Effect<Response, AuthorizationError> {
+  return Effect.gen(function* () {
+    const { auth, challengeUrl, fetch: fetchOption, ...init } = options;
+    const url = yield* authSync(() => new URL(input));
+    const method = (init.method ?? "").toUpperCase();
+    if (url.search || url.hash) {
+      return yield* Effect.fail(
+        new MisoAuthError("invalid_target", "Authenticated request URLs cannot include a query or fragment."),
+      );
+    }
+    const fetcher = fetchOption ?? globalThis.fetch;
+    const authorization = yield* createAuthorizationHeadersEffect({
+      apiUrl: url,
+      challengeUrl,
+      fetch: fetcher,
+      token: auth.token,
+      address: auth.address,
+      signer: auth.signer,
+      network: auth.network,
+      method,
+      path: url.pathname,
+      signal: init.signal,
+    });
+    const headers = yield* authSync(() => {
+      const headers = new Headers(init.headers);
+      authorization.headers.forEach((value, name) => headers.set(name, value));
+      return headers;
+    });
+    return yield* tryPromise("authorization.mutation", (signal) =>
+      fetcher(url, { ...init, method, headers, signal: requestSignal(init.signal, signal) }),
+    );
   });
-  const headers = new Headers(init.headers);
-  authorization.headers.forEach((value, name) => headers.set(name, value));
-  return fetcher(url, { ...init, method, headers });
 }
+
+export const authenticatedFetch = toPromise(authenticatedFetchEffect);

@@ -9,12 +9,14 @@ on:
     paths:
       - "packages/transcoding/**"
       - "packages/streaming/**"
+      - "packages/utils/**"
       - ".github/workflows/transcoding-ffmpeg.yml"
   push:
     branches: [main]
     paths:
       - "packages/transcoding/**"
       - "packages/streaming/**"
+      - "packages/utils/**"
       - ".github/workflows/transcoding-ffmpeg.yml"
     tags: ["transcoding-v*"]
 
@@ -74,11 +76,12 @@ jobs:
       - run: bun run build
       - name: Pack the transcoder and its contract
         run: |
+          (cd packages/utils && npm pack --pack-destination "$RUNNER_TEMP")
           (cd packages/streaming && npm pack --pack-destination "$RUNNER_TEMP")
           (cd packages/transcoding && npm pack --pack-destination "$RUNNER_TEMP")
       - name: Install in isolated Node consumer
         working-directory: packages/transcoding
-        run: node test/isolated-consumer.mjs node "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
+        run: node test/isolated-consumer.mjs node "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz "$RUNNER_TEMP"/misofm-utils-*.tgz
       - name: Install in isolated Bun consumer
         working-directory: packages/transcoding
-        run: bun test/isolated-consumer.mjs bun "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
+        run: bun test/isolated-consumer.mjs bun "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz "$RUNNER_TEMP"/misofm-utils-*.tgz

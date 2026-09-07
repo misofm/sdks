@@ -16,6 +16,8 @@ import { Transaction } from "@mysten/sui/transactions";
 import type { ClientWithCoreApi, SuiClientTypes } from "@mysten/sui/client";
 import type { Signer } from "@mysten/sui/cryptography";
 import type { TxThunk } from "./transactions.ts";
+import { Effect } from "effect";
+import { runPromise, tryPromise, trySync } from "@misofm/utils/effect";
 
 /** The effect fields every submit path requests, so extraction is uniform. */
 export const FULL_INCLUDE = { effects: true, objectTypes: true, balanceChanges: true } as const;
@@ -34,10 +36,18 @@ export interface ExecResult {
 }
 
 /** Builds a fresh Transaction from one or more thunks (awaiting async ones). */
-export async function buildTx(...thunks: TxThunk[]): Promise<Transaction> {
-  const tx = new Transaction();
-  for (const thunk of thunks) await thunk(tx);
-  return tx;
+export function buildTxEffect(...thunks: TxThunk[]) {
+  return Effect.gen(function* () {
+    const tx = new Transaction();
+    for (const thunk of thunks) {
+      yield* tryPromise("buildTx.thunk", async () => thunk(tx));
+    }
+    return tx;
+  });
+}
+
+export function buildTx(...thunks: TxThunk[]): Promise<Transaction> {
+  return runPromise(buildTxEffect(...thunks));
 }
 
 /** Normalizes the `{ $kind }` transaction-result envelope into an {@link ExecResult}. */
@@ -64,18 +74,33 @@ export function toExecResult(res: SuiClientTypes.TransactionResult<FullInclude>)
   };
 }
 
-/** Signs, executes, and waits for a transaction; returns changes, types, gas. */
-export async function signAndExecute(client: ClientWithCoreApi, signer: Signer, tx: Transaction): Promise<ExecResult> {
-  const res = await client.core.signAndExecuteTransaction({ transaction: tx, signer, include: FULL_INCLUDE });
-  const result = toExecResult(res);
-  await client.core.waitForTransaction({ digest: result.digest });
-  return result;
+/** Once submission starts, interruption waits for submission and finality; never retries. */
+export function signAndExecuteEffect(client: ClientWithCoreApi, signer: Signer, tx: Transaction) {
+  return Effect.gen(function* () {
+    const res = yield* tryPromise("signAndExecute.submit", () =>
+      client.core.signAndExecuteTransaction({ transaction: tx, signer, include: FULL_INCLUDE }));
+    const result = yield* trySync("signAndExecute.result", () => toExecResult(res));
+    yield* tryPromise("signAndExecute.finality", (signal) => client.core.waitForTransaction({ signal, digest: result.digest }));
+    return result;
+  }).pipe(Effect.uninterruptible);
+}
+
+export function signAndExecute(client: ClientWithCoreApi, signer: Signer, tx: Transaction): Promise<ExecResult> {
+  return runPromise(signAndExecuteEffect(client, signer, tx));
 }
 
 /** Convenience: build from thunks, then sign+execute in one call. */
-export async function execThunks(client: ClientWithCoreApi, signer: Signer, ...thunks: TxThunk[]): Promise<ExecResult> {
-  return signAndExecute(client, signer, await buildTx(...thunks));
+export function executeThunksEffect(client: ClientWithCoreApi, signer: Signer, ...thunks: TxThunk[]) {
+  return Effect.gen(function* () {
+    return yield* signAndExecuteEffect(client, signer, yield* buildTxEffect(...thunks));
+  });
 }
+
+export const execThunksEffect = executeThunksEffect;
+export function execThunks(client: ClientWithCoreApi, signer: Signer, ...thunks: TxThunk[]): Promise<ExecResult> {
+  return runPromise(executeThunksEffect(client, signer, ...thunks));
+}
+export const executeThunks = execThunks;
 
 // ── Object-change extractors ────────────────────────────────────────────────
 

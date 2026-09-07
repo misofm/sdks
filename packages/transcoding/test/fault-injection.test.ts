@@ -1,8 +1,22 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { copyFileAtomic } from "../src/pipeline/finalize.js";
+import { Effect, Fiber } from "effect";
+import {
+  inspectAndHash,
+  joinedPromise,
+  readBounded,
+} from "../src/workspace/files.js";
+import { withWorkspaceLock } from "../src/workspace/lock.js";
 
 const roots: string[] = [];
 afterEach(async () =>
@@ -95,4 +109,57 @@ test("in-flight cancellation removes the partial atomic copy", async () => {
   expect((await readdir(root)).some((name) => name.includes(".tmp-"))).toBe(
     false,
   );
+});
+
+test("interruption joins an in-flight native copy before releasing its workspace lock", async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "transcoder-copy-join-")),
+  );
+  roots.push(root);
+  const source = join(root, "source.m4s");
+  const destination = join(root, "copy.m4s");
+  await writeFile(source, Buffer.alloc(128 * 1024, 7));
+  const started = Promise.withResolvers<void>();
+  const aborted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const fiber = Effect.runFork(
+    withWorkspaceLock(root, "test-copy", () =>
+      joinedPromise((signal) => {
+        signal.addEventListener("abort", () => aborted.resolve(), {
+          once: true,
+        });
+        return copyFileAtomic(source, destination, signal, {
+          afterChunk: async () => {
+            started.resolve();
+            await release.promise;
+          },
+        });
+      }),
+    ),
+  );
+  await started.promise;
+  const interrupted = Effect.runPromise(Fiber.interrupt(fiber));
+  await aborted.promise;
+  expect(await Bun.file(join(root, ".transcoder.lock")).exists()).toBe(true);
+  release.resolve();
+  await interrupted;
+  expect((await readdir(root)).sort()).toEqual(["source.m4s"]);
+});
+
+test("shared file reads and hashes reject symlinks and byte-limit violations", async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "transcoder-bounded-files-")),
+  );
+  roots.push(root);
+  const source = join(root, "source");
+  const linked = join(root, "linked");
+  await writeFile(source, "abcd");
+  await symlink(source, linked);
+  for (const operation of [readBounded, inspectAndHash]) {
+    await expect(operation(linked)).rejects.toBeDefined();
+    await expect(operation(source, 3)).rejects.toBeInstanceOf(RangeError);
+    await expect(operation(root)).rejects.toBeDefined();
+  }
+  expect(await readBounded(source, 4)).toEqual(Buffer.from("abcd"));
+  expect((await inspectAndHash(source, 4)).bytes).toBe(4);
 });

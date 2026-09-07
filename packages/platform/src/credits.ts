@@ -1,6 +1,11 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFieldsEffect } from "./queries.ts";
+
+import { toPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
+
 // Contributor credits. A credit pairs a party with a display name and one or more
 // domain-specific roles (`miso_credit::credit::Credit<Role>`), attached to a work
 // via a dynamic field on the work's UID and gated by the work's admin cap. Three
@@ -28,22 +33,22 @@
 // about any of it — it only provides the cap-gated `uid_mut` hook these attach
 // through.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
-import { bcs } from "@mysten/sui/bcs";
-import { deriveDynamicFieldID } from "@mysten/sui/utils";
-import type {
-  Transaction,
-  TransactionArgument,
-  TransactionObjectArgument,
-} from "@mysten/sui/transactions";
-import type { TxThunk } from "./transactions.ts";
-import { OPTION_NONE, OPTION_SOME } from "./internal.ts";
 import * as compositionCredits from "@misofm/protocol/contracts/composition_credits/composition_credits";
 import * as compositionPartyRole from "@misofm/protocol/contracts/composition_credits/composition_party_role";
 import * as recordingCredits from "@misofm/protocol/contracts/recording_credits/recording_credits";
 import * as recordingPartyRole from "@misofm/protocol/contracts/recording_credits/recording_party_role";
 import * as releaseCredits from "@misofm/protocol/contracts/release_credits/release_credits";
 import * as releasePartyRole from "@misofm/protocol/contracts/release_credits/release_party_role";
+import { bcs } from "@mysten/sui/bcs";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
+import type {
+  Transaction,
+  TransactionArgument,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions";
+import { deriveDynamicFieldID } from "@mysten/sui/utils";
+import { OPTION_NONE, OPTION_SOME } from "./internal.ts";
+import type { TxThunk } from "./transactions.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 
 function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {
@@ -620,77 +625,6 @@ const RELEASE_CREDITS_KEY_BYTES = releaseCredits.ExtensionKey.serialize([
   false,
 ]).toBytes();
 
-type CreditFieldKind =
-  | "composition"
-  | "recording"
-  | "release";
-
-interface CreditFieldTarget {
-  workId: string;
-  kind: CreditFieldKind;
-  fieldId: string;
-}
-
-/** Fetch many derived credit fields through one Core bulk request. */
-async function fetchCreditFields(
-  client: ClientWithCoreApi,
-  targets: readonly CreditFieldTarget[],
-): Promise<Map<string, Uint8Array>> {
-  if (targets.length === 0) return new Map();
-  const { objects } = await client.core.getObjects({
-    objectIds: targets.map((target) => target.fieldId),
-    include: { content: true },
-  });
-  const contents = new Map<string, Uint8Array>();
-  objects.forEach((object, index) => {
-    if (object instanceof Error || !object.content) return;
-    const target = targets[index];
-    if (target) contents.set(target.fieldId, object.content);
-  });
-  return contents;
-}
-
-function compositionCreditTargets(
-  compositionIds: readonly string[],
-  packageId: string,
-): CreditFieldTarget[] {
-  return compositionIds.map((workId) => ({
-    workId,
-    kind: "composition" as const,
-    fieldId: deriveDynamicFieldID(
-      workId,
-      `${packageId}::composition_credits::ExtensionKey`,
-      COMPOSITION_CREDITS_KEY_BYTES,
-    ),
-  }));
-}
-
-function recordingCreditTargets(
-  recordingIds: readonly string[],
-  packageId: string,
-): CreditFieldTarget[] {
-  return recordingIds.map((workId) => ({
-    workId,
-    kind: "recording" as const,
-    fieldId: deriveDynamicFieldID(
-      workId,
-      `${packageId}::recording_credits::ExtensionKey`,
-      RECORDING_CREDITS_KEY_BYTES,
-    ),
-  }));
-}
-
-function releaseCreditTargets(
-  releaseIds: readonly string[],
-  packageId: string,
-): CreditFieldTarget[] {
-  return releaseIds.map((workId) => ({
-    workId,
-    kind: "release",
-    fieldId: releaseCreditsFieldId(workId, packageId),
-  }));
-}
-
 /** Deterministic dynamic-field id for a release's billing credits. */
 export function releaseCreditsFieldId(
   releaseId: string,
@@ -783,124 +717,116 @@ function recordingRoleLabel(role: ParsedEnum): string {
  * Reads a composition's writing credits (the `composition_credits` extension), or
  * `null` if no credits field is attached.
  */
-export async function getCompositionCredits(
+export function getCompositionCreditsEffect(
   client: ClientWithCoreApi,
   compositionId: string,
   compositionCreditsPackageId: string,
-): Promise<CreditView[] | null> {
-  return (
-    (
-      await getCompositionCreditsByIds(
-        client,
-        [compositionId],
-        compositionCreditsPackageId,
-      )
-    )[compositionId] ?? null
-  );
+): Effect.Effect<CreditView[] | null, SdkError> {
+  return workflow("getCompositionCredits", function* () {
+    return (
+      (yield* getCompositionCreditsByIdsEffect(client, [compositionId], compositionCreditsPackageId))[compositionId] ??
+      null
+    );
+  });
 }
 
+export const getCompositionCredits = toPromise(getCompositionCreditsEffect);
+
 /** Composition credits for many works in one Core bulk request. */
-export async function getCompositionCreditsByIds(
+export function getCompositionCreditsByIdsEffect(
   client: ClientWithCoreApi,
   compositionIdsInput: readonly string[],
   compositionCreditsPackageId: string,
-): Promise<Partial<Record<string, CreditView[]>>> {
-  const compositionIds = [...new Set(compositionIdsInput)];
-  const targets = compositionCreditTargets(
-    compositionIds,
-    compositionCreditsPackageId,
+): Effect.Effect<Partial<Record<string, CreditView[]>>, SdkError> {
+  return readFieldsEffect(
+    client,
+    compositionIdsInput,
+    (id) =>
+      deriveDynamicFieldID(
+        id,
+        `${compositionCreditsPackageId}::composition_credits::ExtensionKey`,
+        COMPOSITION_CREDITS_KEY_BYTES,
+      ),
+    (content) => creditViews(CompositionCreditsField.parse(content).value.credits, compositionRoleLabel),
   );
-  const contents = await fetchCreditFields(client, targets);
-  const out: Partial<Record<string, CreditView[]>> = {};
-  for (const target of targets) {
-    const content = contents.get(target.fieldId);
-    if (content) {
-      out[target.workId] = creditViews(
-        CompositionCreditsField.parse(content).value.credits,
-        compositionRoleLabel,
-      );
-    }
-  }
-  return out;
 }
+
+export const getCompositionCreditsByIds = toPromise(getCompositionCreditsByIdsEffect);
 
 /**
  * Reads a recording's credits plus its primary/featured artist party ids (the
  * `recording_credits` extension), or `null` if no credits field is attached.
  */
-export async function getRecordingCredits(
+export function getRecordingCreditsEffect(
   client: ClientWithCoreApi,
   recordingId: string,
   recordingCreditsPackageId: string,
-): Promise<RecordingCreditsView | null> {
-  return (
-    (
-      await getRecordingCreditsByIds(
-        client,
-        [recordingId],
-        recordingCreditsPackageId,
-      )
-    )[recordingId] ?? null
-  );
+): Effect.Effect<RecordingCreditsView | null, SdkError> {
+  return workflow("getRecordingCredits", function* () {
+    return (
+      (yield* getRecordingCreditsByIdsEffect(client, [recordingId], recordingCreditsPackageId))[recordingId] ?? null
+    );
+  });
 }
 
+export const getRecordingCredits = toPromise(getRecordingCreditsEffect);
+
 /** Recording credits for many works in one Core bulk request. */
-export async function getRecordingCreditsByIds(
+export function getRecordingCreditsByIdsEffect(
   client: ClientWithCoreApi,
   recordingIdsInput: readonly string[],
   recordingCreditsPackageId: string,
-): Promise<Partial<Record<string, RecordingCreditsView>>> {
-  const recordingIds = [...new Set(recordingIdsInput)];
-  const targets = recordingCreditTargets(
-    recordingIds,
-    recordingCreditsPackageId,
+): Effect.Effect<Partial<Record<string, RecordingCreditsView>>, SdkError> {
+  return readFieldsEffect(
+    client,
+    recordingIdsInput,
+    (id) =>
+      deriveDynamicFieldID(
+        id,
+        `${recordingCreditsPackageId}::recording_credits::ExtensionKey`,
+        RECORDING_CREDITS_KEY_BYTES,
+      ),
+    (content) => {
+      const value = RecordingCreditsField.parse(content).value;
+      return {
+        credits: creditViews(value.credits, recordingRoleLabel),
+        primaryArtistIds: value.primary_artist_ids.contents,
+        featuredArtistIds: value.featured_artist_ids.contents,
+      };
+    },
   );
-  const contents = await fetchCreditFields(client, targets);
-  const out: Partial<Record<string, RecordingCreditsView>> = {};
-  for (const target of targets) {
-    const content = contents.get(target.fieldId);
-    if (!content) continue;
-    const value = RecordingCreditsField.parse(content).value;
-    out[target.workId] = {
-      credits: creditViews(value.credits, recordingRoleLabel),
-      primaryArtistIds: value.primary_artist_ids.contents,
-      featuredArtistIds: value.featured_artist_ids.contents,
-    };
-  }
-  return out;
 }
+
+export const getRecordingCreditsByIds = toPromise(getRecordingCreditsByIdsEffect);
 
 /**
  * Reads a release's top-line billing credits (the `release_credits` extension), or
  * `null` if no credits field is attached. Each credit has exactly one role.
  */
-export async function getReleaseCredits(
+export function getReleaseCreditsEffect(
   client: ClientWithCoreApi,
   releaseId: string,
   releaseCreditsPackageId: string,
-): Promise<CreditView[] | null> {
-  return (
-    (
-      await getReleaseCreditsByIds(client, [releaseId], releaseCreditsPackageId)
-    )[releaseId] ?? null
-  );
+): Effect.Effect<CreditView[] | null, SdkError> {
+  return workflow("getReleaseCredits", function* () {
+    return (yield* getReleaseCreditsByIdsEffect(client, [releaseId], releaseCreditsPackageId))[releaseId] ?? null;
+  });
 }
 
+export const getReleaseCredits = toPromise(getReleaseCreditsEffect);
+
 /** Release billing credits for many releases in one Core bulk request. */
-export async function getReleaseCreditsByIds(
+export function getReleaseCreditsByIdsEffect(
   client: ClientWithCoreApi,
   releaseIdsInput: readonly string[],
   releaseCreditsPackageId: string,
-): Promise<Partial<Record<string, CreditView[]>>> {
-  const releaseIds = [...new Set(releaseIdsInput)];
-  const targets = releaseCreditTargets(releaseIds, releaseCreditsPackageId);
-  const contents = await fetchCreditFields(client, targets);
-  const out: Partial<Record<string, CreditView[]>> = {};
-  for (const target of targets) {
-    const content = contents.get(target.fieldId);
-    if (content) {
-      out[target.workId] = parseReleaseCreditsContent(content);
-    }
-  }
-  return out;
+): Effect.Effect<Partial<Record<string, CreditView[]>>, SdkError> {
+  return readFieldsEffect(
+    client,
+    releaseIdsInput,
+    (id) => releaseCreditsFieldId(id, releaseCreditsPackageId),
+    parseReleaseCreditsContent,
+  );
 }
+
+export const getReleaseCreditsByIds = toPromise(getReleaseCreditsByIdsEffect);

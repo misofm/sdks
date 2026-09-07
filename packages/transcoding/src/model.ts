@@ -19,11 +19,11 @@ export interface TranscodeRequest {
   readonly fileConcurrency?: number;
 }
 
-/** @internal Preparation is an implementation checkpoint, not publication metadata. */
+/** Private preparation checkpoint request; omitted from the package entry point. */
 export interface PrepareRequest
   extends Omit<TranscodeRequest, "fileConcurrency"> {}
 
-/** @internal */
+/** Private finalization request; omitted from the package entry point. */
 export interface FinalizeRequest {
   readonly prepared: PreparedTranscode;
   readonly fresh?: boolean;

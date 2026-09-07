@@ -1,5 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
 //
 // Genre name resolution. `party.getGenres` returns `Genre` OBJECT IDS; each Genre
 // object carries a screaming-snake name ("HIP_HOP"). There is no id→name table
@@ -20,10 +23,12 @@ function humanize(name: string): string {
  * Resolve `Genre` object ids to display names. Best-effort: an id that fails to
  * read is dropped rather than failing the artist page around it.
  */
-export async function resolveGenreNames(client: MisoClient, ids: string[]): Promise<string[]> {
-  if (ids.length === 0) return [];
-  try {
-    const { objects } = await client.protocol.core.getObjects({ objectIds: ids, include: { json: true } });
+export function resolveGenreNamesEffect(client: MisoClient, ids: string[]): Effect.Effect<string[], SdkError> {
+  return workflow("resolveGenreNames", function* () {
+    if (ids.length === 0) return [];
+    const { objects } = yield* tryPromise("resolveGenreNames", (signal) =>
+      client.protocol.core.getObjects({ signal, objectIds: ids, include: { json: true } }),
+    );
     const out: string[] = [];
     for (const o of objects) {
       if (o instanceof Error) continue;
@@ -31,7 +36,7 @@ export async function resolveGenreNames(client: MisoClient, ids: string[]): Prom
       if (typeof name === "string" && name) out.push(humanize(name));
     }
     return out;
-  } catch {
-    return [];
-  }
+  }).pipe(Effect.catch(() => Effect.succeed([])));
 }
+
+export const resolveGenreNames = toPromise(resolveGenreNamesEffect);

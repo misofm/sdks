@@ -27,65 +27,65 @@
 // `tx` builds transactions without executing, `bcs` exposes the generated struct
 // definitions, `ids` is the address math that replaces a registry.
 
-import type {
-  ClientWithCoreApi,
-  SuiClientRegistration,
-} from "@mysten/sui/client";
-import type {} from "@mysten/bcs";
-import type { Signer } from "@mysten/sui/cryptography";
-import type { SuiGraphQLClient } from "@mysten/sui/graphql";
-import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 import {
   miso as protocolMiso,
   type MisoProtocolClient,
 } from "@misofm/protocol/client";
 import type { PartyProtocolClient } from "@misofm/protocol/party";
+import type {} from "@mysten/bcs";
+import type {
+  ClientWithCoreApi,
+  SuiClientRegistration,
+} from "@mysten/sui/client";
+import type { Signer } from "@mysten/sui/cryptography";
+import type { SuiGraphQLClient } from "@mysten/sui/graphql";
+import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
-import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as compositionRoutedStakeContract from "@misofm/protocol/contracts/composition_routed_stake/composition_routed_stake";
+import * as compositionRoyaltyPoolContract from "@misofm/protocol/contracts/composition_royalty_pool/composition_royalty_pool";
+import * as compositionRoyaltyPoolPluginContract from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
+import * as coverArtContract from "@misofm/protocol/contracts/cover_art/cover_art";
 import * as genreContract from "@misofm/protocol/contracts/genre/genre";
+import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
+import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
+import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as partyWalletContract from "@misofm/protocol/contracts/party_wallet/party_wallet";
+import * as recordingAdvisoryContract from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
+import * as recordingLanguageContract from "@misofm/protocol/contracts/recording_language/recording_language";
+import * as recordingMasterReferenceContract from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
+import * as recordingRoyaltyPoolContract from "@misofm/protocol/contracts/recording_royalty_pool/recording_royalty_pool";
+import * as recordingRoyaltyPoolPluginContract from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
+import * as recordingStreamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import * as releaseCoverArtContract from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
+import * as releaseCreditsContract from "@misofm/protocol/contracts/release_credits/release_credits";
 import * as releaseDescriptionContract from "@misofm/protocol/contracts/release_description/release_description";
 import * as releaseDspLinkContract from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
 import * as releaseGenreContract from "@misofm/protocol/contracts/release_genre/release_genre";
 import * as releaseKindContract from "@misofm/protocol/contracts/release_kind/release_kind";
 import * as releaseRevenueDistributorContract from "@misofm/protocol/contracts/release_revenue_distributor/release_revenue_distributor";
-import * as vaultContract from "@misofm/protocol/contracts/vault/vault";
-import * as compositionRoyaltyPoolContract from "@misofm/protocol/contracts/composition_royalty_pool/composition_royalty_pool";
-import * as recordingRoyaltyPoolContract from "@misofm/protocol/contracts/recording_royalty_pool/recording_royalty_pool";
-import * as partyWalletContract from "@misofm/protocol/contracts/party_wallet/party_wallet";
-import * as compositionRoutedStakeContract from "@misofm/protocol/contracts/composition_routed_stake/composition_routed_stake";
-import * as compositionRoyaltyPoolPluginContract from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
-import * as recordingRoyaltyPoolPluginContract from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
 import * as releaseRevenueDistributorPluginContract from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
 import * as routedStakeContract from "@misofm/protocol/contracts/routed_stake/routed_stake";
 import * as royaltyPoolContract from "@misofm/protocol/contracts/royalty_pool/pool";
-import * as recordingAdvisoryContract from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
-import * as recordingLanguageContract from "@misofm/protocol/contracts/recording_language/recording_language";
-import * as recordingMasterReferenceContract from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
-import * as recordingStreamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
-import * as vaultActions from "./vault.ts";
-import * as coverArtContract from "@misofm/protocol/contracts/cover_art/cover_art";
-import * as releaseCoverArtContract from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
-import * as releaseCreditsContract from "@misofm/protocol/contracts/release_credits/release_credits";
+import * as vaultContract from "@misofm/protocol/contracts/vault/vault";
+import { runPromise, tryPromise, trySync, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
 import {
-  authorizeRecordShop,
-  deriveListingId,
-  derivePressingAdminCapId,
-  derivePressingId,
-  deriveRecordId,
-  deriveSaleIds,
-  getListing,
-  getPressing,
-  getRecord,
-  getSale,
-  openListing,
-  openPressing,
-  purchaseRecord,
-  revokeRecordShop,
-  setListingPrice,
-  setListingState,
-} from "./pressing.ts";
+  setReleaseCover,
+  setReleaseTrackCover,
+  type SetReleaseCoverParams,
+  type SetReleaseTrackCoverParams,
+} from "./cover.ts";
+import { addReleaseCredit, type AddReleaseCreditParams } from "./credits.ts";
+import {
+  getMisoPlatformDeployment,
+  requireOperationsDeployment,
+  requireRecordSalesDeployment,
+  type MisoPlatformDeployment,
+  type OperationsDeployment,
+  type RecordSalesDeployment,
+} from "./deployments.ts";
+import { executeViaExecutorEffect as executePlatformViaExecutorEffect, type PlatformExecResult } from "./execute.ts";
+import { immutableSnapshot } from "./internal.ts";
 import type {
   GetSaleParams,
   ListingView,
@@ -99,34 +99,29 @@ import type {
   SetListingStateParams,
 } from "./pressing.ts";
 import {
-  publishShareCurrency,
-  initializeShareCurrency,
-  publishComposition,
-  publishRecording,
-  publishCompositionAndRecording,
-  publishRelease,
-} from "./transactions.ts";
-import type {
-  TxThunk,
-  PublishCompositionParams,
-  PublishRecordingParams,
-  PublishCompositionAndRecordingParams,
-  PublishReleaseParams,
-} from "./transactions.ts";
-import * as share from "./share.ts";
+  authorizeRecordShop,
+  deriveListingId,
+  derivePressingAdminCapId,
+  derivePressingId,
+  deriveRecordId,
+  deriveSaleIds,
+  getListingEffect,
+  getPressingEffect,
+  getRecordEffect,
+  getSaleEffect,
+  openListing,
+  openPressing,
+  purchaseRecord,
+  revokeRecordShop,
+  setListingPrice,
+  setListingState,
+} from "./pressing.ts";
 import {
-  publishReleaseGraph,
-  type PublishReleaseGraphParams,
-} from "./release-graph.ts";
-import {
-  getMisoPlatformDeployment,
-  requireOperationsDeployment,
-  requireRecordSalesDeployment,
-  type MisoPlatformDeployment,
-  type OperationsDeployment,
-  type RecordSalesDeployment,
-} from "./deployments.ts";
-import { immutableSnapshot } from "./internal.ts";
+  setRecordingStreamingTranscode,
+  unsetRecordingStreamingTranscode,
+  type SetRecordingStreamingTranscodeParams,
+  type UnsetRecordingStreamingTranscodeParams,
+} from "./recording-extensions.ts";
 import {
   deriveGenreAddress,
   setReleaseDescription,
@@ -139,22 +134,26 @@ import {
   type SetReleaseKindParams,
 } from "./release-extensions.ts";
 import {
-  setRecordingStreamingTranscode,
-  unsetRecordingStreamingTranscode,
-  type SetRecordingStreamingTranscodeParams,
-  type UnsetRecordingStreamingTranscodeParams,
-} from "./recording-extensions.ts";
-import { addReleaseCredit, type AddReleaseCreditParams } from "./credits.ts";
+  publishReleaseGraph,
+  type PublishReleaseGraphParams,
+} from "./release-graph.ts";
+import * as share from "./share.ts";
+import type {
+  PublishCompositionAndRecordingParams,
+  PublishCompositionParams,
+  PublishRecordingParams,
+  PublishReleaseParams,
+  TxThunk,
+} from "./transactions.ts";
 import {
-  setReleaseCover,
-  setReleaseTrackCover,
-  type SetReleaseCoverParams,
-  type SetReleaseTrackCoverParams,
-} from "./cover.ts";
-import {
-  executeViaExecutor as executePlatformViaExecutor,
-  type PlatformExecResult,
-} from "./execute.ts";
+  initializeShareCurrency,
+  publishComposition,
+  publishCompositionAndRecording,
+  publishRecording,
+  publishRelease,
+  publishShareCurrency,
+} from "./transactions.ts";
+import * as vaultActions from "./vault.ts";
 
 type BoundMoveFunction<F> = F extends (options: infer Options) => infer Result
   ? Options extends { package?: unknown }
@@ -388,6 +387,7 @@ export class MisoPlatformClient {
   #readyState: "unvalidated" | "validating" | "ready" | "failed" =
     "unvalidated";
   #readyPromise?: Promise<void>;
+  #cachedReady?: Effect.Effect<void, SdkError>;
 
   constructor(
     client: ClientWithCoreApi,
@@ -432,37 +432,47 @@ export class MisoPlatformClient {
    * client-bound write surface from a mislabeled or custom endpoint.
    */
   ready(): Promise<void> {
-    if (!this.#readyPromise) {
-      this.#readyState = "validating";
-      this.#readyPromise = (async () => {
-        try {
-          if (!this.#chainIdentifier) {
-            throw new Error(
-              "misoPlatform: chain readiness requires a complete deployment or an explicit `chainIdentifier`.",
+    return (this.#readyPromise ??= runPromise(this.readyEffect()));
+  }
+
+  /** Shared, lazy readiness; successes and failures retain the existing cache policy. */
+  readyEffect(): Effect.Effect<void, SdkError> {
+    const self = this;
+    return Effect.gen(function* () {
+      if (!self.#cachedReady) {
+        self.#cachedReady = yield* Effect.cached(
+          workflow("platform.ready", function* () {
+            self.#readyState = "validating";
+            if (!self.#chainIdentifier)
+              throw new Error(
+                "misoPlatform: chain readiness requires a complete deployment or an explicit `chainIdentifier`.",
+              );
+            const { chainIdentifier } = yield* tryPromise("platform.chainIdentifier", () =>
+              self.#client.core.getChainIdentifier(),
             );
-          }
-          const { chainIdentifier } =
-            await this.#client.core.getChainIdentifier();
-          if (chainIdentifier !== this.#chainIdentifier) {
-            throw new MisoChainIdentifierMismatchError(
-              chainIdentifier,
-              this.#chainIdentifier,
-            );
-          }
-          this.#readyState = "ready";
-        } catch (error) {
-          this.#readyState = "failed";
-          throw error;
-        }
-      })();
-    }
-    return this.#readyPromise;
+            if (chainIdentifier !== self.#chainIdentifier)
+              throw new MisoChainIdentifierMismatchError(chainIdentifier, self.#chainIdentifier);
+            self.#readyState = "ready";
+          }).pipe(
+            Effect.tapError(() =>
+              Effect.sync(() => {
+                self.#readyState = "failed";
+              }),
+            ),
+            Effect.uninterruptible,
+          ),
+        );
+      }
+      yield* self.#cachedReady;
+    });
   }
 
   /** Compatibility hook; prefer `await client.miso.ready()`. */
-  async validateChainIdentifier(): Promise<string> {
-    await this.ready();
-    return this.#chainIdentifier!;
+  validateChainIdentifierEffect(): Effect.Effect<string, SdkError> {
+    return Effect.map(this.readyEffect(), () => this.#chainIdentifier!);
+  }
+  validateChainIdentifier(): Promise<string> {
+    return runPromise(this.validateChainIdentifierEffect());
   }
 
   #requireReady(operation: string): void {
@@ -576,35 +586,52 @@ export class MisoPlatformClient {
 
   // ── Reads ─────────────────────────────────────────────────────────────────
 
+  #whenReady<A>(read: () => Effect.Effect<A, SdkError>): Effect.Effect<A, SdkError> {
+    return Effect.flatMap(this.readyEffect(), () => trySync("platform.readyRead", read)).pipe(Effect.flatten);
+  }
+
   /** The run itself, or `null` if this release has never opened one. */
-  async getPressing(pressingId: string): Promise<PressingView | null> {
-    await this.ready();
-    return getPressing(this.#client, pressingId, this.recordPackageId);
+  getPressingEffect(pressingId: string): Effect.Effect<PressingView | null, SdkError> {
+    return this.#whenReady(() => getPressingEffect(this.#client, pressingId, this.recordPackageId));
+  }
+  getPressing(pressingId: string) {
+    return runPromise(this.getPressingEffect(pressingId));
   }
 
   /** One currency's offer, or `null` if the run does not sell in it. */
-  async getListing(listingId: string): Promise<ListingView | null> {
-    await this.ready();
-    return getListing(this.#client, listingId, this.recordShopPackageId);
+  getListingEffect(listingId: string): Effect.Effect<ListingView | null, SdkError> {
+    return this.#whenReady(() => getListingEffect(this.#client, listingId, this.recordShopPackageId));
+  }
+  getListing(listingId: string) {
+    return runPromise(this.getListingEffect(listingId));
   }
 
   /** One concrete purchased Record, including immutable purchase provenance. */
-  async getRecord(recordId: string): Promise<RecordView | null> {
-    await this.ready();
-    return getRecord(this.#client, recordId, this.recordPackageId);
+  getRecordEffect(recordId: string): Effect.Effect<RecordView | null, SdkError> {
+    return this.#whenReady(() => getRecordEffect(this.#client, recordId, this.recordPackageId));
+  }
+  getRecord(recordId: string) {
+    return runPromise(this.getRecordEffect(recordId));
   }
 
   /** Run + one currency's offer in a single round trip, by address math. */
-  async getSale(p: Configured<GetSaleParams>): Promise<{
-    pressing: PressingView | null;
-    listing: ListingView | null;
-  }> {
-    await this.ready();
-    return getSale(this.#client, {
-      ...p,
-      recordPackageId: this.recordPackageId,
-      recordShopPackageId: this.recordShopPackageId,
-    });
+  getSaleEffect(p: Configured<GetSaleParams>): Effect.Effect<
+    {
+      pressing: PressingView | null;
+      listing: ListingView | null;
+    },
+    SdkError
+  > {
+    return this.#whenReady(() =>
+      getSaleEffect(this.#client, {
+        ...p,
+        recordPackageId: this.recordPackageId,
+        recordShopPackageId: this.recordShopPackageId,
+      }),
+    );
+  }
+  getSale(p: Configured<GetSaleParams>) {
+    return runPromise(this.getSaleEffect(p));
   }
 
   // ── Address math ──────────────────────────────────────────────────────────
@@ -840,21 +867,25 @@ export class MisoPlatformClient {
   // ── Share currency provisioning (executes; Signer pattern) ─────────────────
 
   /** Publishes + initializes a fresh share currency (two txs). */
-  async createShareCurrency(
+  createShareCurrencyEffect(
     signer: Signer,
     params: share.CreateShareCurrencyParams,
-  ): Promise<share.ShareCurrency> {
-    await this.ready();
-    return share.createShareCurrency(this.#client, signer, params);
+  ): Effect.Effect<share.ShareCurrency, SdkError> {
+    return this.#whenReady(() => share.createShareCurrencyEffect(this.#client, signer, params));
+  }
+  createShareCurrency(signer: Signer, params: share.CreateShareCurrencyParams) {
+    return runPromise(this.createShareCurrencyEffect(signer, params));
   }
 
   /** Execute a composed platform PTB only after exact-ledger validation. */
-  async executeViaExecutor(
+  executeViaExecutorEffect(
     executor: ParallelTransactionExecutor,
     ...thunks: TxThunk[]
-  ): Promise<PlatformExecResult> {
-    await this.ready();
-    return executePlatformViaExecutor(executor, ...thunks);
+  ): Effect.Effect<PlatformExecResult, SdkError> {
+    return this.#whenReady(() => executePlatformViaExecutorEffect(executor, ...thunks));
+  }
+  executeViaExecutor(executor: ParallelTransactionExecutor, ...thunks: TxThunk[]) {
+    return runPromise(this.executeViaExecutorEffect(executor, ...thunks));
   }
 
   // ── Generated layer ───────────────────────────────────────────────────────

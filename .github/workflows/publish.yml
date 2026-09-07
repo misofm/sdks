@@ -7,7 +7,7 @@ name: Publish to npm
 # can be re-run from Actions without permitting a branch to publish a package.
 on:
   push:
-    tags: ["protocol-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
+    tags: ["utils-v*", "protocol-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -53,6 +53,10 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           case "$TAG" in
+            utils-v*)
+              DIR="packages/utils"
+              VERSION="${TAG#utils-v}"
+              ;;
             protocol-v*)
               DIR="packages/protocol"
               VERSION="${TAG#protocol-v}"
@@ -70,7 +74,7 @@ jobs:
               VERSION="${TAG#transcoding-v}"
               ;;
             *)
-              echo "::error::Tag '$TAG' does not match protocol-v*, platform-v*, streaming-v*, or transcoding-v*"
+              echo "::error::Tag '$TAG' does not match utils-v*, protocol-v*, platform-v*, streaming-v*, or transcoding-v*"
               exit 1
               ;;
           esac

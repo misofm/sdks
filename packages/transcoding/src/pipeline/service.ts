@@ -75,41 +75,41 @@ export const TranscoderLive = Layer.effect(
       );
     return {
       transcode: (request) =>
-        around(
-          "prepare",
-          prepareTranscode(request).pipe(Effect.provideService(Ffmpeg, ffmpeg)),
-        ).pipe(
-          Effect.flatMap((prepared) => {
-            const workspacePath = path.join(prepared.rootPath, "..", "..");
-            return around(
-              "finalize",
-              withWorkspaceLock(workspacePath, "finalize", () =>
-                cleanupWorkspaceTemporaries(workspacePath).pipe(
-                  Effect.andThen(verifyPreparedTranscode(prepared)),
+        Effect.gen(function* () {
+          const prepared = yield* around(
+            "prepare",
+            prepareTranscode(request).pipe(
+              Effect.provideService(Ffmpeg, ffmpeg),
+            ),
+          );
+          const workspacePath = path.join(prepared.rootPath, "..", "..");
+          return yield* around(
+            "finalize",
+            withWorkspaceLock(workspacePath, "finalize", () =>
+              Effect.gen(function* () {
+                yield* cleanupWorkspaceTemporaries(workspacePath);
+                yield* verifyPreparedTranscode(prepared).pipe(
                   Effect.provideService(Ffmpeg, ffmpeg),
-                  Effect.andThen(
-                    finalizeTranscode({
-                      prepared,
-                      ...(request.fresh === undefined
-                        ? {}
-                        : { fresh: request.fresh }),
-                      ...(request.fileConcurrency === undefined
-                        ? {}
-                        : { fileConcurrency: request.fileConcurrency }),
-                    }),
-                  ),
-                  Effect.tap((artifact) =>
-                    writeWorkspaceState(workspacePath, {
-                      schema: "miso.transcoder-workspace/1",
-                      prepareDigest: prepared.prepareDigest,
-                      transcodeDigest: artifact.transcodeDigest,
-                    }),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
+                );
+                const artifact = yield* finalizeTranscode({
+                  prepared,
+                  ...(request.fresh === undefined
+                    ? {}
+                    : { fresh: request.fresh }),
+                  ...(request.fileConcurrency === undefined
+                    ? {}
+                    : { fileConcurrency: request.fileConcurrency }),
+                });
+                yield* writeWorkspaceState(workspacePath, {
+                  schema: "miso.transcoder-workspace/1",
+                  prepareDigest: prepared.prepareDigest,
+                  transcodeDigest: artifact.transcodeDigest,
+                });
+                return artifact;
+              }),
+            ),
+          );
+        }),
       verify: (artifact) => around("verify", verifyArtifact(artifact)),
       cleanup: (artifact) => {
         const workspacePath = path.join(artifact.rootPath, "..", "..");

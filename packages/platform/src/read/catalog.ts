@@ -1,5 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
 //
 // Catalog reads: pressings, releases, covers, credits, tracklists, and the
 // Discover shelf. Everything here is PUBLIC — no address is involved and no two
@@ -10,44 +13,43 @@
 // credits → recordings); the same work happens once here, inside one datacenter,
 // and every subsequent visitor is served from cache.
 
+import type { Release } from "@misofm/protocol";
+import { getReleaseByIdEffect, getReleasesByIdsEffect, isNotFound } from "@misofm/protocol";
+import { getTrackCreditsByRecordingIdsEffect } from "../catalog.ts";
 import {
-  deriveListingId,
-  getListing,
-  getPressing,
-  getRecord,
-  getSale,
-  type ListingView as ContractListingView,
-  type PressingView as ContractPressingView,
-} from "../pressing.ts";
-import { requireRecordSalesDeployment } from "../deployments.ts";
-import {
-  getReleaseCoversByIds,
+  getReleaseCoversByIdsEffect,
   parseReleaseCoverContent,
   releaseCoverFieldId,
-  type ReleaseCoverView,
   type CoverImageRef,
+  type ReleaseCoverView,
 } from "../cover.ts";
 import {
-  getReleaseCreditsByIds,
+  getReleaseCreditsByIdsEffect,
   parseReleaseCreditsContent,
   releaseCreditsFieldId,
   type CreditView,
 } from "../credits.ts";
+import { requireRecordSalesDeployment } from "../deployments.ts";
+import {
+  deriveListingId,
+  getListingEffect,
+  getPressingEffect,
+  getRecordEffect,
+  getSaleEffect,
+  type ListingView as ContractListingView,
+  type PressingView as ContractPressingView,
+} from "../pressing.ts";
+import {
+  getRecordingEngineSessionsByIdsEffect,
+  getRecordingMasterReferencesByIdsEffect,
+  getRecordingStreamingTranscodesByIdsEffect,
+  type RecordingEngineSessionView,
+} from "../recording-extensions.ts";
 import {
   parseReleaseKindContent,
   releaseKindFieldId,
 } from "../release-extensions.ts";
-import {
-  getRecordingEngineSessionsByIds,
-  getRecordingMasterReferencesByIds,
-  getRecordingStreamingTranscodesByIds,
-  type RecordingEngineSessionView,
-} from "../recording-extensions.ts";
-import { getTrackCreditsByRecordingIds } from "../catalog.ts";
-import { getReleaseById, getReleasesByIds, isNotFound } from "@misofm/protocol";
-import type { Release } from "@misofm/protocol";
 import type { MisoClient } from "./client.ts";
-import { getRecordingTitles, parseReleaseObject } from "./works.ts";
 import { int } from "./internal/scalars.ts";
 import {
   u256ToB64Url,
@@ -73,6 +75,7 @@ import type {
   TrackView,
   WorkState,
 } from "./types.ts";
+import { getRecordingTitlesEffect, parseReleaseObject } from "./works.ts";
 
 // ── Walrus URLs ──────────────────────────────────────────────────────────────
 
@@ -151,30 +154,34 @@ function toSaleView(
 }
 
 /** One permanent pressing, projected to the JSON-safe read boundary. */
-export async function getPressingView(
+export function getPressingViewEffect(
   client: MisoClient,
   pressingId: string,
-): Promise<PressingView | null> {
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const pressing = await getPressing(
-    client.protocol,
-    pressingId,
-    sales.recordPackageId,
-  );
-  return pressing ? toPressingView(pressing) : null;
+): Effect.Effect<PressingView | null, SdkError> {
+  return workflow("getPressingView", function* () {
+    const sales = requireRecordSalesDeployment(client.config.recordSales);
+    const pressing = yield* getPressingEffect(client.protocol, pressingId, sales.recordPackageId);
+    return pressing ? toPressingView(pressing) : null;
+  });
 }
 
+export const getPressingView = toPromise(getPressingViewEffect);
+
 /** One currency-specific listing derived from its permanent pressing. */
-export async function getListingView(
+export function getListingViewEffect(
   client: MisoClient,
   pressingId: string,
   currencyType: string,
-): Promise<ListingView | null> {
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const listingId = deriveListingId(pressingId, currencyType, sales.recordShopPackageId);
-  const listing = await getListing(client.protocol, listingId, sales.recordShopPackageId);
-  return listing ? toListingView(listing) : null;
+): Effect.Effect<ListingView | null, SdkError> {
+  return workflow("getListingView", function* () {
+    const sales = requireRecordSalesDeployment(client.config.recordSales);
+    const listingId = deriveListingId(pressingId, currencyType, sales.recordShopPackageId);
+    const listing = yield* getListingEffect(client.protocol, listingId, sales.recordShopPackageId);
+    return listing ? toListingView(listing) : null;
+  });
 }
+
+export const getListingView = toPromise(getListingViewEffect);
 
 function toWorkState(state: Release["state"]): WorkState {
   return state.type === "Published"
@@ -252,18 +259,17 @@ function toTrackEngineSession(view: RecordingEngineSessionView): TrackEngineSess
 // ── Cover ────────────────────────────────────────────────────────────────────
 
 /** A release's cover from the configured `release_cover_art` package. */
-export async function readReleaseCover(
-  client: MisoClient,
-  releaseId: string,
-): Promise<Cover | null> {
-  const { releaseCoverArt } = client.config.protocol;
-  const covers = await getReleaseCoversByIds(
-    client.protocol,
-    [releaseId],
-    releaseCoverArt,
-  ).catch(() => ({}) as Partial<Record<string, ReleaseCoverView>>);
-  return toCover(client.config.walrusAggregatorUrl, covers[releaseId] ?? null);
+export function readReleaseCoverEffect(client: MisoClient, releaseId: string): Effect.Effect<Cover | null, SdkError> {
+  return workflow("readReleaseCover", function* () {
+    const { releaseCoverArt } = client.config.protocol;
+    const covers = yield* Effect.catch(getReleaseCoversByIdsEffect(client.protocol, [releaseId], releaseCoverArt), () =>
+      Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>),
+    );
+    return toCover(client.config.walrusAggregatorUrl, covers[releaseId] ?? null);
+  });
 }
+
+export const readReleaseCover = toPromise(readReleaseCoverEffect);
 
 export type ReleaseResourceInclude = "cover" | "credits" | "kind";
 
@@ -279,89 +285,79 @@ export interface ReleaseResources {
  * Every extension id is deterministic, so separate object calls only add
  * network round trips without discovering anything new.
  */
-export async function getReleaseResources(
+export function getReleaseResourcesEffect(
   client: MisoClient,
   releaseId: string,
   include: readonly ReleaseResourceInclude[] = [],
-): Promise<ReleaseResources> {
-  const wantsCover = include.includes("cover");
-  const wantsCredits = include.includes("credits");
-  const wantsKind = include.includes("kind");
-  const coverFieldIds = wantsCover
-    ? [releaseCoverFieldId(releaseId, client.config.protocol.releaseCoverArt)]
-    : [];
-  const creditsFieldId = wantsCredits
-    ? releaseCreditsFieldId(releaseId, client.config.protocol.releaseCredits)
-    : null;
-  const kindFieldId = wantsKind
-    ? releaseKindFieldId(releaseId, client.config.protocol.releaseKind)
-    : null;
-  const objectIds = [
-    releaseId,
-    ...coverFieldIds,
-    ...(creditsFieldId ? [creditsFieldId] : []),
-    ...(kindFieldId ? [kindFieldId] : []),
-  ];
-  const { objects } = await client.protocol.core.getObjects({
-    objectIds,
-    include: { content: true },
-  });
-  const releaseObject = objects[0];
-  if (!releaseObject) throw new Error(`Release not found: ${releaseId}`);
-  if (releaseObject instanceof Error) throw releaseObject;
-  if (!releaseObject.content)
-    throw new Error(`Release has no content: ${releaseId}`);
-  const release = parseReleaseObject(
-    releaseObject.objectId,
-    releaseObject.content,
-  );
-
-  let cover: Cover | null | undefined;
-  if (wantsCover) {
-    let view: ReleaseCoverView | null = null;
-    for (let index = 0; index < coverFieldIds.length; index += 1) {
-      const object = objects[index + 1];
-      if (!object || object instanceof Error || !object.content) continue;
-      try {
-        view = parseReleaseCoverContent(object.content);
-      } catch {
-        view = null;
-      }
-      if (view) break;
-    }
-    cover = toCover(client.config.walrusAggregatorUrl, view);
-  }
-
-  let credits: Credit[] | undefined;
-  if (wantsCredits) {
-    const object = objects[1 + coverFieldIds.length];
-    let view: CreditView[] = [];
-    if (object && !(object instanceof Error) && object.content) {
-      try {
-        view = parseReleaseCreditsContent(object.content);
-      } catch {
-        view = [];
-      }
-    }
-    credits = toCredits(view);
-  }
-  let kind: string | null | undefined;
-  if (wantsKind) {
-    const object = objects[
-      1 + coverFieldIds.length + (creditsFieldId ? 1 : 0)
+): Effect.Effect<ReleaseResources, SdkError> {
+  return workflow("getReleaseResources", function* () {
+    const wantsCover = include.includes("cover");
+    const wantsCredits = include.includes("credits");
+    const wantsKind = include.includes("kind");
+    const coverFieldIds = wantsCover ? [releaseCoverFieldId(releaseId, client.config.protocol.releaseCoverArt)] : [];
+    const creditsFieldId = wantsCredits
+      ? releaseCreditsFieldId(releaseId, client.config.protocol.releaseCredits)
+      : null;
+    const kindFieldId = wantsKind ? releaseKindFieldId(releaseId, client.config.protocol.releaseKind) : null;
+    const objectIds = [
+      releaseId,
+      ...coverFieldIds,
+      ...(creditsFieldId ? [creditsFieldId] : []),
+      ...(kindFieldId ? [kindFieldId] : []),
     ];
-    kind =
-      object && !(object instanceof Error) && object.content
-        ? parseReleaseKindContent(object.content)
-        : null;
-  }
-  return {
-    release,
-    ...(wantsCover ? { cover: cover ?? null } : {}),
-    ...(wantsCredits ? { credits: credits ?? [] } : {}),
-    ...(wantsKind ? { kind: kind ?? null } : {}),
-  };
+    const { objects } = yield* tryPromise("getReleaseResources", (signal) =>
+      client.protocol.core.getObjects({ signal, objectIds, include: { content: true } }),
+    );
+    const releaseObject = objects[0];
+    if (!releaseObject) throw new Error(`Release not found: ${releaseId}`);
+    if (releaseObject instanceof Error) throw releaseObject;
+    if (!releaseObject.content) throw new Error(`Release has no content: ${releaseId}`);
+    const release = parseReleaseObject(releaseObject.objectId, releaseObject.content);
+
+    let cover: Cover | null | undefined;
+    if (wantsCover) {
+      let view: ReleaseCoverView | null = null;
+      for (let index = 0; index < coverFieldIds.length; index += 1) {
+        const object = objects[index + 1];
+        if (!object || object instanceof Error || !object.content) continue;
+        try {
+          view = parseReleaseCoverContent(object.content);
+        } catch {
+          view = null;
+        }
+        if (view) break;
+      }
+      cover = toCover(client.config.walrusAggregatorUrl, view);
+    }
+
+    let credits: Credit[] | undefined;
+    if (wantsCredits) {
+      const object = objects[1 + coverFieldIds.length];
+      let view: CreditView[] = [];
+      if (object && !(object instanceof Error) && object.content) {
+        try {
+          view = parseReleaseCreditsContent(object.content);
+        } catch {
+          view = [];
+        }
+      }
+      credits = toCredits(view);
+    }
+    let kind: string | null | undefined;
+    if (wantsKind) {
+      const object = objects[1 + coverFieldIds.length + (creditsFieldId ? 1 : 0)];
+      kind = object && !(object instanceof Error) && object.content ? parseReleaseKindContent(object.content) : null;
+    }
+    return {
+      release,
+      ...(wantsCover ? { cover: cover ?? null } : {}),
+      ...(wantsCredits ? { credits: credits ?? [] } : {}),
+      ...(wantsKind ? { kind: kind ?? null } : {}),
+    };
+  });
 }
+
+export const getReleaseResources = toPromise(getReleaseResourcesEffect);
 
 // ── Release ──────────────────────────────────────────────────────────────────
 
@@ -380,99 +376,104 @@ export interface GetReleaseOptions {
   include?: readonly ReleaseInclude[];
 }
 
-export async function getReleaseDetail(
+export function getReleaseDetailEffect(
   client: MisoClient,
   releaseId: string,
   options: GetReleaseOptions = {},
-): Promise<ReleaseDetail> {
-  const { release, cover, credits, kind } = await getReleaseResources(
-    client,
-    releaseId,
-    ["cover", "credits", "kind"],
-  );
+): Effect.Effect<ReleaseDetail, SdkError> {
+  return workflow("getReleaseDetail", function* () {
+    const { release, cover, credits, kind } = yield* getReleaseResourcesEffect(client, releaseId, [
+      "cover",
+      "credits",
+      "kind",
+    ]);
 
-  const recordingIds = release.tracks.map((track) => track.recordingId);
-  const { recordingStreamingTranscode, recordingEngineSession } = client.config.protocol;
-  const [titles, masterReferences, transcodes, engineSessions, trackCredits] = await Promise.all([
-    getRecordingTitles(
-      client.protocol,
-      client.graphql,
-      recordingIds,
-      client.config.deployment.miso,
-    ),
-    getRecordingMasterReferencesByIds(
-      client.protocol,
-      recordingIds,
-      client.config.protocol.recordingMasterReference,
-    ).catch(() => ({})),
-    recordingStreamingTranscode
-      ? getRecordingStreamingTranscodesByIds(client.protocol, recordingIds, recordingStreamingTranscode).catch(() => ({}))
-      : Promise.resolve({}),
-    recordingEngineSession
-      ? getRecordingEngineSessionsByIds(client.protocol, recordingIds, recordingEngineSession).catch(
-          (): Partial<Record<string, RecordingEngineSessionView>> => ({}),
-        )
-      : Promise.resolve<Partial<Record<string, RecordingEngineSessionView>>>({}),
-    options.include?.includes("trackCredits")
-      ? getTrackCreditsForRecordingIds(client, recordingIds)
-      : Promise.resolve(undefined),
-  ]);
-  const audio: TrackAudio = {
-    masterBlobIds: b64UrlByRecording(masterReferences),
-    transcodeQuiltIds: b64UrlByRecording(transcodes),
-    engineSessions: Object.fromEntries(
-      Object.entries(engineSessions).flatMap(([recordingId, view]) =>
-        view ? [[recordingId, toTrackEngineSession(view)]] : [],
+    const recordingIds = release.tracks.map((track) => track.recordingId);
+    const { recordingStreamingTranscode, recordingEngineSession } = client.config.protocol;
+    const [titles, masterReferences, transcodes, engineSessions, trackCredits] = yield* Effect.all(
+      [
+        getRecordingTitlesEffect(client.protocol, client.graphql, recordingIds, client.config.deployment.miso),
+        Effect.catch(
+          getRecordingMasterReferencesByIdsEffect(
+            client.protocol,
+            recordingIds,
+            client.config.protocol.recordingMasterReference,
+          ),
+          () => Effect.succeed({}),
+        ),
+        recordingStreamingTranscode
+          ? Effect.catch(
+              getRecordingStreamingTranscodesByIdsEffect(client.protocol, recordingIds, recordingStreamingTranscode),
+              () => Effect.succeed({}),
+            )
+          : Effect.succeed({}),
+        recordingEngineSession
+          ? Effect.catch(
+              getRecordingEngineSessionsByIdsEffect(client.protocol, recordingIds, recordingEngineSession),
+              () => Effect.succeed({} as Partial<Record<string, RecordingEngineSessionView>>),
+            )
+          : Effect.succeed({} as Partial<Record<string, RecordingEngineSessionView>>),
+        options.include?.includes("trackCredits")
+          ? getTrackCreditsForRecordingIdsEffect(client, recordingIds)
+          : Effect.succeed(undefined),
+      ],
+      { concurrency: 8 },
+    );
+    const audio: TrackAudio = {
+      masterBlobIds: b64UrlByRecording(masterReferences),
+      transcodeQuiltIds: b64UrlByRecording(transcodes),
+      engineSessions: Object.fromEntries(
+        Object.entries(engineSessions).flatMap(([recordingId, view]) =>
+          view ? [[recordingId, toTrackEngineSession(view)]] : [],
+        ),
       ),
-    ),
-  };
+    };
 
-  const creditViews = credits ?? [];
-  return {
-    id: release.id,
-    title: release.title,
-    subtitle: null,
-    kind: kind ?? null,
-    state: toWorkState(release.state),
-    publishedAtMs:
-      release.state.type === "Published" ? release.state.timestampMs : null,
-    cover: cover ?? null,
-    credits: creditViews,
-    primaryArtists: primaryArtistNames(creditViews),
-    discCount: release.tracks.length > 0 ? 1 : 0,
-    tracks: toTracks(release, titles, audio),
-    ...(trackCredits !== undefined ? { trackCredits } : {}),
-  };
+    const creditViews = credits ?? [];
+    return {
+      id: release.id,
+      title: release.title,
+      subtitle: null,
+      kind: kind ?? null,
+      state: toWorkState(release.state),
+      publishedAtMs: release.state.type === "Published" ? release.state.timestampMs : null,
+      cover: cover ?? null,
+      credits: creditViews,
+      primaryArtists: primaryArtistNames(creditViews),
+      discCount: release.tracks.length > 0 ? 1 : 0,
+      tracks: toTracks(release, titles, audio),
+      ...(trackCredits !== undefined ? { trackCredits } : {}),
+    };
+  });
 }
 
-async function getTrackCreditsForRecordingIds(
+export const getReleaseDetail = toPromise(getReleaseDetailEffect);
+
+function getTrackCreditsForRecordingIdsEffect(
   client: MisoClient,
   recordingIds: readonly string[],
-): Promise<Record<string, TrackCredits>> {
-  const { compositionCredits, recordingCredits } = client.config.protocol;
-  const tracks = await getTrackCreditsByRecordingIds(
-    client.protocol,
-    client.graphql,
-    recordingIds,
-    {
+): Effect.Effect<Record<string, TrackCredits>, SdkError> {
+  return workflow("getTrackCreditsForRecordingIds", function* () {
+    const { compositionCredits, recordingCredits } = client.config.protocol;
+    const tracks = yield* getTrackCreditsByRecordingIdsEffect(client.protocol, client.graphql, recordingIds, {
       misoPackageId: client.config.deployment.miso,
       compositionCreditsPackageId: compositionCredits,
       recordingCreditsPackageId: recordingCredits,
-    },
-  );
-  return Object.fromEntries(
-    Object.entries(tracks).map(([id, track]) => [
-      id,
-      {
-        compositionCredits: toCredits(track.compositionCredits),
-        recordingCredits: {
-          credits: toCredits(track.recordingCredits.credits),
-          primaryArtistIds: [...track.recordingCredits.primaryArtistIds],
-          featuredArtistIds: [...track.recordingCredits.featuredArtistIds],
-        },
-      } satisfies TrackCredits,
-    ]),
-  );
+    });
+    return Object.fromEntries(
+      Object.entries(tracks).map(([id, track]) => [
+        id,
+        {
+          compositionCredits: toCredits(track.compositionCredits),
+          recordingCredits: {
+            credits: toCredits(track.recordingCredits.credits),
+            primaryArtistIds: [...track.recordingCredits.primaryArtistIds],
+            featuredArtistIds: [...track.recordingCredits.featuredArtistIds],
+          },
+        } satisfies TrackCredits,
+      ]),
+    );
+  });
 }
 
 /**
@@ -480,105 +481,124 @@ async function getTrackCreditsForRecordingIds(
  * set maps to an empty entry rather than being absent, so a caller can tell
  * "nothing credited" from "no such track".
  */
-export async function getTrackCredits(
+export function getTrackCreditsEffect(
   client: MisoClient,
   releaseId: string,
-): Promise<Record<string, TrackCredits>> {
-  const release = await getReleaseById(client.protocol, releaseId);
-  const recordingIds = release.tracks.map((track) => track.recordingId);
-  return getTrackCreditsForRecordingIds(client, recordingIds);
+): Effect.Effect<Record<string, TrackCredits>, SdkError> {
+  return workflow("getTrackCredits", function* () {
+    const release = yield* getReleaseByIdEffect(client.protocol, releaseId);
+    const recordingIds = release.tracks.map((track) => track.recordingId);
+    return yield* getTrackCreditsForRecordingIdsEffect(client, recordingIds);
+  });
 }
+
+export const getTrackCredits = toPromise(getTrackCreditsEffect);
 
 // ── Pressing ─────────────────────────────────────────────────────────────────
 
 /** Everything a Pressing page renders. `null` when no such Pressing exists. */
-export async function getPressingDetail(
+export function getPressingDetailEffect(
   client: MisoClient,
   pressingId: string,
   options: GetReleaseOptions = {},
-): Promise<PressingDetail | null> {
-  const pressing = await getPressingView(client, pressingId);
-  if (!pressing) return null;
-  const release = await getReleaseDetail(client, pressing.releaseId, options);
-  return { pressing, release };
+): Effect.Effect<PressingDetail | null, SdkError> {
+  return workflow("getPressingDetail", function* () {
+    const pressing = yield* getPressingViewEffect(client, pressingId);
+    if (!pressing) return null;
+    const release = yield* getReleaseDetailEffect(client, pressing.releaseId, options);
+    return { pressing, release };
+  });
 }
+
+export const getPressingDetail = toPromise(getPressingDetailEffect);
 
 /**
  * A Pressing page plus one currency-specific Listing. Unlike `getSaleDetail`,
  * this starts from a Pressing id, which is the durable route and Party-feature
  * reference exposed to users.
  */
-export async function getPressingSaleDetail(
+export function getPressingSaleDetailEffect(
   client: MisoClient,
   pressingId: string,
   currencyType: string,
   options: GetReleaseOptions = {},
-): Promise<SaleDetail | null> {
-  const pressing = await getPressingView(client, pressingId);
-  if (!pressing) return null;
+): Effect.Effect<SaleDetail | null, SdkError> {
+  return workflow("getPressingSaleDetail", function* () {
+    const pressing = yield* getPressingViewEffect(client, pressingId);
+    if (!pressing) return null;
 
-  const [listing, release] = await Promise.all([
-    getListingView(client, pressing.id, currencyType),
-    getReleaseDetail(client, pressing.releaseId, options),
-  ]);
-  if (!listing) return null;
-  return { sale: { pressing, listing }, release };
+    const [listing, release] = yield* Effect.all(
+      [
+        getListingViewEffect(client, pressing.id, currencyType),
+        getReleaseDetailEffect(client, pressing.releaseId, options),
+      ],
+      { concurrency: 8 },
+    );
+    if (!listing) return null;
+    return { sale: { pressing, listing }, release };
+  });
 }
+
+export const getPressingSaleDetail = toPromise(getPressingSaleDetailEffect);
 
 /**
  * The confirmation preview behind "paste a pressing id to pin it". Verifies the
  * object really is a `Pressing` before spending reads on it — a release id or a
  * record id pasted by mistake must come back as `null`, not as a half-built card.
  */
-export async function getPressingPreview(
+export function getPressingPreviewEffect(
   client: MisoClient,
   pressingId: string,
-): Promise<PressingPreview | null> {
-  const pressing = await getPressingView(client, pressingId);
-  if (!pressing) return null;
+): Effect.Effect<PressingPreview | null, SdkError> {
+  return workflow("getPressingPreview", function* () {
+    const pressing = yield* getPressingViewEffect(client, pressingId);
+    if (!pressing) return null;
 
-  const { release, cover } = await getReleaseResources(
-    client,
-    pressing.releaseId,
-    ["cover"],
-  );
+    const { release, cover } = yield* getReleaseResourcesEffect(client, pressing.releaseId, ["cover"]);
 
-  return {
-    pressingId,
-    title: release.title,
-    subtitle: null,
-    coverUrl: cover?.still.url ?? null,
-    edition: pressing.edition,
-    supply: pressing.supply,
-    maxSupply: pressing.maxSupply,
-    trackCount: release.tracks.length,
-  };
+    return {
+      pressingId,
+      title: release.title,
+      subtitle: null,
+      coverUrl: cover?.still.url ?? null,
+      edition: pressing.edition,
+      supply: pressing.supply,
+      maxSupply: pressing.maxSupply,
+      trackCount: release.tracks.length,
+    };
+  });
 }
+
+export const getPressingPreview = toPromise(getPressingPreviewEffect);
 
 /**
  * Everything a currency-specific buy page renders. The Listing is derived from
  * the release's Pressing and the requested currency, never found through mutable
  * lookup state.
  */
-export async function getSaleDetail(
+export function getSaleDetailEffect(
   client: MisoClient,
   releaseId: string,
   edition: number,
   currencyType: string,
   options: GetReleaseOptions = {},
-): Promise<SaleDetail | null> {
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const sale = await getSale(client.protocol, {
-    releaseId,
-    edition,
-    currencyType,
-    recordPackageId: sales.recordPackageId,
-    recordShopPackageId: sales.recordShopPackageId,
+): Effect.Effect<SaleDetail | null, SdkError> {
+  return workflow("getSaleDetail", function* () {
+    const sales = requireRecordSalesDeployment(client.config.recordSales);
+    const sale = yield* getSaleEffect(client.protocol, {
+      releaseId,
+      edition,
+      currencyType,
+      recordPackageId: sales.recordPackageId,
+      recordShopPackageId: sales.recordShopPackageId,
+    });
+    if (!sale.pressing || !sale.listing) return null;
+    const release = yield* getReleaseDetailEffect(client, sale.pressing.releaseId, options);
+    return { sale: toSaleView(sale.pressing, sale.listing), release };
   });
-  if (!sale.pressing || !sale.listing) return null;
-  const release = await getReleaseDetail(client, sale.pressing.releaseId, options);
-  return { sale: toSaleView(sale.pressing, sale.listing), release };
 }
+
+export const getSaleDetail = toPromise(getSaleDetailEffect);
 
 // ── Discover ─────────────────────────────────────────────────────────────────
 
@@ -587,60 +607,69 @@ export async function getSaleDetail(
  *
  * Configured by release + edition + currency: both addresses are deterministic.
  */
-export async function getDiscoverShelf(
-  client: MisoClient,
-): Promise<DiscoverItem[]> {
-  const configuredSales = [...client.config.discoverSales];
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const settled = await Promise.all(
-    configuredSales.map(async (configured) => ({
-      configured,
-      result: await getSale(client.protocol, {
-        ...configured,
-        recordPackageId: sales.recordPackageId,
-        recordShopPackageId: sales.recordShopPackageId,
-      }),
-    })),
-  );
-  const available = settled.filter(
-    (item): item is typeof item & {
-      result: { pressing: ContractPressingView; listing: ContractListingView };
-    } => item.result.pressing !== null && item.result.listing !== null,
-  );
-  const releaseIds = [...new Set(available.map((item) => item.result.pressing.releaseId))];
-  if (releaseIds.length === 0) return [];
-
-  const [releases, coverViews, credits] = await Promise.all([
-    getReleasesByIds(client.protocol, releaseIds),
-    getReleaseCoversByIds(client.protocol, releaseIds, client.config.protocol.releaseCoverArt).catch(() => ({}) as Partial<Record<string, ReleaseCoverView>>),
-    getReleaseCreditsByIds(
-      client.protocol,
-      releaseIds,
-      client.config.protocol.releaseCredits,
-    ).catch(() => ({}) as Partial<Record<string, CreditView[]>>),
-  ]);
-
-  return available.flatMap(({ result }) => {
-    const releaseId = result.pressing.releaseId;
-    const release = releases[releaseId];
-    if (!release) return [];
-    const cover = toCover(
-      client.config.walrusAggregatorUrl,
-      coverViews[releaseId] ?? null,
+export function getDiscoverShelfEffect(client: MisoClient): Effect.Effect<DiscoverItem[], SdkError> {
+  return workflow("getDiscoverShelf", function* () {
+    const configuredSales = [...client.config.discoverSales];
+    const sales = requireRecordSalesDeployment(client.config.recordSales);
+    const settled = yield* Effect.forEach(
+      configuredSales,
+      (configured) =>
+        workflow("getDiscoverShelf", function* () {
+          return {
+            configured,
+            result: yield* getSaleEffect(client.protocol, {
+              ...configured,
+              recordPackageId: sales.recordPackageId,
+              recordShopPackageId: sales.recordShopPackageId,
+            }),
+          };
+        }),
+      { concurrency: 8 },
     );
-    return [
-      {
-        sale: toSaleView(result.pressing, result.listing),
-        releaseId,
-        title: release.title,
-        artist: primaryArtistNames(toCredits(credits[releaseId] ?? null)).join(
-          ", ",
+    const available = settled.filter(
+      (
+        item,
+      ): item is typeof item & {
+        result: { pressing: ContractPressingView; listing: ContractListingView };
+      } => item.result.pressing !== null && item.result.listing !== null,
+    );
+    const releaseIds = [...new Set(available.map((item) => item.result.pressing.releaseId))];
+    if (releaseIds.length === 0) return [];
+
+    const [releases, coverViews, credits] = yield* Effect.all(
+      [
+        getReleasesByIdsEffect(client.protocol, releaseIds),
+        Effect.catch(
+          getReleaseCoversByIdsEffect(client.protocol, releaseIds, client.config.protocol.releaseCoverArt),
+          () => Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>),
         ),
-        coverUrl: cover?.still.url ?? null,
-      },
-    ];
+        Effect.catch(
+          getReleaseCreditsByIdsEffect(client.protocol, releaseIds, client.config.protocol.releaseCredits),
+          () => Effect.succeed({} as Partial<Record<string, CreditView[]>>),
+        ),
+      ],
+      { concurrency: 8 },
+    );
+
+    return available.flatMap(({ result }) => {
+      const releaseId = result.pressing.releaseId;
+      const release = releases[releaseId];
+      if (!release) return [];
+      const cover = toCover(client.config.walrusAggregatorUrl, coverViews[releaseId] ?? null);
+      return [
+        {
+          sale: toSaleView(result.pressing, result.listing),
+          releaseId,
+          title: release.title,
+          artist: primaryArtistNames(toCredits(credits[releaseId] ?? null)).join(", "),
+          coverUrl: cover?.still.url ?? null,
+        },
+      ];
+    });
   });
 }
+
+export const getDiscoverShelf = toPromise(getDiscoverShelfEffect);
 
 // ── Record → release ─────────────────────────────────────────────────────────
 
@@ -656,26 +685,21 @@ export interface GetRecordAlbumOptions {
   include?: readonly RecordAlbumInclude[];
 }
 
-export async function getRecordAlbum(
+export function getRecordAlbumEffect(
   client: MisoClient,
   recordId: string,
   options: GetRecordAlbumOptions = {},
-): Promise<RecordAlbum | null> {
-  try {
+): Effect.Effect<RecordAlbum | null, SdkError> {
+  return workflow("getRecordAlbum", function* () {
     const sales = requireRecordSalesDeployment(client.config.recordSales);
-    const record = await getRecord(client.protocol, recordId, sales.recordPackageId);
+    const record = yield* getRecordEffect(client.protocol, recordId, sales.recordPackageId);
     if (!record) return null;
     const releaseId = record.releaseId;
-    const includeRelease =
-      options.include?.some(
-        (part) => part === "release" || part === "trackCredits",
-      ) ?? false;
+    const includeRelease = options.include?.some((part) => part === "release" || part === "trackCredits") ?? false;
     const release =
       includeRelease && releaseId
-        ? await getReleaseDetail(client, releaseId, {
-            include: options.include?.includes("trackCredits")
-              ? ["trackCredits"]
-              : [],
+        ? yield* getReleaseDetailEffect(client, releaseId, {
+            include: options.include?.includes("trackCredits") ? ["trackCredits"] : [],
           })
         : includeRelease
           ? null
@@ -685,8 +709,7 @@ export async function getRecordAlbum(
       releaseId,
       ...(includeRelease ? { release } : {}),
     };
-  } catch (e) {
-    if (isNotFound(e)) return null;
-    throw e;
-  }
+  }).pipe(Effect.catch((error) => (isNotFound(error.cause) ? Effect.succeed(null) : Effect.fail(error))));
 }
+
+export const getRecordAlbum = toPromise(getRecordAlbumEffect);

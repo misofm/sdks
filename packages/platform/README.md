@@ -39,7 +39,7 @@ transaction-thunk composition pattern from the
 crossing a package boundary.
 
 ```sh
-bun add @misofm/platform@^0.18.0
+bun add @misofm/platform effect@4.0.0-rc.112
 ```
 
 `@misofm/protocol` resolves transitively through that dependency, so
@@ -47,6 +47,49 @@ applications get exactly one protocol SDK and one compatible deployment map
 without installing it themselves. Registration takes a recursively frozen
 snapshot of custom deployment/config records without freezing the caller's
 original objects, so later caller mutation cannot retarget an existing client.
+
+### Composable Effects
+
+Async operations expose matching `...Effect` entry points, including catalog,
+artist, wallet, receipts, auth, share provisioning, and client readiness. Existing
+Promise functions run those programs at the public boundary. Effects are lazy:
+constructing one does not send an RPC or submit a transaction.
+
+```ts
+import { Effect, Result } from "effect";
+import { getReleaseDetailEffect, getOwnedWorksEffect } from "@misofm/platform/read";
+
+const program = Effect.gen(function* () {
+  const works = yield* getOwnedWorksEffect(miso, walletAddress);
+  const release = yield* getReleaseDetailEffect(miso, releaseId);
+  return { works, release };
+});
+const result = await Effect.runPromise(Effect.result(program), { signal });
+if (Result.isFailure(result)) console.error(result.failure.operation, result.failure.cause);
+```
+
+Foreign RPC and decoding failures use `SdkError` from `@misofm/utils/effect`.
+Promise adapters reject with the original cause. Auth additionally exposes
+`MisoAuthError` directly in its typed failure union. Supported remote reads carry
+Effect cancellation signals; the auth challenge signal spans response-body
+decoding and the caller's signal also reaches the protected mutation. Once a
+transaction starts, cancellation waits for submission and initialization
+checkpoints. Transactions, signatures, and mutations are never retried.
+
+Missing-object contracts are unchanged: optional pressing/listing/record reads
+return `null`, bulk reads omit missing entries, and required release identity
+failures propagate. Optional artist decorations and audio metadata retain their
+documented fallbacks. Cancellation does not become an empty optional result.
+Platform hydration uses protocol Effect methods directly; Promise-only Party
+adapters supplied by existing structural clients remain supported as foreign
+leaves.
+
+`client.miso.readyEffect()` deduplicates concurrent checks with `ready()` and
+retains both success and failure, matching the existing readiness cache policy.
+Coin metadata separately evicts failed lookups so subsequent requests can retry.
+Read aliases include `getReleaseCover` (in `/read`), `getGenreNames`, and
+`getPartyAvatarUrl`; established names remain available. Synchronous builders
+and parsers remain synchronous. Effect declarations require TypeScript 5.9+.
 
 ### Engine sessions
 
@@ -443,6 +486,16 @@ const { currencies } = await initializeShareCurrencies(
 non-idempotent PTB through a `ParallelTransactionExecutor` exactly once (no
 auto-retry) — it's what the batched provisioning above builds on, layered over
 `@misofm/protocol`'s transport-agnostic `buildTx`/`toExecResult`.
+
+The batch helpers and their Effect variants accept a final
+`{ concurrency?: number }` option, defaulting to eight independent PTBs.
+Initialization reports each successful batch through `onBatch` as it completes,
+joins every started batch on failure or interruption, and returns currencies in
+input batch order. Persist those checkpoints before reconciling an ambiguous
+failure; never blindly resubmit. Publication now also waits for all batches
+before reporting failure. Counts must be non-negative safe integers and
+concurrency must be a positive safe integer; fractional, negative, and infinite
+counts are rejected before submission.
 
 ## Extensions
 

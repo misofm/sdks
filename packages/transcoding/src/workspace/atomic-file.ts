@@ -1,3 +1,4 @@
+import { joinedPromise } from "./files.js";
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, rename, unlink } from "node:fs/promises";
@@ -72,13 +73,15 @@ export const assertNoSymlinkComponents = (
   targetPath: string,
   allowMissingLeaf = false,
 ): Effect.Effect<void, InvalidRequestError | WorkspaceIoError> =>
-  Effect.tryPromise({
-    try: () => assertNoSymlinkComponentsPromise(targetPath, allowMissingLeaf),
-    catch: (error) =>
+  joinedPromise(() =>
+    assertNoSymlinkComponentsPromise(targetPath, allowMissingLeaf),
+  ).pipe(
+    Effect.mapError((error) =>
       error instanceof InvalidRequestError || error instanceof WorkspaceIoError
         ? error
         : ioError(targetPath, "Workspace path inspection failed"),
-  });
+    ),
+  );
 
 export const assertRegularFilePromise = async (path: string): Promise<void> => {
   await assertNoSymlinkComponentsPromise(path);
@@ -99,13 +102,13 @@ export const assertRegularFilePromise = async (path: string): Promise<void> => {
 export const assertRegularFile = (
   path: string,
 ): Effect.Effect<void, InvalidRequestError | WorkspaceIoError> =>
-  Effect.tryPromise({
-    try: () => assertRegularFilePromise(path),
-    catch: (error) =>
+  joinedPromise(() => assertRegularFilePromise(path)).pipe(
+    Effect.mapError((error) =>
       error instanceof InvalidRequestError || error instanceof WorkspaceIoError
         ? error
         : ioError(path, "Source file inspection failed"),
-  });
+    ),
+  );
 
 const syncParent = async (path: string): Promise<void> => {
   const handle = await open(dirname(path), constants.O_RDONLY);
@@ -176,12 +179,12 @@ export const atomicWriteFile = (
   bytes: Uint8Array | string,
 ): Effect.Effect<void, InvalidRequestError | WorkspaceIoError> =>
   Effect.uninterruptible(
-    Effect.tryPromise({
-      try: () => atomicWriteFilePromise(path, bytes),
-      catch: (error) =>
+    joinedPromise(() => atomicWriteFilePromise(path, bytes)).pipe(
+      Effect.mapError((error) =>
         error instanceof InvalidRequestError ||
         error instanceof WorkspaceIoError
           ? error
           : ioError(path, "Atomic durable file write failed"),
-    }),
+      ),
+    ),
   );

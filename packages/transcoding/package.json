@@ -52,7 +52,7 @@
     "test:ffmpeg": "bun test test/ffmpeg-integration.test.ts"
   },
   "dependencies": {
-    "@misofm/streaming": "0.1.0",
+    "@misofm/streaming": "0.2.0",
     "m3u8-parser": "7.2.0"
   },
   "peerDependencies": {

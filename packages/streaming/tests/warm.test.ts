@@ -4,6 +4,8 @@
 import { expect, test } from "bun:test";
 import { MAX_SEGMENTS_PER_RENDITION, quiltItemUrl } from "../src/index.ts";
 import { warmTrack } from "../src/warm.ts";
+import { warmTrackEffect } from "../src/warm.ts";
+import { Effect, Fiber } from "effect";
 
 const BASE = "https://stream.miso.fm";
 const QUILT = "Vw3O_abc-";
@@ -108,4 +110,41 @@ test("warmTrack with segments: 0 still fetches the playlists and init", async ()
     quiltItemUrl(BASE, QUILT, "aac-256.m3u8"),
     quiltItemUrl(BASE, QUILT, "aac-256-init.mp4"),
   ]);
+});
+
+test("warming bounds fetch-and-drain concurrency and preserves rejection identity", async () => {
+  let active = 0;
+  let peak = 0;
+  let drained = 0;
+  const fetchImpl = (async () => {
+    peak = Math.max(peak, ++active);
+    return { arrayBuffer: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active--;
+      drained++;
+      return new ArrayBuffer(0);
+    } } as Response;
+  }) as unknown as typeof fetch;
+  await warmTrack(BASE, QUILT, { segments: 20, concurrency: 3, fetch: fetchImpl });
+  expect(peak).toBe(3);
+  expect(drained).toBe(23);
+  const failure = { reason: "foreign fetch failure" };
+  await expect(warmTrack(BASE, QUILT, { fetch: (() => Promise.reject(failure)) as unknown as typeof fetch })).rejects.toBe(failure);
+  await expect(warmTrack(BASE, QUILT, { concurrency: 0 })).rejects.toBeInstanceOf(RangeError);
+});
+
+test("Effect interruption aborts the signal while response bodies are being drained", async () => {
+  const signals: AbortSignal[] = [];
+  const fetchImpl = (async (_url, init) => {
+    const signal = init!.signal!;
+    signals.push(signal);
+    return { arrayBuffer: () => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    }) } as Response;
+  }) as typeof fetch;
+  const fiber = Effect.runFork(warmTrackEffect(BASE, QUILT, { fetch: fetchImpl, concurrency: 2 }));
+  await Promise.resolve();
+  await Effect.runPromise(Fiber.interrupt(fiber));
+  expect(signals).toHaveLength(2);
+  expect(signals.every((signal) => signal.aborted)).toBe(true);
 });

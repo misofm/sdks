@@ -1,6 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Effect } from "effect";
+import { trySync } from "@misofm/utils/effect";
 import type {
   ClientWithCoreApi,
   SuiClientRegistration,
@@ -161,16 +163,27 @@ export class MisoProtocolClient {
 
   // === Composition ===
 
-  async getCompositionById(compositionId: string): Promise<Composition> {
+  getCompositionById(compositionId: string): Promise<Composition> {
     return queries.getCompositionById(this.#client, compositionId);
   }
-  async getCompositionsByIds(
+  getCompositionByIdEffect(compositionId: string) {
+    return queries.getCompositionByIdEffect(this.#client, compositionId);
+  }
+  getCompositionsByIds(
     ids: string[],
   ): Promise<Record<string, Composition>> {
     return queries.getCompositionsByIds(this.#client, ids);
   }
-  async getWorksByIds(ids: queries.WorkIds): Promise<queries.WorksById> {
+  getCompositionsByIdsEffect(
+    ids: string[],
+  ) {
+    return queries.getCompositionsByIdsEffect(this.#client, ids);
+  }
+  getWorksByIds(ids: queries.WorkIds): Promise<queries.WorksById> {
     return queries.getWorksByIds(this.#client, ids);
+  }
+  getWorksByIdsEffect(ids: queries.WorkIds) {
+    return queries.getWorksByIdsEffect(this.#client, ids);
   }
   async getWorkAddressesByShareTypes(
     shareTypes: queries.WorkShareTypes,
@@ -181,8 +194,18 @@ export class MisoProtocolClient {
       this.#misoPackageId,
     );
   }
-  async getCompositionShareType(compositionId: string): Promise<string> {
+  getWorkAddressesByShareTypesEffect(
+    shareTypes: queries.WorkShareTypes,
+  ) {
+    return trySync("getWorkAddressesByShareTypes", () => this.#requireGraphQL()).pipe(
+      Effect.flatMap((graphql) => queries.getWorkAddressesByShareTypesEffect(graphql, shareTypes, this.#misoPackageId)),
+    );
+  }
+  getCompositionShareType(compositionId: string): Promise<string> {
     return queries.getCompositionShareType(this.#client, compositionId);
+  }
+  getCompositionShareTypeEffect(compositionId: string) {
+    return queries.getCompositionShareTypeEffect(this.#client, compositionId);
   }
   async getCompositionByShareType(shareType: string): Promise<Composition> {
     return queries.getCompositionByShareType(
@@ -192,15 +215,34 @@ export class MisoProtocolClient {
       this.#misoPackageId,
     );
   }
-  async getCompositionAdminCapById(
+  getCompositionByShareTypeEffect(shareType: string) {
+    return trySync("getCompositionByShareType", () => this.#requireGraphQL()).pipe(
+      Effect.flatMap((graphql) => queries.getCompositionByShareTypeEffect(this.#client, graphql, shareType, this.#misoPackageId)),
+    );
+  }
+  getCompositionAdminCapById(
     adminCapId: string,
   ): Promise<CompositionAdminCap> {
     return queries.getCompositionAdminCapById(this.#client, adminCapId);
   }
-  async getOwnedCompositionAdminCaps(
+  getCompositionAdminCapByIdEffect(
+    adminCapId: string,
+  ) {
+    return queries.getCompositionAdminCapByIdEffect(this.#client, adminCapId);
+  }
+  getOwnedCompositionAdminCaps(
     owner: string,
   ): Promise<CompositionAdminCap[]> {
     return queries.getOwnedCompositionAdminCaps(
+      this.#client,
+      owner,
+      this.#misoPackageId,
+    );
+  }
+  getOwnedCompositionAdminCapsEffect(
+    owner: string,
+  ) {
+    return queries.getOwnedCompositionAdminCapsEffect(
       this.#client,
       owner,
       this.#misoPackageId,
@@ -215,14 +257,23 @@ export class MisoProtocolClient {
 
   // === Recording ===
 
-  async getRecordingById(recordingId: string): Promise<Recording> {
+  getRecordingById(recordingId: string): Promise<Recording> {
     return queries.getRecordingById(this.#client, recordingId);
   }
-  async getRecordingsByIds(ids: string[]): Promise<Record<string, Recording>> {
+  getRecordingByIdEffect(recordingId: string) {
+    return queries.getRecordingByIdEffect(this.#client, recordingId);
+  }
+  getRecordingsByIds(ids: string[]): Promise<Record<string, Recording>> {
     return queries.getRecordingsByIds(this.#client, ids);
   }
-  async getRecordingShareType(recordingId: string): Promise<string> {
+  getRecordingsByIdsEffect(ids: string[]) {
+    return queries.getRecordingsByIdsEffect(this.#client, ids);
+  }
+  getRecordingShareType(recordingId: string): Promise<string> {
     return queries.getRecordingShareType(this.#client, recordingId);
+  }
+  getRecordingShareTypeEffect(recordingId: string) {
+    return queries.getRecordingShareTypeEffect(this.#client, recordingId);
   }
   async getRecordingByShareType(shareType: string): Promise<Recording> {
     return queries.getRecordingByShareType(
@@ -232,15 +283,34 @@ export class MisoProtocolClient {
       this.#misoPackageId,
     );
   }
-  async getRecordingAdminCapById(
+  getRecordingByShareTypeEffect(shareType: string) {
+    return trySync("getRecordingByShareType", () => this.#requireGraphQL()).pipe(
+      Effect.flatMap((graphql) => queries.getRecordingByShareTypeEffect(this.#client, graphql, shareType, this.#misoPackageId)),
+    );
+  }
+  getRecordingAdminCapById(
     adminCapId: string,
   ): Promise<RecordingAdminCap> {
     return queries.getRecordingAdminCapById(this.#client, adminCapId);
   }
-  async getOwnedRecordingAdminCaps(
+  getRecordingAdminCapByIdEffect(
+    adminCapId: string,
+  ) {
+    return queries.getRecordingAdminCapByIdEffect(this.#client, adminCapId);
+  }
+  getOwnedRecordingAdminCaps(
     owner: string,
   ): Promise<RecordingAdminCap[]> {
     return queries.getOwnedRecordingAdminCaps(
+      this.#client,
+      owner,
+      this.#misoPackageId,
+    );
+  }
+  getOwnedRecordingAdminCapsEffect(
+    owner: string,
+  ) {
+    return queries.getOwnedRecordingAdminCapsEffect(
       this.#client,
       owner,
       this.#misoPackageId,
@@ -252,24 +322,43 @@ export class MisoProtocolClient {
 
   // === Release ===
 
-  async getReleaseById(releaseId: string): Promise<Release> {
+  getReleaseById(releaseId: string): Promise<Release> {
     return queries.getReleaseById(this.#client, releaseId);
   }
+  getReleaseByIdEffect(releaseId: string) {
+    return queries.getReleaseByIdEffect(this.#client, releaseId);
+  }
   /** Read the shared canonical core `miso::release::ReleaseRegistry`. */
-  async getReleaseRegistryById(registryId: string) {
+  getReleaseRegistryById(registryId: string) {
     return queries.getReleaseRegistryById(this.#client, registryId);
   }
-  async getReleasesByIds(ids: string[]): Promise<Record<string, Release>> {
+  getReleaseRegistryByIdEffect(registryId: string) {
+    return queries.getReleaseRegistryByIdEffect(this.#client, registryId);
+  }
+  getReleasesByIds(ids: string[]): Promise<Record<string, Release>> {
     return queries.getReleasesByIds(this.#client, ids);
   }
-  async getReleaseAdminCapById(adminCapId: string): Promise<ReleaseAdminCap> {
+  getReleasesByIdsEffect(ids: string[]) {
+    return queries.getReleasesByIdsEffect(this.#client, ids);
+  }
+  getReleaseAdminCapById(adminCapId: string): Promise<ReleaseAdminCap> {
     return queries.getReleaseAdminCapById(this.#client, adminCapId);
+  }
+  getReleaseAdminCapByIdEffect(adminCapId: string) {
+    return queries.getReleaseAdminCapByIdEffect(this.#client, adminCapId);
   }
   deriveReleaseAdminCapId(releaseId: string): string {
     return queries.deriveReleaseAdminCapId(releaseId, this.#misoPackageId);
   }
-  async getOwnedReleaseAdminCaps(owner: string): Promise<ReleaseAdminCap[]> {
+  getOwnedReleaseAdminCaps(owner: string): Promise<ReleaseAdminCap[]> {
     return queries.getOwnedReleaseAdminCaps(
+      this.#client,
+      owner,
+      this.#misoPackageId,
+    );
+  }
+  getOwnedReleaseAdminCapsEffect(owner: string) {
+    return queries.getOwnedReleaseAdminCapsEffect(
       this.#client,
       owner,
       this.#misoPackageId,
@@ -277,19 +366,28 @@ export class MisoProtocolClient {
   }
   // === Share Currency ===
 
-  async getShareCurrencyType(shareCurrencyId: string): Promise<string> {
+  getShareCurrencyType(shareCurrencyId: string): Promise<string> {
     return queries.getShareCurrencyType(this.#client, shareCurrencyId);
+  }
+  getShareCurrencyTypeEffect(shareCurrencyId: string) {
+    return queries.getShareCurrencyTypeEffect(this.#client, shareCurrencyId);
   }
   /**
    * The `TreasuryCap<shareType>` owned by `owner`. Takes the share TYPE — if you
    * hold only the `Currency` object id, resolve it first with
    * {@link getShareCurrencyType}.
    */
-  async getShareCurrencyTreasuryCap(
+  getShareCurrencyTreasuryCap(
     shareType: string,
     owner: string,
   ): Promise<string> {
     return queries.getShareCurrencyTreasuryCap(this.#client, shareType, owner);
+  }
+  getShareCurrencyTreasuryCapEffect(
+    shareType: string,
+    owner: string,
+  ) {
+    return queries.getShareCurrencyTreasuryCapEffect(this.#client, shareType, owner);
   }
 
   // === Simulate-based reads (view) ===

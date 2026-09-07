@@ -46,7 +46,7 @@ import { asU64, directAdminCap, disposeNewAdminCap, invokeWithAdminCap, type Adm
 import * as royaltyPool from "@misofm/protocol/contracts/royalty_pool/pool";
 import * as royaltyPoolStake from "@misofm/protocol/contracts/royalty_pool/stake";
 
-const { track, release } = contracts;
+const { release } = contracts;
 
 interface ReleaseParts {
   release: TransactionObjectArgument;

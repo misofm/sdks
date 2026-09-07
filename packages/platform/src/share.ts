@@ -20,23 +20,25 @@
 // assigns packages to work slots and supplies per-package metadata, so each
 // currency still gets a descriptive, work-specific name.
 
-import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
-import type { Signer } from "@mysten/sui/cryptography";
-import { fromBase64, fromHex, toBase64 } from "@mysten/sui/utils";
-import { update_constants } from "@mysten/move-bytecode-template";
 import {
-  execThunks,
-  publishedPackageId,
+  allCreatedByType,
   allPublishedPackageIds,
   createdByType,
-  allCreatedByType,
+  execThunksEffect,
+  publishedPackageId,
   type ExecResult,
 } from "@misofm/protocol";
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { update_constants } from "@mysten/move-bytecode-template";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
+import type { Signer } from "@mysten/sui/cryptography";
+import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
+import { fromBase64, fromHex, toBase64 } from "@mysten/sui/utils";
+import { Effect, Array as EffectArray, Result } from "effect";
 
-import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
+import { executeViaExecutorEffect } from "./execute.ts";
 import { SHARE_TEMPLATE } from "./share-template.ts";
-import { executeViaExecutor } from "./execute.ts";
+import { initializeShareCurrency, publishShareCurrency, type PackageBytecode } from "./transactions.ts";
 
 /** The protocol cap on Publish/Upgrade commands per programmable transaction. */
 const PUBLISHES_PER_PTB = 5;
@@ -107,49 +109,58 @@ export interface CreateShareCurrencyParams {
 }
 
 /** Publishes an immutable package, then initializes a fresh share currency in a second tx. */
-export async function createShareCurrency(
+export function createShareCurrencyEffect(
   client: ClientWithCoreApi,
   signer: Signer,
   params: CreateShareCurrencyParams,
-): Promise<ShareCurrency> {
-  const signerAddress = signer.toSuiAddress();
-  const initializer = params.initializerAddress ?? signerAddress;
-  const recipient = params.treasuryCapRecipient ?? signerAddress;
+): Effect.Effect<ShareCurrency, SdkError> {
+  return workflow("createShareCurrency", function* () {
+    const signerAddress = signer.toSuiAddress();
+    const initializer = params.initializerAddress ?? signerAddress;
+    const recipient = params.treasuryCapRecipient ?? signerAddress;
 
-  // Tx 1: publish the share package with the initializer baked in.
-  const patched = patchInitializer(params.template ?? SHARE_TEMPLATE, initializer);
-  const publishRes = await execThunks(client, signer, publishShareCurrency(patched));
-  const packageId = publishedPackageId(publishRes);
+    // Tx 1: publish the share package with the initializer baked in.
+    const patched = patchInitializer(params.template ?? SHARE_TEMPLATE, initializer);
+    const publishRes = yield* execThunksEffect(client, signer, publishShareCurrency(patched));
+    const packageId = publishedPackageId(publishRes);
 
-  // Tx 2: initialize → creates the Currency object + transfers the TreasuryCap.
-  const initRes = await execThunks(
-    client,
-    signer,
-    initializeShareCurrency({
-      shareCurrencyPackageId: packageId,
-      name: params.name,
-      description: params.description,
-      iconUrl: params.iconUrl ?? "",
-      treasuryCapRecipient: recipient,
-    }),
-  );
+    // Tx 2: initialize → creates the Currency object + transfers the TreasuryCap.
+    const initRes = yield* execThunksEffect(
+      client,
+      signer,
+      initializeShareCurrency({
+        shareCurrencyPackageId: packageId,
+        name: params.name,
+        description: params.description,
+        iconUrl: params.iconUrl ?? "",
+        treasuryCapRecipient: recipient,
+      }),
+    );
 
-  return {
-    packageId,
-    currencyId: createdByType(initRes, CURRENCY_TYPE),
-    shareType: `${packageId}::share::Share`,
-    treasuryCapId: createdByType(initRes, TREASURY_CAP_TYPE),
-    gasUsed: publishRes.gasUsed + initRes.gasUsed,
-  };
+    return {
+      packageId,
+      currencyId: createdByType(initRes, CURRENCY_TYPE),
+      shareType: `${packageId}::share::Share`,
+      treasuryCapId: createdByType(initRes, TREASURY_CAP_TYPE),
+      gasUsed: publishRes.gasUsed + initRes.gasUsed,
+    };
+  });
 }
+
+export const createShareCurrency = toPromise(createShareCurrencyEffect);
 
 // ── Batched (parallel) ─────────────────────────────────────────────────────
 
-/** Splits an array into fixed-size chunks. */
-function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
+/** Maximum independent PTBs in flight. Submission is never retried. */
+export interface ShareBatchOptions {
+  concurrency?: number;
+}
+
+function batchConcurrency(options: ShareBatchOptions): number {
+  const value = options.concurrency ?? 8;
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new Error("Share batch concurrency must be a positive safe integer");
+  return value;
 }
 
 /**
@@ -158,33 +169,51 @@ function chunk<T>(items: T[], size: number): T[][] {
  * consumes its UpgradeCap in the same PTB. Returns the published package ids
  * (fungible — order is not meaningful; the caller assigns them to work slots).
  */
-export async function publishShareCurrencies(
+export function publishShareCurrenciesEffect(
   executor: ParallelTransactionExecutor,
   initializerAddress: string,
   count: number,
   template: PackageBytecode = SHARE_TEMPLATE,
-): Promise<{ packageIds: string[]; gasUsed: number }> {
-  if (count <= 0) return { packageIds: [], gasUsed: 0 };
+  options: ShareBatchOptions = {},
+): Effect.Effect<{ packageIds: string[]; gasUsed: number }, SdkError> {
+  return workflow("publishShareCurrencies", function* () {
+    const concurrency = batchConcurrency(options);
+    if (!Number.isSafeInteger(count) || count < 0)
+      throw new Error("Share currency count must be a non-negative safe integer");
+    if (count <= 0) return { packageIds: [], gasUsed: 0 };
 
-  // One patched template, reused for every publish (identical bytecode → distinct packages).
-  const patched = patchInitializer(template, initializerAddress);
+    // One patched template, reused for every publish (identical bytecode → distinct packages).
+    const patched = patchInitializer(template, initializerAddress);
 
-  const batchSizes: number[] = [];
-  for (let remaining = count; remaining > 0; remaining -= PUBLISHES_PER_PTB) {
-    batchSizes.push(Math.min(PUBLISHES_PER_PTB, remaining));
-  }
+    const batchSizes: number[] = [];
+    for (let remaining = count; remaining > 0; remaining -= PUBLISHES_PER_PTB) {
+      batchSizes.push(Math.min(PUBLISHES_PER_PTB, remaining));
+    }
 
-  const results = await Promise.all(
-    batchSizes.map((n) => executeViaExecutor(executor, ...Array.from({ length: n }, () => publishShareCurrency(patched)))),
-  );
+    const settled = yield* Effect.forEach(
+      batchSizes,
+      (n) =>
+        Effect.result(
+          executeViaExecutorEffect(executor, ...Array.from({ length: n }, () => publishShareCurrency(patched))),
+        ),
+      { concurrency },
+    );
+    const results = [];
+    for (const result of settled) {
+      if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
+      results.push(result.success);
+    }
 
-  const packageIds = results.flatMap(allPublishedPackageIds);
-  const gasUsed = results.reduce((sum, r) => sum + r.gasUsed, 0);
-  if (packageIds.length !== count) {
-    throw new Error(`Expected ${count} published share packages, got ${packageIds.length}.`);
-  }
-  return { packageIds, gasUsed };
+    const packageIds = results.flatMap(allPublishedPackageIds);
+    const gasUsed = results.reduce((sum, r) => sum + r.gasUsed, 0);
+    if (packageIds.length !== count) {
+      throw new Error(`Expected ${count} published share packages, got ${packageIds.length}.`);
+    }
+    return { packageIds, gasUsed };
+  });
 }
+
+export const publishShareCurrencies = toPromise(publishShareCurrenciesEffect);
 
 /** Re-associates one init PTB's created objects back to their packages by share type. */
 function currenciesFromResult(res: ExecResult, batchPkgs: string[]): ShareCurrency[] {
@@ -211,51 +240,65 @@ function currenciesFromResult(res: ExecResult, batchPkgs: string[]): ShareCurren
  * persist that batch immediately. If any batch fails, the succeeded ones are already
  * reported and this throws, so a resume re-initializes only the still-missing packages.
  */
-export async function initializeShareCurrencies(
+export function initializeShareCurrenciesEffect(
   executor: ParallelTransactionExecutor,
   signerAddress: string,
   packageIds: string[],
   metaOf: (packageId: string) => ShareCurrencyMeta,
   onBatch?: (currencies: ShareCurrency[], gasUsed: number) => void | Promise<void>,
-): Promise<{ currencies: ShareCurrency[]; gasUsed: number }> {
-  if (packageIds.length === 0) return { currencies: [], gasUsed: 0 };
+  options: ShareBatchOptions = {},
+): Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: number }, SdkError> {
+  return workflow("initializeShareCurrencies", function* () {
+    const concurrency = batchConcurrency(options);
+    if (packageIds.length === 0) return { currencies: [], gasUsed: 0 };
 
-  const batches = chunk(packageIds, INITS_PER_PTB);
-  const settled = await Promise.allSettled(
-    batches.map(async (batchPkgs) => {
-      const res = await executeViaExecutor(
-        executor,
-        ...batchPkgs.map((pkg) => {
-          const meta = metaOf(pkg);
-          return initializeShareCurrency({
-            shareCurrencyPackageId: pkg,
-            name: meta.name,
-            description: meta.description,
-            iconUrl: meta.iconUrl ?? "",
-            treasuryCapRecipient: signerAddress,
-          });
-        }),
-      );
-      const batchCurrencies = currenciesFromResult(res, batchPkgs);
-      if (onBatch) await onBatch(batchCurrencies, res.gasUsed);
-      return { batchCurrencies, gasUsed: res.gasUsed };
-    }),
-  );
+    const batches = EffectArray.chunksOf(packageIds, INITS_PER_PTB);
+    const settled = yield* Effect.forEach(
+      batches,
+      (batchPkgs) =>
+        Effect.result(
+          workflow("initializeShareCurrencyBatch", function* () {
+            const res = yield* executeViaExecutorEffect(
+              executor,
+              ...batchPkgs.map((pkg) => {
+                const meta = metaOf(pkg);
+                return initializeShareCurrency({
+                  shareCurrencyPackageId: pkg,
+                  name: meta.name,
+                  description: meta.description,
+                  iconUrl: meta.iconUrl ?? "",
+                  treasuryCapRecipient: signerAddress,
+                });
+              }),
+            );
+            const batchCurrencies = currenciesFromResult(res, batchPkgs);
+            if (onBatch)
+              yield* tryPromise("initializeShareCurrency.onBatch", () =>
+                Promise.resolve(onBatch(batchCurrencies, res.gasUsed)),
+              );
+            return { batchCurrencies, gasUsed: res.gasUsed };
+          }).pipe(Effect.uninterruptible),
+        ),
+      { concurrency },
+    );
 
-  const currencies: ShareCurrency[] = [];
-  const errors: unknown[] = [];
-  let gasUsed = 0;
-  for (const s of settled) {
-    if (s.status === "fulfilled") {
-      currencies.push(...s.value.batchCurrencies);
-      gasUsed += s.value.gasUsed;
-    } else {
-      errors.push(s.reason);
+    const currencies: ShareCurrency[] = [];
+    const errors: unknown[] = [];
+    let gasUsed = 0;
+    for (const s of settled) {
+      if (Result.isSuccess(s)) {
+        currencies.push(...s.success.batchCurrencies);
+        gasUsed += s.success.gasUsed;
+      } else {
+        errors.push(s.failure.cause);
+      }
     }
-  }
-  if (errors.length > 0) {
-    const msg = errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
-    throw new Error(`${errors.length}/${batches.length} initialize batch(es) failed: ${msg}`);
-  }
-  return { currencies, gasUsed };
+    if (errors.length > 0) {
+      const msg = errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
+      throw new Error(`${errors.length}/${batches.length} initialize batch(es) failed: ${msg}`);
+    }
+    return { currencies, gasUsed };
+  });
 }
+
+export const initializeShareCurrencies = toPromise(initializeShareCurrenciesEffect);

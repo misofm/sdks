@@ -1,6 +1,10 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { asU64 as sharedU64, type UnsignedInput } from "@misofm/utils/numeric";
+import { Effect } from "effect";
+
 /**
  * Capability custody, raw-cap Action, and safe crank-plugin transaction builders.
  *
@@ -12,6 +16,12 @@
  * results must stay under the caller's control.
  */
 
+import * as compositionRoyaltyPoolPlugin from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
+import * as recordingRoyaltyPoolPlugin from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
+import * as releaseRevenueDistributor from "@misofm/protocol/contracts/release_revenue_distributor/release_revenue_distributor";
+import * as releaseRevenueDistributorPlugin from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
+import * as routedStake from "@misofm/protocol/contracts/routed_stake/routed_stake";
+import * as vault from "@misofm/protocol/contracts/vault/vault";
 import type { BcsType } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type {
@@ -20,12 +30,6 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
-import * as vault from "@misofm/protocol/contracts/vault/vault";
-import * as releaseRevenueDistributor from "@misofm/protocol/contracts/release_revenue_distributor/release_revenue_distributor";
-import * as compositionRoyaltyPoolPlugin from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
-import * as recordingRoyaltyPoolPlugin from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
-import * as releaseRevenueDistributorPlugin from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
-import * as routedStake from "@misofm/protocol/contracts/routed_stake/routed_stake";
 
 /** A legacy work whose raw protocol admin cap is still address-owned. */
 /** An object id resolved lazily when a transaction thunk is applied. */
@@ -33,10 +37,6 @@ export type ObjectInput = string | TransactionObjectArgument;
 
 /** The framework singleton read by `balance::settled_funds_value`. */
 export const SUI_ACCUMULATOR_ROOT_OBJECT_ID = "0xacc";
-
-function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {
-  return typeof value === "string" ? tx.object(value) : value;
-}
 
 export interface DirectAdminCapAuthority {
   readonly kind: "direct";
@@ -112,22 +112,23 @@ export function invokeWithAdminCap(
     throw new Error("admin cap argument index is out of range");
   }
 
-  const invoke = (adminCap: TransactionArgument) => tx.moveCall({
-    target: call.target,
-    typeArguments: call.typeArguments,
-    arguments: [
-      ...call.arguments.slice(0, call.adminCapIndex),
-      adminCap,
-      ...call.arguments.slice(call.adminCapIndex),
-    ],
-  });
-  if (authority.kind === "direct") return invoke(object(tx, authority.adminCap));
+  const invoke = (adminCap: TransactionArgument) =>
+    tx.moveCall({
+      target: call.target,
+      typeArguments: call.typeArguments,
+      arguments: [
+        ...call.arguments.slice(0, call.adminCapIndex),
+        adminCap,
+        ...call.arguments.slice(call.adminCapIndex),
+      ],
+    });
+  if (authority.kind === "direct") return invoke(tx.object(authority.adminCap));
 
   const borrowed = tx.add(
     vault.borrowAsAdmin({
       package: authority.vaultPackageId,
       typeArguments: [authority.capType],
-      arguments: [object(tx, authority.vault), object(tx, authority.vaultAdminCap)],
+      arguments: [tx.object(authority.vault), tx.object(authority.vaultAdminCap)],
     }),
   );
   const adminCap = borrowed[0];
@@ -204,11 +205,13 @@ export function withdrawVaultCapability(
     readonly vaultPackageId: string;
   },
 ): TransactionObjectArgument {
-  return tx.add(vault.withdrawCap({
-    package: params.vaultPackageId,
-    typeArguments: [params.capType],
-    arguments: [object(tx, params.vault), object(tx, params.vaultAdminCap)],
-  }));
+  return tx.add(
+    vault.withdrawCap({
+      package: params.vaultPackageId,
+      typeArguments: [params.capType],
+      arguments: [tx.object(params.vault), tx.object(params.vaultAdminCap)],
+    }),
+  );
 }
 
 /** Restore the one exact capability permanently assigned to a Vault. */
@@ -222,15 +225,13 @@ export function restoreVaultCapability(
     readonly vaultPackageId: string;
   },
 ): void {
-  tx.add(vault.restoreCap({
-    package: params.vaultPackageId,
-    typeArguments: [params.capType],
-    arguments: [
-      object(tx, params.vault),
-      object(tx, params.vaultAdminCap),
-      object(tx, params.adminCap),
-    ],
-  }));
+  tx.add(
+    vault.restoreCap({
+      package: params.vaultPackageId,
+      typeArguments: [params.capType],
+      arguments: [tx.object(params.vault), tx.object(params.vaultAdminCap), tx.object(params.adminCap)],
+    }),
+  );
 }
 
 /** Transfer the `key + store` VaultAdminCap to its next owner. */
@@ -243,22 +244,19 @@ export function transferVaultAdminCap(
     readonly vaultPackageId: string;
   },
 ): void {
-  tx.transferObjects([object(tx, params.vaultAdminCap)], params.owner);
+  tx.transferObjects([tx.object(params.vaultAdminCap)], params.owner);
 }
 
 /**
  * Custody a freshly-created raw admin cap, optionally configure it, share the
  * Vault, then transfer only the VaultAdminCap to its owner.
  */
-export function custodyNewAdminCap(
-  tx: Transaction,
-  params: CustodyNewAdminCapParams,
-): void {
+export function custodyNewAdminCap(tx: Transaction, params: CustodyNewAdminCapParams): void {
   const created = tx.add(
     vault._new({
       package: params.vaultPackageId,
       typeArguments: [params.capType],
-      arguments: [object(tx, params.vaultRegistry), params.adminCap],
+      arguments: [tx.object(params.vaultRegistry), params.adminCap],
     }),
   );
   const vaultObject = requiredVaultResult(created, 0, "vault::_new");
@@ -374,25 +372,24 @@ export interface CompositionRoyaltyPoolCrankParams {
   readonly pluginPackageId: string;
 }
 
-/** JSON-safe input for an on-chain u64. Numbers are rejected to prevent rounding. */
-export type U64Input = bigint | string | number;
+/** Exact on-chain u64 input. Numbers must be non-negative safe integers. */
+export type U64Input = UnsignedInput;
 
 /** An exact scalar or the result of an earlier PTB command returning `u64`. */
 export type U64Argument = U64Input | TransactionArgument;
 
 /** Validate an SDK scalar before serializing it as a Move u64. */
 export function asU64(name: string, value: U64Input): bigint {
-  if (typeof value === "number" && (!Number.isSafeInteger(value) || value < 0)) {
-    throw new Error(`${name}: number must be a non-negative safe integer; use bigint or decimal string`);
+  try {
+    return sharedU64(name, value);
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    throw new Error(
+      error.message
+        .replace("expected an unsigned decimal integer", "expected an unsigned decimal u64")
+        .replace("value is outside its Move integer range", "value is outside u64"),
+    );
   }
-  if (typeof value === "string" && !/^(0|[1-9][0-9]*)$/.test(value)) {
-    throw new Error(`${name}: expected an unsigned decimal u64`);
-  }
-  const parsed = typeof value === "bigint" ? value : BigInt(value);
-  if (parsed < 0n || parsed > 18_446_744_073_709_551_615n) {
-    throw new Error(`${name}: value is outside u64`);
-  }
-  return parsed;
 }
 
 function asU64Argument(tx: Transaction, name: string, value: U64Argument): TransactionArgument {
@@ -419,10 +416,8 @@ export function settledFundsValue(
     target: "0x2::balance::settled_funds_value",
     typeArguments: [params.currencyType],
     arguments: [
-      object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
-      typeof params.address === "string"
-        ? tx.pure.address(params.address)
-        : params.address,
+      tx.object(params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
+      typeof params.address === "string" ? tx.pure.address(params.address) : params.address,
     ],
   });
 }
@@ -738,11 +733,7 @@ export function redeemAllAndDistributeReleaseRevenue(
     releaseRevenueDistributorPlugin.redeemAllAndDistribute({
       package: params.pluginPackageId,
       typeArguments: [params.currencyType],
-      arguments: [
-        params.vault,
-        params.release,
-        object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
-      ],
+      arguments: [params.vault, params.release, tx.object(params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID)],
     }),
   );
 }
@@ -906,11 +897,18 @@ export function sweepRoutedStake(
     readonly currencyType: string;
   },
 ): void {
-  tx.add(routedStake.sweep({
-    package: params.routedStakePackageId,
-    typeArguments: [params.stakeShareType, params.poolShareType, params.currencyType],
-    arguments: [object(tx, params.routedStake), object(tx, params.stakePool), object(tx, params.royaltyPool), params.parentId],
-  }));
+  tx.add(
+    routedStake.sweep({
+      package: params.routedStakePackageId,
+      typeArguments: [params.stakeShareType, params.poolShareType, params.currencyType],
+      arguments: [
+        tx.object(params.routedStake),
+        tx.object(params.stakePool),
+        tx.object(params.royaltyPool),
+        params.parentId,
+      ],
+    }),
+  );
 }
 
 /** Parse a VaultAdminCap whose phantom capability does not affect BCS layout. */
@@ -948,26 +946,25 @@ export function parseReleaseTrackRevenueDistributedEvent(content: Uint8Array) {
 }
 
 /** Read and BCS-parse an owner-held VaultAdminCap. */
-export async function getVaultAdminCap(
+export function getVaultAdminCapEffect(
   client: ClientWithCoreApi,
   vaultAdminCapId: string,
   expected: { readonly vaultPackageId: string; readonly capType: string },
 ) {
-  const { object } = await client.core.getObject({
-    objectId: vaultAdminCapId,
-    include: { content: true },
-  });
-  if (!object || object instanceof Error || !object.content) return null;
-  const expectedType = normalizeStructTag(
-    `${expected.vaultPackageId}::vault::VaultAdminCap<${expected.capType}>`,
-  );
-  if (!object.type || normalizeStructTag(object.type) !== expectedType) {
-    throw new Error(
-      `getVaultAdminCap: expected ${expectedType}, received ${object.type ?? "unknown"}`,
+  return workflow("getVaultAdminCap", function* () {
+    const { object } = yield* tryPromise("getVaultAdminCap", (signal) =>
+      client.core.getObject({ signal, objectId: vaultAdminCapId, include: { content: true } }),
     );
-  }
-  return parseVaultAdminCap(object.content);
+    if (!object || object instanceof Error || !object.content) return null;
+    const expectedType = normalizeStructTag(`${expected.vaultPackageId}::vault::VaultAdminCap<${expected.capType}>`);
+    if (!object.type || normalizeStructTag(object.type) !== expectedType) {
+      throw new Error(`getVaultAdminCap: expected ${expectedType}, received ${object.type ?? "unknown"}`);
+    }
+    return parseVaultAdminCap(object.content);
+  });
 }
+
+export const getVaultAdminCap = toPromise(getVaultAdminCapEffect);
 
 /**
  * Build a `vector<Receiving<Coin<Currency>>>` for receive-and-* plugin calls.
@@ -981,18 +978,24 @@ export interface ReceivingObjectRef {
 }
 
 /** Resolve owned coins to the exact references required by a Receiving input. */
-export async function resolveReceivingCoins(
+export function resolveReceivingCoinsEffect(
   client: ClientWithCoreApi,
   coinIds: readonly string[],
-): Promise<ReceivingObjectRef[]> {
-  const { objects } = await client.core.getObjects({ objectIds: [...coinIds] });
-  return objects.map((coin, index) => {
-    if (coin instanceof Error || !coin) {
-      throw new Error(`resolveReceivingCoins: could not resolve ${coinIds[index]}`);
-    }
-    return { objectId: coin.objectId, version: coin.version, digest: coin.digest };
+): Effect.Effect<ReceivingObjectRef[], SdkError> {
+  return workflow("resolveReceivingCoins", function* () {
+    const { objects } = yield* tryPromise("resolveReceivingCoins", (signal) =>
+      client.core.getObjects({ signal, objectIds: [...coinIds] }),
+    );
+    return objects.map((coin, index) => {
+      if (coin instanceof Error || !coin) {
+        throw new Error(`resolveReceivingCoins: could not resolve ${coinIds[index]}`);
+      }
+      return { objectId: coin.objectId, version: coin.version, digest: coin.digest };
+    });
   });
 }
+
+export const resolveReceivingCoins = toPromise(resolveReceivingCoinsEffect);
 
 export function receivingCoins(
   tx: Transaction,

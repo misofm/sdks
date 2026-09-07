@@ -1,6 +1,6 @@
+import { readBounded, joinedPromise } from "../workspace/files.js";
 import { Effect } from "effect";
-import { constants } from "node:fs";
-import { lstat, open } from "node:fs/promises";
+import { lstat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { MediaValidationError, type NativeProcessError } from "../errors.js";
@@ -8,41 +8,6 @@ import type { NativeProcessService } from "../process/native-process.js";
 import { parsePlaintextMediaPlaylist } from "../hls/playlist.js";
 
 const PACKET_JSON_LIMIT = 16 * 1024 * 1024;
-const PLAYLIST_LIMIT = 1_048_576;
-
-const readPlaylist = async (path: string): Promise<Buffer> => {
-  const handle = await open(
-    path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metadata = await handle.stat();
-    if (
-      !metadata.isFile() ||
-      metadata.size < 1 ||
-      metadata.size > PLAYLIST_LIMIT
-    )
-      throw new RangeError();
-    const bytes = Buffer.allocUnsafe(metadata.size);
-    let offset = 0;
-    while (offset < bytes.byteLength) {
-      const { bytesRead } = await handle.read(
-        bytes,
-        offset,
-        bytes.byteLength - offset,
-        null,
-      );
-      if (bytesRead === 0) throw new RangeError();
-      offset += bytesRead;
-    }
-    if ((await handle.read(Buffer.alloc(1), 0, 1, null)).bytesRead !== 0)
-      throw new RangeError();
-    return bytes;
-  } finally {
-    await handle.close();
-  }
-};
-
 export interface TimelineValidation {
   readonly intervals: readonly string[];
   readonly segmentIntervals: readonly string[];
@@ -214,33 +179,39 @@ export const validatePlaintextRendition = (
   NativeProcessError | MediaValidationError
 > =>
   Effect.gen(function* () {
-    const playlistEvidence = yield* Effect.tryPromise({
-      try: async () => {
-        const playlist = parsePlaintextMediaPlaylist(
-          await readPlaylist(playlistPath),
+    const playlistEvidence = yield* Effect.gen(function* () {
+      const playlist = parsePlaintextMediaPlaylist(
+        yield* joinedPromise(() => readBounded(playlistPath)),
+      );
+      const directory = dirname(playlistPath);
+      const init = yield* joinedPromise(() =>
+        lstat(join(directory, playlist.mapIdentifier)),
+      );
+      if (!init.isFile() || init.isSymbolicLink()) throw new TypeError();
+      let position = init.size;
+      const segmentEndPositions: number[] = [];
+      for (const segment of playlist.segments) {
+        const metadata = yield* joinedPromise(() =>
+          lstat(join(directory, segment.identifier)),
         );
-        const directory = dirname(playlistPath);
-        const init = await lstat(join(directory, playlist.mapIdentifier));
-        if (!init.isFile() || init.isSymbolicLink()) throw new TypeError();
-        let position = init.size;
-        const segmentEndPositions: number[] = [];
-        for (const segment of playlist.segments) {
-          const metadata = await lstat(join(directory, segment.identifier));
-          if (!metadata.isFile() || metadata.isSymbolicLink())
-            throw new TypeError();
-          position += metadata.size;
-          if (!Number.isSafeInteger(position)) throw new TypeError();
-          segmentEndPositions.push(position);
-        }
-        return {
-          segmentDurationsMs: playlist.segments.map(
-            (segment) => segment.durationMs,
-          ),
-          segmentEndPositions,
-        };
-      },
-      catch: () => invalid(playlistPath, "Playlist timeline cannot be parsed"),
-    });
+        if (!metadata.isFile() || metadata.isSymbolicLink())
+          throw new TypeError();
+        position += metadata.size;
+        if (!Number.isSafeInteger(position)) throw new TypeError();
+        segmentEndPositions.push(position);
+      }
+      return {
+        segmentDurationsMs: playlist.segments.map(
+          (segment) => segment.durationMs,
+        ),
+        segmentEndPositions,
+      };
+    }).pipe(
+      Effect.catchDefect((error) => Effect.fail(error)),
+      Effect.mapError(() =>
+        invalid(playlistPath, "Playlist timeline cannot be parsed"),
+      ),
+    );
     const packetResult = yield* process.run({
       role: "ffprobe-timeline",
       executable: ffprobePath,

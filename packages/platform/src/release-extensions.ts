@@ -1,24 +1,25 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
+
 // First-party metadata attached to a protocol Release. The JSON/CLI release
 // intent aggregates these concerns, but every value is written by its own
 // independently deployed extension package.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
+import * as genre from "@misofm/protocol/contracts/genre/genre";
+import * as releaseDspLink from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
+import * as releaseKind from "@misofm/protocol/contracts/release_kind/release_kind";
 import { bcs } from "@mysten/sui/bcs";
-import { deriveDynamicFieldID, deriveObjectID } from "@mysten/sui/utils";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type {
   Transaction,
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
+import { deriveDynamicFieldID, deriveObjectID } from "@mysten/sui/utils";
 import type { TxThunk } from "./transactions.ts";
-import * as genre from "@misofm/protocol/contracts/genre/genre";
-import * as releaseDescription from "@misofm/protocol/contracts/release_description/release_description";
-import * as releaseDspLink from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
-import * as releaseGenre from "@misofm/protocol/contracts/release_genre/release_genre";
-import * as releaseKind from "@misofm/protocol/contracts/release_kind/release_kind";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 
 function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {
@@ -88,19 +89,26 @@ export function parseReleaseKindContent(content: Uint8Array): string {
 }
 
 /** Read a Release's self-declared kind, or `null` when the extension is absent. */
-export async function getReleaseKind(
+export function getReleaseKindEffect(
   client: ClientWithCoreApi,
   releaseId: string,
   releaseKindPackageId: string,
-): Promise<string | null> {
-  const { objects } = await client.core.getObjects({
-    objectIds: [releaseKindFieldId(releaseId, releaseKindPackageId)],
-    include: { content: true },
+): Effect.Effect<string | null, SdkError> {
+  return workflow("getReleaseKind", function* () {
+    const { objects } = yield* tryPromise("getReleaseKind", (signal) =>
+      client.core.getObjects({
+        signal,
+        objectIds: [releaseKindFieldId(releaseId, releaseKindPackageId)],
+        include: { content: true },
+      }),
+    );
+    const object = objects[0];
+    if (!object || object instanceof Error || !object.content) return null;
+    return parseReleaseKindContent(object.content);
   });
-  const object = objects[0];
-  if (!object || object instanceof Error || !object.content) return null;
-  return parseReleaseKindContent(object.content);
 }
+
+export const getReleaseKind = toPromise(getReleaseKindEffect);
 
 export type SetReleaseDescriptionParams = ReleaseExtensionTarget & {
   description: string;

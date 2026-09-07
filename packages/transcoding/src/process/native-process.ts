@@ -44,8 +44,7 @@ export interface NativeProcessService {
  * Internal boundary for all native child-process behavior. Unstable Effect
  * process imports, if adopted in a future matching-version upgrade, belong in
  * this module and nowhere else in the package.
- *
- * @internal
+ * Not exported by either package entry point; retained for layer declarations.
  */
 export class NativeProcess extends Context.Service<
   NativeProcess,

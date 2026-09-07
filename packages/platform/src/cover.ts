@@ -1,6 +1,11 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFieldsEffect } from "./queries.ts";
+
+import { toPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
+
 // Release cover art. A cover is a still image (optionally an animation) stored as
 // a Walrus blob and referenced on-chain via `ori::data::WalrusBlob`. We build the
 // plaintext ref (`ori::data::new_blob`, a raw call — ori is an external dep), wrap
@@ -14,15 +19,14 @@
 // opinion attached to it through the release's cap-gated `uid_mut` hook, which is
 // why this module ships from `@misofm/platform` rather than the protocol SDK.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
-import { bcs } from "@mysten/sui/bcs";
-import { deriveDynamicFieldID } from "@mysten/sui/utils";
-import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
-import type { TxThunk } from "./transactions.ts";
-import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
-import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
 import * as coverArt from "@misofm/protocol/contracts/cover_art/cover_art";
 import * as releaseCoverArt from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
+import { bcs } from "@mysten/sui/bcs";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { deriveDynamicFieldID } from "@mysten/sui/utils";
+import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
+import type { TxThunk } from "./transactions.ts";
+import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 
 type ReleaseAuthorityInput =
   | { readonly authority: AdminCapAuthority; readonly releaseAdminCapId?: never }
@@ -48,9 +52,6 @@ interface SetReleaseCoverParamsBase {
   oriPackageId: string;
 }
 
-function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {
-  return typeof value === "string" ? tx.object(value) : value;
-}
 export type SetReleaseCoverParams = SetReleaseCoverParamsBase & ReleaseAuthorityInput;
 
 export type SetReleaseTrackCoverParams = SetReleaseCoverParams & {
@@ -86,7 +87,7 @@ export function setReleaseCover(p: SetReleaseCoverParams): TxThunk {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
       target: `${p.releaseCoverArtPackageId}::release_cover_art::set_cover`,
-      arguments: [object(tx, p.releaseId), cover],
+      arguments: [tx.object(p.releaseId), cover],
       adminCapIndex: 1,
     });
   };
@@ -98,7 +99,7 @@ export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): TxThunk {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
       target: `${p.releaseCoverArtPackageId}::release_cover_art::set_track_cover`,
-      arguments: [object(tx, p.releaseId), tx.pure.u64(asU64("trackIndex", p.trackIndex)), cover],
+      arguments: [tx.object(p.releaseId), tx.pure.u64(asU64("trackIndex", p.trackIndex)), cover],
       adminCapIndex: 1,
     });
   };
@@ -149,17 +150,17 @@ function toCoverImageRef(blob: ParsedWalrusBlob): CoverImageRef {
  * release, parses the `ReleaseCoverArt`, and returns the still (+ optional
  * animation) as normalized Walrus refs for release displays.
  */
-export async function getReleaseCover(
+export function getReleaseCoverEffect(
   client: ClientWithCoreApi,
   releaseId: string,
   releaseCoverArtPackageId: string,
-): Promise<ReleaseCoverView | null> {
-  return (
-    (
-      await getReleaseCoversByIds(client, [releaseId], releaseCoverArtPackageId)
-    )[releaseId] ?? null
-  );
+): Effect.Effect<ReleaseCoverView | null, SdkError> {
+  return workflow("getReleaseCover", function* () {
+    return (yield* getReleaseCoversByIdsEffect(client, [releaseId], releaseCoverArtPackageId))[releaseId] ?? null;
+  });
 }
+
+export const getReleaseCover = toPromise(getReleaseCoverEffect);
 
 export function parseReleaseCoverContent(
   content: Uint8Array,
@@ -191,30 +192,17 @@ export function releaseCoverFieldId(
 /**
  * Read covers for many releases from the configured package in one Core request.
  */
-export async function getReleaseCoversByIds(
+export function getReleaseCoversByIdsEffect(
   client: ClientWithCoreApi,
   releaseIdsInput: readonly string[],
   releaseCoverArtPackageId: string,
-): Promise<Partial<Record<string, ReleaseCoverView>>> {
-  const releaseIds = [...new Set(releaseIdsInput)];
-  const targets = releaseIds.map((releaseId) => ({
-    releaseId,
-    fieldId: releaseCoverFieldId(releaseId, releaseCoverArtPackageId),
-  }));
-  if (targets.length === 0) return {};
-
-  const { objects } = await client.core.getObjects({
-    objectIds: targets.map((target) => target.fieldId),
-    include: { content: true },
-  });
-  const out: Partial<Record<string, ReleaseCoverView>> = {};
-  objects.forEach((object, index) => {
-    const target = targets[index];
-    if (!target || object instanceof Error || !object.content) return;
-    const cover = parseReleaseCoverContent(object.content);
-    if (cover) {
-      out[target.releaseId] = cover;
-    }
-  });
-  return out;
+): Effect.Effect<Partial<Record<string, ReleaseCoverView>>, SdkError> {
+  return readFieldsEffect(
+    client,
+    releaseIdsInput,
+    (id) => releaseCoverFieldId(id, releaseCoverArtPackageId),
+    parseReleaseCoverContent,
+  );
 }
+
+export const getReleaseCoversByIds = toPromise(getReleaseCoversByIdsEffect);

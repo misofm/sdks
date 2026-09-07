@@ -16,6 +16,8 @@
  * warm (on hover, on queue, on route) is the app's call.
  */
 
+import { Effect } from "effect";
+import { runPromise, tryPromise, trySync, type SdkError } from "@misofm/utils/effect";
 import {
   MAX_SEGMENTS_PER_RENDITION,
   START_RENDITION,
@@ -40,6 +42,8 @@ export interface WarmOptions {
   signal?: AbortSignal;
   /** Fetch implementation to use. Defaults to the global `fetch`. */
   fetch?: typeof fetch;
+  /** Maximum simultaneous fetch-and-drain operations. Defaults to 6. */
+  concurrency?: number;
 }
 
 /**
@@ -53,20 +57,32 @@ export interface WarmOptions {
  * throw for that. An aborted `signal` does throw, with the fetch
  * implementation's `AbortError`.
  */
-export async function warmTrack(baseUrl: string, quiltId: string, options: WarmOptions = {}): Promise<void> {
-  const segments = options.segments ?? DEFAULT_WARM_SEGMENTS;
-  const rendition = options.rendition ?? START_RENDITION;
-  const doFetch = options.fetch ?? fetch;
-  const identifiers = warmIdentifiers(segments, rendition);
+export function warmTrack(baseUrl: string, quiltId: string, options: WarmOptions = {}): Promise<void> {
+  return runPromise(warmTrackEffect(baseUrl, quiltId, options));
+}
 
-  await Promise.all(
-    identifiers.map(async (identifier) => {
-      const url = quiltItemUrl(baseUrl, quiltId, identifier);
-      const response = await doFetch(url, { mode: "cors", credentials: "omit", signal: options.signal });
-      // Drain the body regardless of status: a warm must never throw for a
-      // missing item, and even an error response's body must be fully read
-      // for the browser to keep the cache entry.
-      await response.arrayBuffer();
-    }),
-  );
+/** Composable warming workflow; interruption aborts its fetches and body reads. */
+export function warmTrackEffect(baseUrl: string, quiltId: string, options: WarmOptions = {}): Effect.Effect<void, SdkError> {
+  return Effect.gen(function*() {
+    const concurrency = options.concurrency ?? 6;
+    const identifiers = yield* trySync("warmTrack.identifiers", () => {
+      if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
+        throw new RangeError("warm concurrency must be a positive safe integer");
+      }
+      return warmIdentifiers(options.segments ?? DEFAULT_WARM_SEGMENTS, options.rendition ?? START_RENDITION);
+    });
+    yield* Effect.forEach(identifiers, (identifier) => Effect.gen(function*() {
+      const url = yield* trySync("warmTrack.url", () => quiltItemUrl(baseUrl, quiltId, identifier));
+      // Keep one cancellation signal alive throughout fetch AND body consumption.
+      yield* tryPromise("warmTrack.fetchAndDrain", async (interruption) => {
+        const signal = options.signal ? AbortSignal.any([options.signal, interruption]) : interruption;
+        signal.throwIfAborted();
+        const response = await (options.fetch ?? fetch)(url, { mode: "cors", credentials: "omit", signal });
+        signal.throwIfAborted();
+        // Non-2xx bodies deliberately follow exactly the same draining policy.
+        await response.arrayBuffer();
+        signal.throwIfAborted();
+      });
+    }), { concurrency, discard: true });
+  });
 }

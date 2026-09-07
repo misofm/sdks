@@ -1,6 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { moduleBinder } from "./module-binding.ts";
+
 /**
  * Package-bound generated APIs.
  *
@@ -47,14 +49,6 @@ import * as partyRoles from "./contracts/party_roles/party_roles.ts";
 import * as partySocial from "./contracts/party_social/party_social.ts";
 import * as partyTags from "./contracts/party_tags/party_tags.ts";
 
-type BoundMoveFunction<F> = F extends (options: infer Options) => infer Result
-  ? Options extends { package?: unknown }
-    ? (options: Omit<Options, "package">) => Result
-    : F
-  : F;
-type BoundModule<M extends object, Removed extends PropertyKey> = {
-  [Key in Exclude<keyof M, Removed>]: BoundMoveFunction<M[Key]>;
-};
 /** Generated modules mix BCS constants with transaction-builder functions. */
 type CodecModule<M extends object> = {
   [Key in keyof M as M[Key] extends (...args: never[]) => unknown ? never : Key]: M[Key];
@@ -67,29 +61,8 @@ function codecsOnly<M extends object>(mod: M): CodecModule<M> {
   ) as CodecModule<M>;
 }
 
-/** Defaults a generated module's optional `package` field to `packageId`. */
-export function bindModulePackage<
-  M extends object,
-  K extends readonly (keyof M)[] = readonly [],
->(
-  mod: M,
-  packageId: string,
-  unavailable: K = [] as unknown as K,
-): BoundModule<M, K[number]> {
-  const bound: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(mod)) {
-    if ((unavailable as readonly string[]).includes(key)) continue;
-    bound[key] =
-      typeof value === "function"
-        ? (options: { package?: string }) =>
-            (value as (input: unknown) => unknown)({
-              ...options,
-              package: packageId,
-            })
-        : value;
-  }
-  return bound as BoundModule<M, K[number]>;
-}
+/** Pin generated calls to the deployment and omit unavailable functions. */
+export const bindModulePackage = moduleBinder("pin");
 
 /**
  * Public Move functions that return references. A PTB can borrow internally,

@@ -24,6 +24,8 @@ jobs:
         run: bun run test
       - name: Build
         run: bun run build
+      - name: Isolated package consumer
+        run: bun run test:consumer
       # The root package.json is private — check the tarball contents inside
       # each publishable workspace package instead of at the repo root, where
       # `npm pack` would otherwise pass vacuously against the private package.

@@ -78,6 +78,7 @@ test("without MSE the element gets the playlist directly and play errors surface
   expect(audio.crossOrigin).toBe("anonymous");
   expect(audio.src).toBe(player.masterPlaylistUrl(QUILT));
   stream.play();
+  expect(audio.played).toBe(1); // The native invocation remains in this gesture.
   await Promise.resolve();
   await Promise.resolve();
   expect(audio.played).toBe(1);
@@ -156,4 +157,55 @@ test("destroying before hls.js resolves never attaches", async () => {
   await Promise.resolve();
   await Promise.resolve();
   expect(FakeHls.instances).toHaveLength(0);
+});
+
+test("failed engine loads report once and retry on the next open", async () => {
+  let loads = 0;
+  let errors = 0;
+  const player = new HlsPlayer({ baseUrl: BASE, mseUsable: () => true,
+    loadHls: () => ++loads === 1 ? Promise.reject(new Error("chunk unavailable")) : loader(),
+  });
+  const audio = fakeAudio(false);
+  player.openStream(audio as unknown as HTMLAudioElement, QUILT, () => errors++);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(errors).toBe(1);
+  const stream = player.openStream(audio as unknown as HTMLAudioElement, QUILT);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(loads).toBe(2);
+  stream.destroy();
+});
+
+test("MSE and native fallback play rejections reach the callback", async () => {
+  for (const supported of [true, false]) {
+    FakeHls.supported = supported;
+    let errors = 0;
+    const player = new HlsPlayer({ baseUrl: BASE, mseUsable: () => true, loadHls: loader });
+    const stream = player.open(fakeAudio(true, true) as unknown as HTMLAudioElement, QUILT, () => errors++);
+    stream.play();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(errors).toBe(1);
+    stream.destroy();
+  }
+  FakeHls.supported = true;
+});
+
+test("replacing a pending stream gives the new stream sole ownership", async () => {
+  FakeHls.instances = [];
+  let resolveLoad!: (module: { default: never }) => void;
+  const player = new HlsPlayer({ baseUrl: BASE, mseUsable: () => true,
+    loadHls: () => new Promise((resolve) => { resolveLoad = resolve; }),
+  });
+  const audio = fakeAudio(false) as unknown as HTMLAudioElement;
+  const stale = player.open(audio, "old");
+  const current = player.open(audio, "new");
+  resolveLoad({ default: FakeHls as never });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(FakeHls.instances).toHaveLength(1);
+  const hls = FakeHls.instances[0]!;
+  expect(hls.source).toBe(player.getMasterPlaylistUrl("new"));
+  stale.destroy();
+  stale.play();
+  expect(hls.destroyed).toBe(false);
+  current.destroy();
+  expect(hls.destroyed).toBe(true);
 });

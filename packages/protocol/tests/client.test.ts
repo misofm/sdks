@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { miso } from "../src/client.ts";
+import { PartyProtocolClient } from "../src/party/client.ts";
 import * as contracts from "../src/contracts.ts";
 import {
   assertMisoDeployment,
@@ -154,6 +155,34 @@ test("package-bound calls omit reference-returning Move views", () => {
   expect("unregister" in client.miso.packages.call.primitives.routedStake).toBeFalse();
   expect("unstake" in client.miso.packages.call.primitives.routedStake).toBeFalse();
   expect("restake" in client.miso.packages.call.primitives.routedStake).toBeFalse();
+});
+
+test("shared module binding preserves Party override policy and each reference denylist", () => {
+  const client = new SuiGrpcClient({ network: "testnet", baseUrl: "https://fullnode.testnet.sui.io:443" })
+    .$extend(miso({ deployment: FULL_DEPLOYMENT }));
+  const options = { package: A, arguments: { self: A, cap: A, name: "Override" } };
+  const tx = new Transaction();
+  tx.add(client.miso.party.call.party.setName(options));
+  tx.add(client.miso.packages.call.party.core.setName(options));
+  expect(moveCalls(tx).map((call) => call.package)).toEqual([A, FULL_DEPLOYMENT.misoParty]);
+  for (const calls of [client.miso.party.call.party, client.miso.packages.call.party.core]) {
+    expect("uid" in calls).toBeFalse();
+    expect("uidMut" in calls).toBeFalse();
+    expect("groupMembers" in calls).toBeFalse();
+    expect(calls.Party).toBe(client.miso.party.bcs.Party);
+  }
+});
+
+test("Party client snapshots deployment values before callers mutate their manifest", () => {
+  const deployment = { ...FULL_DEPLOYMENT };
+  const sui = new SuiGrpcClient({ network: "testnet", baseUrl: "https://fullnode.testnet.sui.io:443" });
+  const party = new PartyProtocolClient(sui, deployment);
+  deployment.misoParty = A;
+  deployment.genre = A;
+  const tx = new Transaction();
+  tx.add(party.call.party.setName({ arguments: { self: A, cap: A, name: "Snapshot" } }));
+  expect(moveCalls(tx)[0]?.package).toBe(FULL_DEPLOYMENT.misoParty);
+  expect(party.genrePackageId).toBe(FULL_DEPLOYMENT.genre);
 });
 
 test("package BCS projection exposes codecs only, not transaction builders", () => {

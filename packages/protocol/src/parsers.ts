@@ -14,6 +14,22 @@ import {
   ReleasePublishedEvent as ReleasePublishedEventBcs,
   ReleaseRegistryCreatedEvent as ReleaseRegistryCreatedEventBcs,
 } from "./contracts/miso/release.ts";
+import { Composition } from "./contracts/miso/composition.ts";
+import { Recording } from "./contracts/miso/recording.ts";
+import { Release } from "./contracts/miso/release.ts";
+import { mapComposition, mapRecording, mapRelease } from "./internal.ts";
+
+/** Decode object content bytes (not the full object envelope). Throws on invalid BCS. */
+export function parseCompositionObject(id: string, bytes: Uint8Array) {
+  return mapComposition(id, Composition.parse(bytes));
+}
+export function parseRecordingObject(id: string, bytes: Uint8Array) {
+  return mapRecording(id, Recording.parse(bytes));
+}
+export function parseReleaseObject(id: string, bytes: Uint8Array) {
+  return mapRelease(id, Release.parse(bytes));
+}
+
 import type {
   CompositionPublishedEvent,
   CompositionSharesGrantedEvent,

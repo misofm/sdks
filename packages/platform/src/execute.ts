@@ -1,6 +1,9 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { toPromise, tryPromise, workflow, type SdkError } from "@misofm/utils/effect";
+import { Effect } from "effect";
+
 // `executeViaExecutor` — the one piece of transaction execution that's specific
 // to this package's opinionated publish flows (batched, non-idempotent share-
 // currency publishing in `share.ts`). Everything else — `buildTx`,
@@ -8,9 +11,9 @@
 // PTB execution plumbing that stays in `@misofm/protocol`'s `execute.ts` and is
 // re-exported from there; this module builds on top of it.
 
-import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
+import { buildTxEffect, FULL_INCLUDE, toExecResult, type ExecResult } from "@misofm/protocol";
 import type { SuiClientTypes } from "@mysten/sui/client";
-import { buildTx, toExecResult, FULL_INCLUDE, type ExecResult } from "@misofm/protocol";
+import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 import type { TxThunk } from "./transactions.ts";
 
 // Consumers of the platform SDK should not need a second direct dependency on
@@ -39,14 +42,19 @@ export interface PlatformExecResult extends ExecResult {
  * job (e.g. a resumable checkpoint that reconciles against on-chain state). A Move
  * abort RESOLVES as a `FailedTransaction`, so `toExecResult` surfaces it too.
  */
-export async function executeViaExecutor(
+export function executeViaExecutorEffect(
   executor: ParallelTransactionExecutor,
   ...thunks: TxThunk[]
-): Promise<PlatformExecResult> {
-  const tx = await buildTx(...thunks);
-  const res: SuiClientTypes.TransactionResult<PlatformFullInclude> =
-    await executor.executeTransaction(tx, PLATFORM_FULL_INCLUDE);
-  const base = toExecResult(res);
-  if (res.$kind !== "Transaction") throw new Error("unreachable: toExecResult accepted a failed transaction");
-  return { ...base, events: res.Transaction.events ?? [] };
+): Effect.Effect<PlatformExecResult, SdkError> {
+  return workflow("executeViaExecutor", function* () {
+    const tx = yield* buildTxEffect(...thunks);
+    const res: SuiClientTypes.TransactionResult<PlatformFullInclude> = yield* tryPromise("executeViaExecutor", () =>
+      executor.executeTransaction(tx, PLATFORM_FULL_INCLUDE),
+    );
+    const base = toExecResult(res);
+    if (res.$kind !== "Transaction") throw new Error("unreachable: toExecResult accepted a failed transaction");
+    return { ...base, events: res.Transaction.events ?? [] };
+  }).pipe(Effect.uninterruptible);
 }
+
+export const executeViaExecutor = toPromise(executeViaExecutorEffect);

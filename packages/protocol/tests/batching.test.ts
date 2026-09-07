@@ -123,6 +123,7 @@ test("getWorksByIds fetches heterogeneous work objects in one Core request", asy
   expect(calls).toEqual([
     {
       objectIds: [compositionId, recordingId, releaseId],
+      signal: expect.any(AbortSignal),
       include: { content: true },
     },
   ]);
@@ -168,11 +169,14 @@ test("getOwnedReleaseAdminCaps uses the list projection without a second object 
   expect(calls).toEqual([
     {
       owner: id("3"),
+      signal: expect.any(AbortSignal),
+      cursor: undefined,
       type: `${id("a")}::release::ReleaseAdminCap`,
       include: { json: true },
     },
     {
       owner: id("3"),
+      signal: expect.any(AbortSignal),
       type: `${id("a")}::release::ReleaseAdminCap`,
       include: { json: true },
       cursor: "next",

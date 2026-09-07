@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect, Result } from "effect";
+import { SdkError } from "@misofm/utils/effect";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import {
   Transaction,
@@ -631,6 +633,32 @@ test("ready memoizes exact-chain validation and gates synchronous builders", asy
     DEPLOYMENT.chainIdentifier,
   );
   expect(calls).toBe(1);
+});
+
+test("concurrent Effect readiness shares its cached failure with Promise callers", async () => {
+  const base = new SuiGrpcClient({ network: "testnet", baseUrl: "https://fullnode.testnet.sui.io:443" });
+  let calls = 0;
+  const failure = new Error("chain unavailable");
+  Object.defineProperty(base.core, "getChainIdentifier", { value: async () => { calls++; throw failure; } });
+  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
+  const results = await Effect.runPromise(Effect.all([
+    Effect.result(client.miso.readyEffect()), Effect.result(client.miso.readyEffect()),
+  ], { concurrency: 2 }));
+  expect(results.every(Result.isFailure)).toBe(true);
+  await expect(client.miso.ready()).rejects.toBe(failure);
+  expect(calls).toBe(1);
+});
+
+test("unavailable sales after successful readiness remains a typed failure", async () => {
+  const base = new SuiGrpcClient({ network: "testnet", baseUrl: "https://fullnode.testnet.sui.io:443" });
+  Object.defineProperty(base.core, "getChainIdentifier", { value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }) });
+  const client = base.$extend(misoPlatform({ network: "testnet", chainIdentifier: DEPLOYMENT.chainIdentifier, misoPackageId: MISO }));
+  const result = await Effect.runPromise(Effect.result(client.misoPlatform.getPressingEffect(A)));
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) {
+    expect(result.failure).toBeInstanceOf(SdkError);
+    expect(result.failure.cause).toBeInstanceOf(RecordSalesUnavailableError);
+  }
 });
 
 test("protocol and nested Party surfaces cannot read or build before readiness", async () => {

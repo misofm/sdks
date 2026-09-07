@@ -54,7 +54,7 @@ import {
   setRecordingMasterReference,
   setRecordingStreamingTranscode,
 } from "./recording-extensions.ts";
-import { unencryptedWalrusBlob } from "./internal.ts";
+import { requiredAt, unencryptedWalrusBlob } from "./internal.ts";
 import {
   setReleaseDescription,
   setReleaseDspLinks,
@@ -266,12 +266,6 @@ interface WorkParts {
 interface PartyParts {
   party: TransactionObjectArgument;
   adminCap: TransactionObjectArgument;
-}
-
-function requiredAt<T>(items: readonly T[], index: number, description: string): T {
-  const value = items[index];
-  if (value === undefined) throw new Error(`${description} index ${index} is out of range`);
-  return value;
 }
 
 function partyCapType(p: AtomicPublicationParams): string {

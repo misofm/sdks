@@ -77,11 +77,7 @@ export type TrackNode = FreshTrackNode | CapTrackNode;
 
 const isFresh = (t: TrackNode): t is FreshTrackNode => "recordingIndex" in t;
 
-function requiredAt<T>(items: readonly T[], index: number, description: string): T {
-  const item = items[index];
-  if (item === undefined) throw new Error(`${description} index ${index} is out of range`);
-  return item;
-}
+import { requiredAt } from "./internal.ts";
 
 interface ReleaseNodeBase {
   title: string;
