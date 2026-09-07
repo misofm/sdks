@@ -49,7 +49,7 @@ export * from "./share-template.ts";
 export * from "./release-graph.ts";
 export * from "./publication.ts";
 export * from "./catalog.ts";
-export * from "./mix.ts";
+export * from "./walrus-ids.ts";
 
 // High-level, JSON-safe platform projections used directly by clients and by
 // the thin HTTP read service. Namespaced because these composed view types are
@@ -62,7 +62,6 @@ export * from "./credits.ts";
 export * from "./cover.ts";
 export * from "./release-extensions.ts";
 export * from "./recording-extensions.ts";
-export * from "./mix.ts";
 export * from "./vault.ts";
 
 // Generated, ABI-bound bindings (BCS structs + type-safe Move calls).

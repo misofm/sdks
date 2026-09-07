@@ -76,8 +76,6 @@ export interface TrackView {
   disc: number;
   /** Base64url Walrus blob id for the master stream, when attached on-chain. */
   masterBlobId?: string;
-  /** Base64url Walrus blob id for the public mix-delivery descriptor. */
-  mixBlobId?: string;
 }
 
 /** A release with everything a page renders: metadata, cover, credits, tracklist. */

@@ -150,6 +150,20 @@ type PublicationRecordingParent =
   | { readonly parentCompositionIndex: number; readonly parentCompositionId?: never }
   | { readonly parentCompositionIndex?: never; readonly parentCompositionId: string };
 
+/** One stem a Session V1 document references, paired with its Walrus blob. */
+export interface PublicationEngineSessionStem {
+  /** 32-byte SHA-256 of the stem's canonical PCM (engine STEM_IDENTITY_V1); bytes or 64 hex chars. */
+  readonly digest: Uint8Array | string;
+  /** Unencrypted Walrus blob holding the stem's FLAC, as its on-chain `u256`. */
+  readonly blobId: bigint | string;
+}
+
+export interface PublicationEngineSession {
+  /** Unencrypted Walrus blob holding the canonical Session V1 JSON, as its on-chain `u256`. */
+  readonly sessionBlobId: bigint | string;
+  readonly stems: readonly PublicationEngineSessionStem[];
+}
+
 export type PublicationRecordingLanguages =
   | { readonly kind: "instrumental" }
   | { readonly kind: "languages"; readonly codes: string[] };
@@ -173,8 +187,8 @@ export type PublicationRecording = PublicationRecordingParent & {
   readonly masterReferenceBlobId?: bigint | string;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
   readonly streamingTranscodeQuiltId?: bigint | string;
-  /** Unencrypted Walrus blob ID of this Recording's Miso Engine session file. */
-  readonly engineSessionBlobId?: bigint | string;
+  /** This Recording's Miso Engine session: the Session V1 blob and every stem it plays. */
+  readonly engineSession?: PublicationEngineSession;
 };
 
 export interface PublicationFreshTrack {
@@ -654,7 +668,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
     );
   }
   if (
-    p.recordings.some((node) => node.engineSessionBlobId !== undefined) &&
+    p.recordings.some((node) => node.engineSession !== undefined) &&
     !p.deployment.packages.recordingEngineSession
   ) {
     throw new Error(
@@ -878,13 +892,14 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
         oriPackageId: p.deployment.packages.ori,
         quiltId: node.streamingTranscodeQuiltId,
       })(tx);
-      if (node.engineSessionBlobId !== undefined) setRecordingEngineSession({
+      if (node.engineSession !== undefined) setRecordingEngineSession({
         recordingId: parts.work, authority,
         recordingShareType: node.shareType,
         compositionShareType: node.compositionShareType,
         recordingEngineSessionPackageId: p.deployment.packages.recordingEngineSession!,
         oriPackageId: p.deployment.packages.ori,
-        sessionBlobId: node.engineSessionBlobId,
+        sessionBlobId: node.engineSession.sessionBlobId,
+        stems: node.engineSession.stems,
       })(tx);
     });
 

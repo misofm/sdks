@@ -7,9 +7,12 @@ import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/data";
 import * as masterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
+import * as engineSessionContract from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
 import {
+  getRecordingEngineSession,
   getRecordingMasterReference,
   getRecordingMasterReferencesByIds,
+  recordingEngineSessionFieldId,
   recordingMasterReferenceFieldId,
   setRecordingEngineSession,
   setRecordingMasterReference,
@@ -106,7 +109,7 @@ test("builds a master reference from a plaintext ori::data::WalrusBlob", () => {
   expect(calls.map((call) => call.package)).toEqual([ORI_PACKAGE, ORI_PACKAGE, PACKAGE]);
 });
 
-test("builds an engine-session attachment through recording_engine_session::new", () => {
+test("builds an engine session with stems sorted by digest", () => {
   const tx = new Transaction();
   setRecordingEngineSession({
     recordingId: RECORDING_ONE,
@@ -116,22 +119,56 @@ test("builds an engine-session attachment through recording_engine_session::new"
     recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
     oriPackageId: ORI_PACKAGE,
     sessionBlobId: BLOB_ID,
+    stems: [
+      { digest: "ff".repeat(32), blobId: 2n },
+      { digest: new Uint8Array(32), blobId: 1n },
+    ],
   })(tx);
 
   const calls = moveCalls(tx);
   expect(calls.map((call) => `${call.module}::${call.function}`)).toEqual([
     "confidentiality::new_unencrypted",
     "data::new_blob",
+    "confidentiality::new_unencrypted",
+    "data::new_blob",
+    "recording_engine_session::new_stem",
+    "confidentiality::new_unencrypted",
+    "data::new_blob",
+    "recording_engine_session::new_stem",
     "recording_engine_session::new",
     "recording_engine_session::set_engine_session",
   ]);
-  expect(calls.map((call) => call.package)).toEqual([
-    ORI_PACKAGE,
-    ORI_PACKAGE,
-    ENGINE_SESSION_PACKAGE,
-    ENGINE_SESSION_PACKAGE,
-  ]);
-  expect(calls[3]!.typeArguments).toEqual([RECORDING_SHARE, COMPOSITION_SHARE]);
+  expect(calls[9]!.package).toBe(ENGINE_SESSION_PACKAGE);
+  expect(calls[9]!.typeArguments).toEqual([RECORDING_SHARE, COMPOSITION_SHARE]);
+  // The zero digest sorts first: its stem's blob (1n) is built before 2n.
+  const inputs = tx.getData().inputs.map((input) =>
+    input.$kind === "Pure" ? Buffer.from(input.Pure.bytes, "base64").toString("hex") : null,
+  );
+  const blobOrder = inputs.filter((hex) => hex !== null && hex.length === 64);
+  expect(blobOrder[1]!.startsWith("01")).toBe(true);
+  expect(blobOrder[2]!.startsWith("02")).toBe(true);
+  expect(tx.getData().commands.some((command) => command.$kind === "MakeMoveVec")).toBe(true);
+
+  expect(() => setRecordingEngineSession({
+    recordingId: RECORDING_ONE,
+    authority: { kind: "direct", adminCap: CAP },
+    recordingShareType: RECORDING_SHARE,
+    compositionShareType: COMPOSITION_SHARE,
+    recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
+    oriPackageId: ORI_PACKAGE,
+    sessionBlobId: BLOB_ID,
+    stems: [{ digest: "aa".repeat(32), blobId: 1n }, { digest: "aa".repeat(32), blobId: 2n }],
+  })).toThrow(/duplicate stem digest/);
+  expect(() => setRecordingEngineSession({
+    recordingId: RECORDING_ONE,
+    authority: { kind: "direct", adminCap: CAP },
+    recordingShareType: RECORDING_SHARE,
+    compositionShareType: COMPOSITION_SHARE,
+    recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
+    oriPackageId: ORI_PACKAGE,
+    sessionBlobId: BLOB_ID,
+    stems: [{ digest: "aa", blobId: 1n }],
+  })).toThrow(/32 bytes/);
 
   const unset = new Transaction();
   unsetRecordingEngineSession({
@@ -144,6 +181,41 @@ test("builds an engine-session attachment through recording_engine_session::new"
   expect(moveCalls(unset).map((call) => `${call.module}::${call.function}`)).toEqual([
     "recording_engine_session::unset_engine_session",
   ]);
+});
+
+test("reads an engine session's session blob and stems table", async () => {
+  const fieldId = recordingEngineSessionFieldId(RECORDING_ONE, ENGINE_SESSION_PACKAGE);
+  const EngineSessionField = bcs.struct("Field", {
+    id: bcs.Address,
+    name: engineSessionContract.ExtensionKey,
+    value: engineSessionContract.EngineSession,
+  });
+  const content = EngineSessionField.serialize({
+    id: fieldId,
+    name: [false],
+    value: {
+      data: { blob_id: 7n, confidentiality: { Unencrypted: true } },
+      stems: [
+        { digest: Array.from(new Uint8Array(32)), data: { blob_id: 1n, confidentiality: { Unencrypted: true } } },
+        { digest: Array.from(new Uint8Array(32).fill(0xff)), data: { blob_id: 2n, confidentiality: { Unencrypted: true } } },
+      ],
+    },
+  }).toBytes();
+  const client = {
+    core: {
+      getObjects: async (input: { objectIds: string[] }) => {
+        expect(input.objectIds).toEqual([fieldId]);
+        return { objects: [{ objectId: fieldId, content }] };
+      },
+    },
+  } as unknown as ClientWithCoreApi;
+  await expect(getRecordingEngineSession(client, RECORDING_ONE, ENGINE_SESSION_PACKAGE)).resolves.toEqual({
+    sessionBlobId: "7",
+    stems: [
+      { digest: "00".repeat(32), blobId: "1" },
+      { digest: "ff".repeat(32), blobId: "2" },
+    ],
+  });
 });
 
 test("builds an idempotent streaming-transcode removal", () => {

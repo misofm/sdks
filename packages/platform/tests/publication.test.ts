@@ -120,7 +120,7 @@ function params(): AtomicPublicationParams {
         languages: { kind: "languages", codes: ["en"] },
         masterReferenceBlobId: 1n,
         streamingTranscodeQuiltId: 2n,
-        engineSessionBlobId: 4n,
+        engineSession: { sessionBlobId: 4n, stems: [{ digest: "ab".repeat(32), blobId: 5n }] },
       },
     ],
     release: {

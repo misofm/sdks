@@ -48,23 +48,21 @@ without installing it themselves. Registration takes a recursively frozen
 snapshot of custom deployment/config records without freezing the caller's
 original objects, so later caller mutation cannot retarget an existing client.
 
-### Canonical Record-gated sessions
+### Engine sessions
 
-`@misofm/platform/mix` defines the complete protected-playback wire contract. A
-Record resolves its immutable Release track to a Recording, then derives that
-Recording's `recording_engine_session::ExtensionKey` dynamic field directly.
-The field names one plaintext Walrus `miso.engine-session/1` document containing
-the encrypted stem blob IDs and one Seal-wrapped 32-byte session key. No event
-scan, indexer-maintained relationship, or second encrypted manifest is needed.
+A Recording's `recording_engine_session::ExtensionKey` dynamic field holds one
+`EngineSession`: the unencrypted Walrus blob of the canonical Miso Engine
+Session V1 JSON, plus one `Stem` per source pairing the 32-byte SHA-256 of its
+canonical PCM (the document's `content` identity) with the unencrypted Walrus
+blob of its FLAC. The document carries no locators, so this field is where a
+client resolves each source to bytes. Nothing is encrypted; there is no
+wrapper document and no off-chain map.
 
-The same entry point exposes exact identity encoding, strict canonical-session
-parsing, and Seal-envelope inspection. `setRecordingEngineSession` and
-`unsetRecordingEngineSession` are the cap-authorized PTB builders; the session
-reference is always a plaintext `ori::data::WalrusBlob`, matching the on-chain
-`recording_engine_session::new` check. The bundled Testnet deployment pins the Record, policy, gate, and
-engine-session identities together at `recordSales.recordPackageId`,
-`packages.recordSealPolicy`, `objects.recordGate`, and
-`packages.recordingEngineSession`.
+`getRecordingEngineSession` reads the field in one request and returns the
+session blob id and the stems table. `setRecordingEngineSession` and
+`unsetRecordingEngineSession` are the cap-authorized PTB builders; the builder
+sorts stems by digest, as `recording_engine_session::new` requires. Walrus id
+conversions live in `walrus-ids`.
 
 ## The model
 

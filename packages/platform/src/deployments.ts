@@ -216,7 +216,11 @@ export interface MisoPlatformDeployment {
     readonly recordingMasterReference: string;
     /** Complete Walrus Quilt containing the Recording's streaming transcodes. */
     readonly recordingStreamingTranscode?: string;
-    /** Unencrypted Walrus blob of a Recording's Miso Engine session file; absent before publication. */
+    /**
+     * Miso Engine session: the Session V1 blob plus each stem's PCM digest and
+     * blob. Absent until the stems generation of `recording_engine_session` is
+     * published; the retired single-blob generation is not a substitute.
+     */
     readonly recordingEngineSession?: string;
     /** Original immutable Record-gated Seal policy; absent before publication. */
     readonly recordSealPolicy?: string;
@@ -317,8 +321,9 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0xd6b7f206f838018a28d33b77bade2b8476ccafab5fe526345c375d3b47bb892f",
       recordingMasterReference:
         "0x65309bf315f3e035b0f10c706eb5c327af5038be1637a0cee74f4ae62872f6ce",
-      recordingEngineSession:
-        "0x2fcb9ab90772711487e5858e20393a4f222df538a3d5104d2a884bb54663af33",
+      // 0x2fcb9ab9… is the retired single-blob generation. Fill in the stems
+      // generation's identity from Published.toml once it is published.
+      recordingEngineSession: undefined,
       recordingStreamingTranscode:
         "0x622cd2a9e49ee2639f5c1d922d2fc75e89e810e80da8dd6d4a843bcefa0aacb0",
       recordSealPolicy:

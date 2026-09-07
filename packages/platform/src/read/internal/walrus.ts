@@ -3,7 +3,7 @@
 
 import { bcs } from "@mysten/sui/bcs";
 import { toBase64 } from "@mysten/sui/utils";
-import { walrusBlobIdFromU256 } from "../../mix.ts";
+import { walrusBlobIdFromU256 } from "../../walrus-ids.ts";
 
 const u256 = bcs.u256();
 

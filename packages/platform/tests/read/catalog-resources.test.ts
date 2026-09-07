@@ -98,28 +98,3 @@ test("projects a derived listing to JSON-safe values", async () => {
   });
   expect(() => JSON.stringify(view)).not.toThrow();
 });
-
-test("projects the optional per-track canonical mix descriptor blob id", () => {
-  const tracks = toTracks(
-    {
-      id: RELEASE,
-      title: "Mix release",
-      state: { type: "Initialized" },
-      tracks: [
-        {
-          state: "Assigned",
-          compositionId: `0x${"44".repeat(32)}`,
-          recordingId: `0x${"55".repeat(32)}`,
-          splitBps: { value: 10_000 },
-        },
-      ],
-    } as never,
-    {},
-    {},
-    { 0: "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
-  );
-  expect(tracks[0]?.mixBlobId).toBe(
-    "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-  );
-  expect(tracks[0]?.mixBlobId).toHaveLength(43);
-});

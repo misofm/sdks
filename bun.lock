@@ -13,29 +13,27 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.20.0",
+      "version": "0.21.0",
       "dependencies": {
-        "@misofm/protocol": "0.14.0",
+        "@misofm/protocol": "0.15.0",
         "@mysten/bcs": "^2.1.1",
       },
       "devDependencies": {
         "@mysten/codegen": "^0.11.14",
         "@mysten/move-bytecode-template": "^0.4.0",
-        "@mysten/seal": "1.4.6",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.3.14",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@mysten/move-bytecode-template": "^0.4.0",
-        "@mysten/seal": "1.4.6",
         "@mysten/sui": "2.29.0",
         "typescript": "^5.7 || ^6 || ^7",
       },
     },
     "packages/protocol": {
       "name": "@misofm/protocol",
-      "version": "0.14.0",
+      "version": "0.15.0",
       "dependencies": {
         "@mysten/bcs": "^2.1.1",
       },
@@ -78,8 +76,6 @@
     "@mysten/codegen": ["@mysten/codegen@0.12.7", "", { "dependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.29.0", "@stricli/auto-complete": "^1.3.0", "@stricli/core": "^1.3.0", "@types/node": "^26.2.0", "cosmiconfig": "^10.0.0", "prettier": "3.9.6", "toml": "^5.0.0", "typescript": "npm:@typescript/typescript6@^6.0.2", "zod": "^4.4.3" }, "bin": { "sui-ts-codegen": "dist/bin/cli.mjs", "__sui-ts-codegen_bash_complete": "dist/bin/bash-complete.mjs" } }, "sha512-mGNUuVMjbZ7nN56pYu2G7YBGeJ8cBksZaVRedemPA4OhAT2QWPIMfj4ojJGdfK9j77N3tor9N8mO2dnNARbD7Q=="],
 
     "@mysten/move-bytecode-template": ["@mysten/move-bytecode-template@0.4.1", "", {}, "sha512-N7g4zq5uZA353tGue0t0X6K8QepYru8V89HjNyRk3W34sDCnzOUU5NFcI2puDKtvCTRePoBEBVeXUHGV3cQgZQ=="],
-
-    "@mysten/seal": ["@mysten/seal@1.4.6", "", { "dependencies": { "@mysten/bcs": "^2.1.1", "@noble/curves": "^2.3.0", "@noble/hashes": "^2.3.0" }, "peerDependencies": { "@mysten/sui": "^2.27.1" } }, "sha512-rAVzHvJIrE99SZcxQlE9hPb1lybYyy0QOUUwoRtWvkCJtjOYw9k1cA8N/QPqdkWHRYChOlItgF3/jYvGWPWB/A=="],
 
     "@mysten/sui": ["@mysten/sui@2.29.0", "", { "dependencies": { "@graphql-typed-document-node/core": "^3.2.0", "@mysten/bcs": "^2.1.1", "@mysten/utils": "^0.4.1", "@noble/curves": "^2.3.0", "@noble/hashes": "^2.3.0", "@protobuf-ts/grpcweb-transport": "^2.11.1", "@protobuf-ts/runtime": "^2.11.1", "@protobuf-ts/runtime-rpc": "^2.11.1", "@scure/base": "^2.3.0", "@scure/bip32": "^2.3.0", "@scure/bip39": "^2.3.0", "gql.tada": "^1.11.3", "graphql": "^17.0.2", "poseidon-lite": "0.3.0", "valibot": "^1.4.2" } }, "sha512-k7q22+AFQ5SZXOH+a28M1J8iFVbMcWro9mt0Bb7GI1HZNsxJIyQT5Q3iZdrAM0hTwM4XQvzm5Y0f32f0nfiGxw=="],
 

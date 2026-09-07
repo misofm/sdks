@@ -33,8 +33,6 @@ export interface ProtocolIds {
   releaseKind: string;
   /** `recording_master_reference` — optional Walrus master pointers. */
   recordingMasterReference: string;
-  /** `release_mix_reference` — optional per-track delivery descriptor pointers. */
-  releaseMixReference?: string;
   /** `composition_credits` / `recording_credits` / `release_credits` extensions. */
   compositionCredits: string;
   recordingCredits: string;

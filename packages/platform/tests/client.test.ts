@@ -397,7 +397,7 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
       recordingAdvisory: "0x8f745dac70fef5327e686b31acbe3f3504dc7eeb63da5f31a4660bb5aea5ee4b",
       recordingLanguage: "0xd6b7f206f838018a28d33b77bade2b8476ccafab5fe526345c375d3b47bb892f",
       recordingMasterReference: "0x65309bf315f3e035b0f10c706eb5c327af5038be1637a0cee74f4ae62872f6ce",
-      recordingEngineSession: "0x2fcb9ab90772711487e5858e20393a4f222df538a3d5104d2a884bb54663af33",
+      recordingEngineSession: undefined,
       recordingStreamingTranscode:
         "0x622cd2a9e49ee2639f5c1d922d2fc75e89e810e80da8dd6d4a843bcefa0aacb0",
       recordSealPolicy: "0x2b806033f31ed0af5a9118429111dd5c91f44d9229c41aa9d5cbaec7e3910c0a",
