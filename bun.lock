@@ -13,7 +13,7 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.21.0",
+      "version": "0.21.1",
       "dependencies": {
         "@misofm/protocol": "0.15.0",
         "@mysten/bcs": "^2.1.1",

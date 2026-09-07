@@ -218,8 +218,8 @@ export interface MisoPlatformDeployment {
     readonly recordingStreamingTranscode?: string;
     /**
      * Miso Engine session: the Session V1 blob plus each stem's PCM digest and
-     * blob. Absent until the stems generation of `recording_engine_session` is
-     * published; the retired single-blob generation is not a substitute.
+     * blob. Optional so a deployment without the stems generation fails closed
+     * before signing rather than calling a retired single-blob package.
      */
     readonly recordingEngineSession?: string;
     /** Original immutable Record-gated Seal policy; absent before publication. */
@@ -321,9 +321,10 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0xd6b7f206f838018a28d33b77bade2b8476ccafab5fe526345c375d3b47bb892f",
       recordingMasterReference:
         "0x65309bf315f3e035b0f10c706eb5c327af5038be1637a0cee74f4ae62872f6ce",
-      // 0x2fcb9ab9… is the retired single-blob generation. Fill in the stems
-      // generation's identity from Published.toml once it is published.
-      recordingEngineSession: undefined,
+      // Stems generation (Session V1 blob + Stem { digest, data } vector).
+      // 0x2fcb9ab9… was the retired single-blob generation.
+      recordingEngineSession:
+        "0x0ec0227854f418a6accfbdcca5d41fd22b6906f5034c8ea1545dfe42a2a7f020",
       recordingStreamingTranscode:
         "0x622cd2a9e49ee2639f5c1d922d2fc75e89e810e80da8dd6d4a843bcefa0aacb0",
       recordSealPolicy:

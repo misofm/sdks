@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui \u2014 high-level reads, pressings, listings, records, and work publishing.",
   "license": "Apache-2.0",
