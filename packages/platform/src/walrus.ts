@@ -40,3 +40,17 @@ export type WalrusNetwork = "testnet" | "mainnet";
 export function walrusAggregatorUrl(network: WalrusNetwork): string {
   return `https://aggregator.${network}.walrus.mirai.cloud`;
 }
+
+/**
+ * Miso's private Walrus publisher for a network, the storage counterpart of
+ * the Onara gas sponsors. Reachable only from the Fly organization network
+ * (WireGuard or a machine inside it); it pays SUI and WAL from its own wallet.
+ */
+export function walrusPublisherUrl(network: WalrusNetwork): string {
+  return `http://walrus-publisher-${network}.flycast`;
+}
+
+/** Query string every Miso upload sends to the publisher: permanent, shared, four epochs. */
+export function walrusPublishQuery(): string {
+  return `epochs=${WALRUS_STORAGE_EPOCHS}&permanent=true&share=true`;
+}

@@ -9,6 +9,8 @@ import {
   WALRUS_N_SHARDS,
   WALRUS_STORAGE_EPOCHS,
   walrusAggregatorUrl,
+  walrusPublishQuery,
+  walrusPublisherUrl,
 } from "../src/walrus.ts";
 
 test("platform re-exports the miso-hls/v1 contract and resolves stream URLs per network", () => {
@@ -27,4 +29,6 @@ test("Walrus publication policy is fixed by the platform, not release.json", () 
   expect(WALRUS_BLOBS_DELETABLE).toBe(false);
   expect(WALRUS_BLOBS_SHARED).toBe(true);
   expect(walrusAggregatorUrl("mainnet")).toBe("https://aggregator.mainnet.walrus.mirai.cloud");
+  expect(walrusPublisherUrl("testnet")).toBe("http://walrus-publisher-testnet.flycast");
+  expect(walrusPublishQuery()).toBe("epochs=4&permanent=true&share=true");
 });
