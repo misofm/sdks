@@ -14,7 +14,7 @@
 // The light build has the same class shape; its own types are not resolvable
 // under bundler resolution, so type against the main entry.
 import type HlsType from "hls.js";
-import type { HlsConfig, HlsLoadPolicies, LoadPolicy, LoaderConfig, RetryConfig } from "hls.js";
+import type { HlsConfig, LoadPolicy, LoaderConfig, RetryConfig } from "hls.js";
 import { MASTER_PLAYLIST, quiltItemUrl, startLevelIndex } from "./index.ts";
 import { warmTrack, type WarmOptions } from "./warm.ts";
 
@@ -32,11 +32,17 @@ export type PartialLoadPolicy = {
   };
 };
 
-/** `hls.js` config overrides: every field is a shallow override of
- *  {@link HLS_COLD_ORIGIN_DEFAULTS} except the `*LoadPolicy` keys, which may
- *  be partial — see {@link mergeHlsConfig}. */
-export type HlsConfigOverrides = Partial<Omit<HlsConfig, keyof HlsLoadPolicies>> &
-  Partial<Record<keyof HlsLoadPolicies, PartialLoadPolicy>>;
+/** The load policies {@link HLS_COLD_ORIGIN_DEFAULTS} provides a complete base for. */
+export type DefaultedLoadPolicyKey = "fragLoadPolicy" | "playlistLoadPolicy";
+
+/**
+ * hls.js config overrides. Only the load policies the defaults provide a base
+ * for accept partial objects (merged per leaf); every other `*LoadPolicy` must
+ * be complete, because hls.js itself merges config shallowly and a partial
+ * policy would reach it with `maxNumRetry` undefined.
+ */
+export type HlsConfigOverrides = Partial<Omit<HlsConfig, DefaultedLoadPolicyKey>> &
+  Partial<Record<DefaultedLoadPolicyKey, PartialLoadPolicy>>;
 
 /**
  * Defaults tuned for playback off a Walrus aggregator origin: the first play
