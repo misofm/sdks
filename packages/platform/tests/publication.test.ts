@@ -119,7 +119,6 @@ function params(): AtomicPublicationParams {
         languages: { kind: "languages", codes: ["en"] },
         masterReferenceBlobId: 1n,
         streamingTranscodeQuiltId: 2n,
-        previewBlobId: 2n,
       },
     ],
     release: {
@@ -184,7 +183,6 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("recording_language::set_languages")).toBe(1);
   expect(count("recording_master_reference::set_master_reference")).toBe(1);
   expect(count("recording_streaming_transcode::set_streaming_transcode")).toBe(1);
-  expect(count("recording_preview::set_preview")).toBe(1);
   expect(count("release_credits::add_credit")).toBe(1);
   expect(count("release_kind::set_kind")).toBe(1);
   expect(count("release_description::set_description")).toBe(1);

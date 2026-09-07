@@ -24,7 +24,6 @@ import * as rawRelease from "./contracts/miso/release.ts";
 import * as rawCompositionCredits from "./contracts/composition_credits/composition_credits.ts";
 import * as rawRecordingCredits from "./contracts/recording_credits/recording_credits.ts";
 import * as rawRecordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
-import * as rawRecordingPreview from "./contracts/recording_preview/recording_preview.ts";
 import * as rawReleaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as rawReleaseCredits from "./contracts/release_credits/release_credits.ts";
 import * as rawReleaseDescription from "./contracts/release_description/release_description.ts";
@@ -48,7 +47,6 @@ export const recordingCredits = withoutUnsafeCalls(rawRecordingCredits, ["credit
 export * as recordingPartyRole from "./contracts/recording_credits/recording_party_role.ts";
 export * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 export const recordingMasterReference = withoutUnsafeCalls(rawRecordingMasterReference, ["masterReference"] as const);
-export const recordingPreview = withoutUnsafeCalls(rawRecordingPreview, ["preview"] as const);
 export const releaseCoverArt = withoutUnsafeCalls(rawReleaseCoverArt, ["cover"] as const);
 export const releaseCredits = withoutUnsafeCalls(rawReleaseCredits, ["credits"] as const);
 export * as releasePartyRole from "./contracts/release_credits/release_party_role.ts";

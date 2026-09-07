@@ -49,7 +49,6 @@ export const GENERATED_CONTRACT_DIRECTORIES = new Set([
   // Frozen — see the corresponding `frozen` package entry in
   // sui-codegen.config.ts for why each is un-generatable upstream.
   "recording_master_reference",
-  "recording_preview",
   "composition_routed_stake",
   "composition_royalty_pool_plugin",
   "recording_royalty_pool_plugin",

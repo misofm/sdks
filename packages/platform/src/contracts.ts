@@ -43,7 +43,6 @@ export * as recordingAdvisory from "@misofm/protocol/contracts/recording_advisor
 export * as recordingLanguage from "@misofm/protocol/contracts/recording_language/recording_language";
 export * as recordingMasterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
 export * as recordingStreamingTranscode from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
-export * as recordingPreview from "@misofm/protocol/contracts/recording_preview/recording_preview";
 
 // Credits extensions (per-work credit stores + their role vocabularies).
 export * as compositionCredits from "@misofm/protocol/contracts/composition_credits/composition_credits";

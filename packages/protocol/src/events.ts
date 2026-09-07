@@ -13,7 +13,6 @@ import * as recordingAdvisory from "./contracts/recording_advisory/recording_adv
 import * as recordingCredits from "./contracts/recording_credits/recording_credits.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 import * as recordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
-import * as recordingPreview from "./contracts/recording_preview/recording_preview.ts";
 import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as releaseCredits from "./contracts/release_credits/release_credits.ts";
 import * as releaseDescription from "./contracts/release_description/release_description.ts";
@@ -68,10 +67,6 @@ export const eventParsers = {
     recordingMasterReference: {
       masterReferenceSet: decoder(recordingMasterReference.MasterReferenceSetEvent),
       masterReferenceUnset: decoder(recordingMasterReference.MasterReferenceUnsetEvent),
-    },
-    recordingPreview: {
-      previewSet: decoder(recordingPreview.PreviewSetEvent),
-      previewUnset: decoder(recordingPreview.PreviewUnsetEvent),
     },
     releaseCoverArt: {
       coverSet: decoder(releaseCoverArt.CoverSetEvent),

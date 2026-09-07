@@ -220,7 +220,6 @@ export interface MisoPlatformDeployment {
     readonly recordingEngineSession?: string;
     /** Original immutable Record-gated Seal policy; absent before publication. */
     readonly recordSealPolicy?: string;
-    readonly recordingPreview: string;
     /** External `ori::walrus_data::WalrusData` dependency used by cover art. */
     readonly ori: string;
   };
@@ -250,89 +249,87 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
     recordSales: {
       status: "available",
       recordPackageId:
-        "0x75e5fa520c39322e0526ff56a495f9a2a88d097e2df7902d94e58a9a12831e76",
+        "0xc9411d3e2cb9600081544572036bec049624db1707f9354c342090f440b6e1a2",
       recordShopPackageId:
-        "0x2b97df3773040bb2cffd8c329bfd57f05f1fd2defb6ab156050ba1ae540d5d2a",
+        "0xc6d49266080b8f165b6c1fc48e1aa4a6d719183d78a8d1043bfe0f2d6c744ed1",
     },
     operations: {
       status: "available",
       vault: {
         packageId:
-          "0xaed1aa729452c77f4c62882b73317851d628c30af55355c81eb1c93d3d3276ac",
+          "0x77b74e9221874b9e29f6743a277810480bf89d71b5cb71741cd52dfcd83035d2",
         registryId:
-          "0x5de3c379a15e4609260a94ace3d186cc466366fc6aebafe5663c016057b6a2d6",
+          "0x0fcfe3bb47f0ee2fbf0dcb65b48741efd06b4d746f1df14fe6ac3c00e9e35287",
       },
       actions: {
         compositionRoyaltyPool:
-          "0x46b9b193255f28ec5190e8cd37ae85397c9110266da73a4a7a94fcb6e990155b",
+          "0x26c574e0aa01f504833b4f01dad44e2cd17b8718630e025d85ce05b843092085",
         recordingRoyaltyPool:
-          "0x78964bdc2dd7fad943633542edf5a1c9be38b1d2d25de1cc6cca64757c7d037a",
+          "0x84b3cc36907112da74c88c78d1ac20e17010a30e206dfa4322a300c87032d405",
         partyWallet:
-          "0x934f15715f725e3eed2acaeda5c717b6641dce4bb88b7670db26249cb6646728",
+          "0xa3d6016f2da63b53546e3f9922e8f0c12c27ca532509ef8c0e778f3e7cd56ee6",
         compositionRoutedStake:
-          "0xb1539001eaf32350d7044acb03092dcbd5a366e708d959aece0cca683f7f57fc",
+          "0x8e32cdb08953afe0b72f46fde2b0fe1ab0ab3c12885c1e41883ccb5d8703e144",
         releaseRevenueDistributor:
-          "0xd19dde6c20fa41092c9645e8300284cf1a268ab5ed3b3c7a2a12593672203b45",
+          "0x5ab255ed56c601c5d3c79502e81cfd4fd534c166fa731c2275a65d5fd2b34615",
       },
       plugins: {
         compositionRoyaltyPool:
-          "0xad3525b86fad3f2aaaa3fdf0430d690efba249e378b1b89ed8180ecbc5d89392",
+          "0x6969b98c0322a8a7ba2478d900fc88e1c9ba17903c310c7fdb133c0789bd5ba8",
         recordingRoyaltyPool:
-          "0x2adfc809152c5c8cf07f0e466d881b62d48c7da3ae2e787c0471deb867a6a385",
+          "0x4ac310583eda99e148207f99618ce5d21d7e7680e7c92b58422113b155a97455",
         releaseRevenueDistributor:
-          "0x4f1da8c04ec53749f6cf6e8d2d48701fd72654078240050e20e41dc774f93d46",
+          "0xf13e254b32cee1315d9c0af3c4ef6e3bb770c293eee90afe30a009cde30bb381",
       },
     },
     packages: {
       minato:
         "0xcdf58ed7e4580118a6a3f2a8077abffe633c551b2f19e95ce01685d42f90b8d9",
       credit:
-        "0xc5a82310ce313af8f0ec18a4e564af11971b360db9e2ae686fef86fb2297a9a9",
+        "0xb82c6c2524ede481cfa3c1066c70c1e43b1a5f6f11e40d5633153c2c3150bba7",
       compositionCredits:
-        "0xc58ac5d69740866f6514f68f2e9c86b1d069d819ad0bcf5384b6aaa66e0fbf53",
+        "0x09434b8b65fb25a703b9c762abbb9075b5bfde6baffc923baac9353ab2191a65",
       recordingCredits:
-        "0x7bafa653854f0820d911b8f6aa0aac3b131163c254b0021330881b77206d4d79",
+        "0x598303437c97ab1ec232be884d041587f18647b71fb36f4cf76cbbcc3c276dd2",
       releaseCredits:
-        "0x47ccd23c669b023b8678193e7748235916e16e737fdd8ba48b131ded29c76a00",
+        "0xd6e9f090d581779099cc4beaf6c8843f1d569dea85fdde004748c8f03aadafcb",
       royaltyPool:
-        "0xecaa5a29cf8e110face3b80f0e4a5554e8c80edd8eda0983ed2f8015367eecca",
+        "0xce4a1415255ac043301f3057b1dbd1095ad4959fcbe5bfceb9dbb7cf1144def1",
       routedStake:
-        "0x30ed387d3fea69579ddb34d011fa6e1416580bfb3ee6587aabf103fb0d17bced",
+        "0xaa37871d4ba3ce4a465c13c79d1a701941efbf33491633c744ad4b7035f7f894",
       coverArt:
-        "0x2b811f82d33cf6a9448adb11a598f6b04c14970cfc8e2982cde1d468e8e7d4a4",
+        "0x711f7041fc9e12d045b278c07ff9cf5047b69002e91e9dd881ad51c09ec389f6",
       releaseCoverArt:
-        "0x4f0a8736685f6b1ddbcd0bddcd7aae2d072aa3d4043efc0ad4042a7786068999",
+        "0xfb1dc55719142fb575c6242f338447fa87bf4618f6903c7a6e30489f4e810fb3",
       genre:
-        "0x01e58dbc76c15c9ac137dabac1823ebd6ef81efd563c5121000bc11c51a47cc7",
+        "0x095c412a9e9846b091b8f93d9bd50bca5d98a2e65063cb6c20265dc307c4b319",
       releaseDescription:
-        "0x50f5acf7c0c05cdc7656072fd1bfc5ee76d02beabeae090103734b2d75118fa3",
+        "0x957b633fd186f65f953e17caaeec2e3385431c6f55914cb31dfb775368f89d9e",
       releaseDspLink:
-        "0x9ca9ad8cab49c4897cd3cb89628b771ee4f10831ddc273036837751a5339d02a",
+        "0x7bce4d548314d9cff3145732f19ad7e67b3c00e2cf4d6f295f8af6d02108884e",
       releaseGenre:
-        "0xfb73b04be2f72704ec5e6a1035bfab108e5ee2a72e72c0505f999291e23219bd",
+        "0x9770bc7cf9d9b2fa35af194d14f0c36320fbf6541c5ee12b884f0db44d1b5a4f",
       releaseKind:
-        "0xfb2e5790f0577aca3ac8ddd672c4c58ef1e49ef1c3dfe14fb9676aaabf769169",
+        "0x187f6f881623cc843d2c6dc98fe23203598fd3992b6a78c1b5990f3fd60a0f5b",
       recordingAdvisory:
-        "0x23abf3f248466c08edc3349b202d6e809064c0e52098ff290cef1fdc51d5942e",
+        "0x8f745dac70fef5327e686b31acbe3f3504dc7eeb63da5f31a4660bb5aea5ee4b",
       recordingLanguage:
-        "0xb3e1c578638a79acc7ab573c994206047ad8ef76893f9c5c987887c5b10a5c68",
+        "0xd6b7f206f838018a28d33b77bade2b8476ccafab5fe526345c375d3b47bb892f",
       recordingMasterReference:
-        "0x92a752854b80a6103721743125ee48223b577a023fe360e25d3aa695462a6d15",
+        "0x65309bf315f3e035b0f10c706eb5c327af5038be1637a0cee74f4ae62872f6ce",
       recordingEngineSession:
-        "0xdd8f817a221e2acd5a4e6f34d0192d8e0dbddeb76c2dff2fdc82991cb4feb6c6",
+        "0x2fcb9ab90772711487e5858e20393a4f222df538a3d5104d2a884bb54663af33",
+      recordingStreamingTranscode:
+        "0x622cd2a9e49ee2639f5c1d922d2fc75e89e810e80da8dd6d4a843bcefa0aacb0",
       recordSealPolicy:
-        "0xfa22d0678eaec39ad36b74c2c5439d574292e8fb19a9a15272733267499d5351",
-      recordingPreview:
-        "0x2be8405f6b77a30d6942cb240c0d804d608ef761395e6f861b71d9ae3c98f997",
-      ori: "0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a",
+        "0x2b806033f31ed0af5a9118429111dd5c91f44d9229c41aa9d5cbaec7e3910c0a",
+      ori: "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
     },
     objects: {
       releaseRegistry:
-        "0x452c9904677a1bbf92d4e07d86d2c3eb038c47595b0e17a23756f03887eb2a2a",
+        "0x40700d8fd9de26392d10c4a3c0759b08f60be43e2f80681650e87a4efdac5cf1",
       genreRegistry:
-        "0xda4cc070da1a71d43387973027a7230587a1b9c829d37c2af4a3adbc15fdb8a8",
-      recordGate:
-        "0x8fd51c8b31bb6012fb03d2be39ed7b9f0f581329b6b338c60c209110cc659f31",
+        "0x479a1f43c8118b24d10cba62d64ad782c19fad974cdbc5020c909ea943c857a8",
     },
     legacy: {
       releaseCoverArtPackages: [],

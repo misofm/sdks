@@ -99,19 +99,6 @@ const config: MisoCodegenConfig = {
     { package: "@local-pkg/release_genre", path: source("misofm/protocol-extensions/release_genre") },
     { package: "@local-pkg/release_kind", path: source("misofm/protocol-extensions/release_kind") },
 
-    // recording_preview has no Move source anywhere (removed from
-    // protocol-extensions) but remains deployed and canonical in
-    // `deployments.ts`. Its existing generated binding is retained — see
-    // `scripts/codegen-output.ts` — and never regenerated.
-    //
-    // It also predates the same ori walrus_data -> data migration as
-    // recording_master_reference above: the deployed package's reference
-    // field is the `ori::walrus_data::WalrusData` enum (Blob | QuiltPatch,
-    // leading BCS variant byte), not the `ori::data::WalrusBlob` struct.
-    // Both reasons hold independently — even if source reappeared upstream,
-    // regenerating from it would still produce a wire-incompatible binding
-    // until the deployed package itself is replaced.
-    { package: "@local-pkg/recording_preview", frozen: true },
 
     // Primitives.
     { package: "@local-pkg/royalty_pool", path: source("misofm/royalty-pool") },

@@ -109,8 +109,8 @@ const config: SuiCodegenConfig = {
       package: "@local-pkg/recording_language",
       path: source("misonetwork/protocol-extensions/recording_language"),
     },
-    // The deployed recording_master_reference and recording_preview bindings
-    // likewise remain frozen until a deployment explicitly replaces them.
+    // The deployed recording_master_reference binding likewise remains frozen
+    // until a deployment explicitly replaces it.
     {
       package: "@local-pkg/recording_streaming_transcode",
       path: source("misofm/protocol-extensions/recording_streaming_transcode"),

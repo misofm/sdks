@@ -13,7 +13,6 @@ import * as advisory from "@misofm/protocol/contracts/recording_advisory/recordi
 import * as language from "@misofm/protocol/contracts/recording_language/recording_language";
 import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/walrus_data";
 import * as masterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
-import * as preview from "@misofm/protocol/contracts/recording_preview/recording_preview";
 import * as streamingTranscode from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
 
 export interface RecordingExtensionTarget {
@@ -140,20 +139,6 @@ export function unsetRecordingStreamingTranscode(
       target: `${p.recordingStreamingTranscodePackageId}::recording_streaming_transcode::unset_streaming_transcode`,
       typeArguments: [p.recordingShareType, p.compositionShareType],
       arguments: [object(tx, p.recordingId)],
-      adminCapIndex: 1,
-    });
-  };
-}
-
-export interface SetRecordingPreviewParams extends RecordingWalrusReferenceParams {
-  readonly recordingPreviewPackageId: string;
-}
-export function setRecordingPreview(p: SetRecordingPreviewParams): TxThunk {
-  return (tx) => {
-    invokeWithAdminCap(tx, p.authority, {
-      target: `${p.recordingPreviewPackageId}::recording_preview::set_preview`,
-      typeArguments: [p.recordingShareType, p.compositionShareType],
-      arguments: [object(tx, p.recordingId), p.reference],
       adminCapIndex: 1,
     });
   };

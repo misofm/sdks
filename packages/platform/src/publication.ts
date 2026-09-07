@@ -51,7 +51,6 @@ import {
   setRecordingInstrumental,
   setRecordingLanguages,
   setRecordingMasterReference,
-  setRecordingPreview,
   setRecordingStreamingTranscode,
 } from "./recording-extensions.ts";
 import {
@@ -172,7 +171,6 @@ export type PublicationRecording = PublicationRecordingParent & {
   readonly masterReferenceBlobId?: bigint | string;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
   readonly streamingTranscodeQuiltId?: bigint | string;
-  readonly previewBlobId?: bigint | string;
 };
 
 export interface PublicationFreshTrack {
@@ -870,13 +868,6 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
           p.deployment.packages.recordingStreamingTranscode!,
         oriPackageId: p.deployment.packages.ori,
         quiltId: node.streamingTranscodeQuiltId,
-      })(tx);
-      if (node.previewBlobId !== undefined) setRecordingPreview({
-        recordingId: parts.work, authority,
-        recordingShareType: node.shareType,
-        compositionShareType: node.compositionShareType,
-        recordingPreviewPackageId: p.deployment.packages.recordingPreview,
-        reference: walrusBlob(tx, p, node.previewBlobId),
       })(tx);
     });
 

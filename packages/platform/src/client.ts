@@ -64,7 +64,6 @@ import * as recordingAdvisoryContract from "@misofm/protocol/contracts/recording
 import * as recordingLanguageContract from "@misofm/protocol/contracts/recording_language/recording_language";
 import * as recordingMasterReferenceContract from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
 import * as recordingStreamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
-import * as recordingPreviewContract from "@misofm/protocol/contracts/recording_preview/recording_preview";
 import * as vaultActions from "./vault.ts";
 import * as coverArtContract from "@misofm/protocol/contracts/cover_art/cover_art";
 import * as releaseCoverArtContract from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
@@ -299,7 +298,6 @@ export interface MisoPlatformConfig {
   recordingLanguagePackageId?: string;
   recordingMasterReferencePackageId?: string;
   recordingStreamingTranscodePackageId?: string;
-  recordingPreviewPackageId?: string;
   /** Structurally complete Vault/Action/plugin identity set. */
   operations?: OperationsDeployment;
   /** Generic royalty-pool value package used by pool and routed-stake helpers. */
@@ -1163,13 +1161,6 @@ export class MisoPlatformClient {
             ] as const,
           )
         : undefined,
-      recordingPreview: this.#config.recordingPreviewPackageId
-        ? bindModulePackage(
-            recordingPreviewContract,
-            this.#config.recordingPreviewPackageId,
-            ["setPreview", "unsetPreview", "hasPreview"] as const,
-          )
-        : undefined,
       coverArt: this.#config.coverArtPackageId
         ? bindModulePackage(
             coverArtContract,
@@ -1278,7 +1269,6 @@ export function miso<const Name extends string = "miso">(
             deployment.packages.recordingMasterReference,
           recordingStreamingTranscodePackageId:
             deployment.packages.recordingStreamingTranscode,
-          recordingPreviewPackageId: deployment.packages.recordingPreview,
           operations: deployment.operations,
           royaltyPoolPackageId: deployment.packages.royaltyPool,
           routedStakePackageId: deployment.packages.routedStake,
