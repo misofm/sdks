@@ -13,7 +13,7 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.22.1",
+      "version": "0.23.0",
       "dependencies": {
         "@misofm/protocol": "0.16.0",
         "@misofm/streaming": "0.1.0",

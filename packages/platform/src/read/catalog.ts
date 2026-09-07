@@ -37,7 +37,12 @@ import {
   parseReleaseKindContent,
   releaseKindFieldId,
 } from "../release-extensions.ts";
-import { getRecordingMasterReferencesByIds } from "../recording-extensions.ts";
+import {
+  getRecordingEngineSessionsByIds,
+  getRecordingMasterReferencesByIds,
+  getRecordingStreamingTranscodesByIds,
+  type RecordingEngineSessionView,
+} from "../recording-extensions.ts";
 import { getTrackCreditsByRecordingIds } from "../catalog.ts";
 import { getReleaseById, getReleasesByIds, isNotFound } from "@misofm/protocol";
 import type { Release } from "@misofm/protocol";
@@ -64,6 +69,7 @@ import type {
   SaleDetail,
   SaleView,
   TrackCredits,
+  TrackEngineSession,
   TrackView,
   WorkState,
 } from "./types.ts";
@@ -195,13 +201,22 @@ export function primaryArtistNames(credits: Credit[]): string[] {
  * Number the protocol's flat tracklist. Display grouping such as discs belongs
  * to metadata extensions and can be layered onto this projection later.
  */
+/** Per-recording audio attachments, every id already base64url. */
+export interface TrackAudio {
+  masterBlobIds?: Partial<Record<string, string>>;
+  transcodeQuiltIds?: Partial<Record<string, string>>;
+  engineSessions?: Partial<Record<string, TrackEngineSession>>;
+}
+
 export function toTracks(
   release: Release,
   titles: Record<string, string>,
-  masterBlobIds: Partial<Record<string, string>>,
+  audio: TrackAudio,
 ): TrackView[] {
   return release.tracks.map((track, index) => {
-    const masterBlobId = masterBlobIds[track.recordingId];
+    const masterBlobId = audio.masterBlobIds?.[track.recordingId];
+    const transcodeQuiltId = audio.transcodeQuiltIds?.[track.recordingId];
+    const engineSession = audio.engineSessions?.[track.recordingId];
     return {
       no: `${index + 1}`,
       title: titles[track.recordingId] ?? "Untitled",
@@ -210,8 +225,28 @@ export function toTracks(
       splitBps: int(track.splitBps.value),
       disc: 1,
       ...(masterBlobId ? { masterBlobId } : {}),
+      ...(transcodeQuiltId ? { transcodeQuiltId } : {}),
+      ...(engineSession ? { engineSession } : {}),
     };
   });
+}
+
+/** Re-key a soft per-recording read of decimal `u256` ids to base64url. */
+function b64UrlByRecording(
+  ids: Partial<Record<string, string>>,
+): Partial<Record<string, string>> {
+  const out: Partial<Record<string, string>> = {};
+  for (const [recordingId, id] of Object.entries(ids)) {
+    if (id) out[recordingId] = u256ToB64Url(id);
+  }
+  return out;
+}
+
+function toTrackEngineSession(view: RecordingEngineSessionView): TrackEngineSession {
+  return {
+    sessionBlobId: u256ToB64Url(view.sessionBlobId),
+    stems: view.stems.map((stem) => ({ digest: stem.digest, blobId: u256ToB64Url(stem.blobId) })),
+  };
 }
 
 // ── Cover ────────────────────────────────────────────────────────────────────
@@ -357,7 +392,8 @@ export async function getReleaseDetail(
   );
 
   const recordingIds = release.tracks.map((track) => track.recordingId);
-  const [titles, masterReferences, trackCredits] = await Promise.all([
+  const { recordingStreamingTranscode, recordingEngineSession } = client.config.protocol;
+  const [titles, masterReferences, transcodes, engineSessions, trackCredits] = await Promise.all([
     getRecordingTitles(
       client.protocol,
       client.graphql,
@@ -369,14 +405,27 @@ export async function getReleaseDetail(
       recordingIds,
       client.config.protocol.recordingMasterReference,
     ).catch(() => ({})),
+    recordingStreamingTranscode
+      ? getRecordingStreamingTranscodesByIds(client.protocol, recordingIds, recordingStreamingTranscode).catch(() => ({}))
+      : Promise.resolve({}),
+    recordingEngineSession
+      ? getRecordingEngineSessionsByIds(client.protocol, recordingIds, recordingEngineSession).catch(
+          (): Partial<Record<string, RecordingEngineSessionView>> => ({}),
+        )
+      : Promise.resolve<Partial<Record<string, RecordingEngineSessionView>>>({}),
     options.include?.includes("trackCredits")
       ? getTrackCreditsForRecordingIds(client, recordingIds)
       : Promise.resolve(undefined),
   ]);
-  const masterBlobIds: Record<string, string> = {};
-  for (const [recordingId, blobId] of Object.entries(masterReferences)) {
-    if (blobId) masterBlobIds[recordingId] = u256ToB64Url(blobId);
-  }
+  const audio: TrackAudio = {
+    masterBlobIds: b64UrlByRecording(masterReferences),
+    transcodeQuiltIds: b64UrlByRecording(transcodes),
+    engineSessions: Object.fromEntries(
+      Object.entries(engineSessions).flatMap(([recordingId, view]) =>
+        view ? [[recordingId, toTrackEngineSession(view)]] : [],
+      ),
+    ),
+  };
 
   const creditViews = credits ?? [];
   return {
@@ -391,7 +440,7 @@ export async function getReleaseDetail(
     credits: creditViews,
     primaryArtists: primaryArtistNames(creditViews),
     discCount: release.tracks.length > 0 ? 1 : 0,
-    tracks: toTracks(release, titles, masterBlobIds),
+    tracks: toTracks(release, titles, audio),
     ...(trackCredits !== undefined ? { trackCredits } : {}),
   };
 }

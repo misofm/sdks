@@ -13,6 +13,7 @@
 
 import type { MisoDeployment } from "@misofm/protocol/deployments";
 import { getMisoPlatformDeployment, type RecordSalesDeployment } from "../deployments.ts";
+import { walrusAggregatorUrl } from "../walrus.ts";
 
 export type Network = "testnet" | "mainnet";
 
@@ -33,6 +34,10 @@ export interface ProtocolIds {
   releaseKind: string;
   /** `recording_master_reference` — optional Walrus master pointers. */
   recordingMasterReference: string;
+  /** `recording_streaming_transcode` — the `miso-hls/v1` Quilt a track streams from, or null when the generation lacks it. */
+  recordingStreamingTranscode: string | null;
+  /** `recording_engine_session` — the Session V1 blob and stems a track mixes from, or null when the generation lacks it. */
+  recordingEngineSession: string | null;
   /** `composition_credits` / `recording_credits` / `release_credits` extensions. */
   compositionCredits: string;
   recordingCredits: string;
@@ -111,6 +116,8 @@ export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}
       releaseCoverArt: platform.packages.releaseCoverArt,
       releaseKind: platform.packages.releaseKind,
       recordingMasterReference: platform.packages.recordingMasterReference,
+      recordingStreamingTranscode: platform.packages.recordingStreamingTranscode ?? null,
+      recordingEngineSession: platform.packages.recordingEngineSession ?? null,
       compositionCredits: platform.packages.compositionCredits,
       recordingCredits: platform.packages.recordingCredits,
       releaseCredits: platform.packages.releaseCredits,
@@ -123,7 +130,7 @@ export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}
     },
     grpcUrl: "https://fullnode.testnet.sui.io",
     graphqlUrl: "https://graphql.testnet.sui.io/graphql",
-    walrusAggregatorUrl: "https://aggregator.walrus-testnet.walrus.space",
+    walrusAggregatorUrl: walrusAggregatorUrl(network),
     apiBaseUrl: "https://api.testnet.miso.fm",
     discoverSales: [],
   };

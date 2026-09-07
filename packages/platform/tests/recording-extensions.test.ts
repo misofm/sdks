@@ -284,3 +284,112 @@ test("batches unique master-reference fields and omits absent recordings", async
     ],
   ]);
 });
+
+// ── Streaming transcode and batched engine-session reads ────────────────────
+
+import * as streamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import {
+  getRecordingEngineSessionsByIds,
+  getRecordingStreamingTranscode,
+  getRecordingStreamingTranscodesByIds,
+  recordingEngineSessionFieldId,
+  recordingStreamingTranscodeFieldId,
+} from "../src/recording-extensions.ts";
+
+const QUILT_ID = 987654321n;
+const TranscodeField = bcs.struct("Field", {
+  id: bcs.Address,
+  name: streamingTranscodeContract.ExtensionKey,
+  value: streamingTranscodeContract.StreamingTranscode,
+});
+
+function transcodeContent(recordingId: string): Uint8Array {
+  return TranscodeField.serialize({
+    id: recordingStreamingTranscodeFieldId(recordingId, PACKAGE),
+    name: [false],
+    value: { quilt: { quilt_id: QUILT_ID } },
+  }).toBytes();
+}
+
+const SessionField = bcs.struct("Field", {
+  id: bcs.Address,
+  name: engineSessionContract.ExtensionKey,
+  value: engineSessionContract.EngineSession,
+});
+const STEM_DIGEST = new Uint8Array(32).fill(7);
+
+function sessionContent(recordingId: string): Uint8Array {
+  return SessionField.serialize({
+    id: recordingEngineSessionFieldId(recordingId, PACKAGE),
+    name: [false],
+    value: {
+      data: { blob_id: BLOB_ID, confidentiality: { Unencrypted: true } },
+      stems: [
+        {
+          digest: Array.from(STEM_DIGEST),
+          data: { blob_id: QUILT_ID, confidentiality: { Unencrypted: true } },
+        },
+      ],
+    },
+  }).toBytes();
+}
+
+function batchClient(content: (recordingId: string) => Uint8Array, calls: string[][]): ClientWithCoreApi {
+  return {
+    core: {
+      getObjects: async (input: { objectIds: string[] }) => {
+        calls.push(input.objectIds);
+        return {
+          objects: [
+            { objectId: input.objectIds[0], content: content(RECORDING_ONE) },
+            new Error("not found"),
+          ],
+        };
+      },
+    },
+  } as unknown as ClientWithCoreApi;
+}
+
+test("getRecordingStreamingTranscodesByIds derives one field per recording and drops missing ones", async () => {
+  const calls: string[][] = [];
+  await expect(
+    getRecordingStreamingTranscodesByIds(
+      batchClient(transcodeContent, calls),
+      [RECORDING_ONE, RECORDING_TWO, RECORDING_ONE],
+      PACKAGE,
+    ),
+  ).resolves.toEqual({ [RECORDING_ONE]: String(QUILT_ID) });
+  expect(calls).toEqual([
+    [
+      recordingStreamingTranscodeFieldId(RECORDING_ONE, PACKAGE),
+      recordingStreamingTranscodeFieldId(RECORDING_TWO, PACKAGE),
+    ],
+  ]);
+});
+
+test("getRecordingStreamingTranscode returns null for a recording without a transcode", async () => {
+  const client = batchClient(transcodeContent, []);
+  await expect(getRecordingStreamingTranscode(client, RECORDING_ONE, PACKAGE)).resolves.toBe(String(QUILT_ID));
+  const missing = {
+    core: { getObjects: async () => ({ objects: [new Error("not found")] }) },
+  } as unknown as ClientWithCoreApi;
+  await expect(getRecordingStreamingTranscode(missing, RECORDING_TWO, PACKAGE)).resolves.toBeNull();
+});
+
+test("getRecordingEngineSessionsByIds parses sessions and stems in one request", async () => {
+  const calls: string[][] = [];
+  await expect(
+    getRecordingEngineSessionsByIds(batchClient(sessionContent, calls), [RECORDING_ONE, RECORDING_TWO], PACKAGE),
+  ).resolves.toEqual({
+    [RECORDING_ONE]: {
+      sessionBlobId: String(BLOB_ID),
+      stems: [{ digest: "07".repeat(32), blobId: String(QUILT_ID) }],
+    },
+  });
+  expect(calls).toEqual([
+    [
+      recordingEngineSessionFieldId(RECORDING_ONE, PACKAGE),
+      recordingEngineSessionFieldId(RECORDING_TWO, PACKAGE),
+    ],
+  ]);
+});

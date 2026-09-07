@@ -74,8 +74,23 @@ export interface TrackView {
   splitBps: number;
   /** 1-based disc this track sits on. */
   disc: number;
-  /** Base64url Walrus blob id for the master stream, when attached on-chain. */
+  /** Base64url Walrus blob id of the archival master, when attached on-chain. */
   masterBlobId?: string;
+  /**
+   * Base64url Walrus Quilt id of the `miso-hls/v1` streaming transcode, when
+   * attached on-chain. The playback key: `streamUrl(network, transcodeQuiltId)`.
+   */
+  transcodeQuiltId?: string;
+  /** The Miso Engine session attached on-chain, when present. */
+  engineSession?: TrackEngineSession;
+}
+
+/** A track's on-chain engine session: ids are base64url Walrus blob ids. */
+export interface TrackEngineSession {
+  /** The canonical Session V1 JSON document. */
+  sessionBlobId: string;
+  /** One FLAC blob per session source, keyed by the source's canonical PCM digest (64 hex chars), sorted by digest. */
+  stems: { digest: string; blobId: string }[];
 }
 
 /** A release with everything a page renders: metadata, cover, credits, tracklist. */

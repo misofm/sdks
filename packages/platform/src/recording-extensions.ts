@@ -241,6 +241,99 @@ export function unsetRecordingStreamingTranscode(
   };
 }
 
+// ── Streaming-transcode reads ────────────────────────────────────────────────
+
+// recording_streaming_transcode stores the ori::data::WalrusQuilt inline in a
+// dynamic field on the Recording; its empty ExtensionKey serializes to one
+// false byte, so the field id derives without listing dynamic fields.
+const StreamingTranscodeField = bcs.struct("Field", {
+  id: bcs.Address,
+  name: streamingTranscode.ExtensionKey,
+  value: streamingTranscode.StreamingTranscode,
+});
+const STREAMING_TRANSCODE_KEY_BYTES = streamingTranscode.ExtensionKey.serialize([false]).toBytes();
+
+/** Parse a streaming-transcode dynamic field into its Quilt id (decimal `u256`). */
+export function parseRecordingStreamingTranscodeContent(content: Uint8Array): string {
+  return String(StreamingTranscodeField.parse(content).value.quilt.quilt_id);
+}
+
+/** Deterministic dynamic-field id for a Recording's streaming transcode. */
+export function recordingStreamingTranscodeFieldId(
+  recordingId: string,
+  recordingStreamingTranscodePackageId: string,
+): string {
+  return deriveDynamicFieldID(
+    recordingId,
+    `${recordingStreamingTranscodePackageId}::recording_streaming_transcode::ExtensionKey`,
+    STREAMING_TRANSCODE_KEY_BYTES,
+  );
+}
+
+/** Read one Recording's streaming-transcode Quilt id, or null when absent. */
+export async function getRecordingStreamingTranscode(
+  client: ClientWithCoreApi,
+  recordingId: string,
+  recordingStreamingTranscodePackageId: string,
+): Promise<string | null> {
+  return (
+    (
+      await getRecordingStreamingTranscodesByIds(
+        client,
+        [recordingId],
+        recordingStreamingTranscodePackageId,
+      )
+    )[recordingId] ?? null
+  );
+}
+
+/**
+ * Read streaming-transcode Quilt ids for many Recordings in one Core request.
+ * Missing and malformed fields are omitted, like master references.
+ */
+export async function getRecordingStreamingTranscodesByIds(
+  client: ClientWithCoreApi,
+  recordingIdsInput: readonly string[],
+  recordingStreamingTranscodePackageId: string,
+): Promise<Partial<Record<string, string>>> {
+  return readSoftFields(
+    client,
+    recordingIdsInput,
+    (recordingId) => recordingStreamingTranscodeFieldId(recordingId, recordingStreamingTranscodePackageId),
+    parseRecordingStreamingTranscodeContent,
+  );
+}
+
+/**
+ * Fetch one derived dynamic field per Recording in a single Core request and
+ * parse each, dropping Recordings whose field is missing or malformed so one
+ * stale extension cannot take a whole tracklist down.
+ */
+async function readSoftFields<T>(
+  client: ClientWithCoreApi,
+  recordingIdsInput: readonly string[],
+  fieldIdOf: (recordingId: string) => string,
+  parse: (content: Uint8Array) => T,
+): Promise<Partial<Record<string, T>>> {
+  const recordingIds = [...new Set(recordingIdsInput)];
+  if (recordingIds.length === 0) return {};
+  const { objects } = await client.core.getObjects({
+    objectIds: recordingIds.map(fieldIdOf),
+    include: { content: true },
+  });
+  const out: Partial<Record<string, T>> = {};
+  objects.forEach((object, index) => {
+    const recordingId = recordingIds[index];
+    if (!recordingId || object instanceof Error || !object.content) return;
+    try {
+      out[recordingId] = parse(object.content);
+    } catch {
+      // Extension metadata is soft: retain valid tracks when one field is stale.
+    }
+  });
+  return out;
+}
+
 // ── Engine-session reads ─────────────────────────────────────────────────────
 
 /** A Recording's attached engine session, ids as decimal `u256` strings. */
@@ -306,6 +399,23 @@ export async function getRecordingEngineSession(
   }
   if (!field.content) throw new Error("Recording engine-session field is missing BCS content");
   return parseRecordingEngineSessionContent(field.content);
+}
+
+/**
+ * Read engine sessions for many Recordings in one Core request. Missing and
+ * malformed fields are omitted.
+ */
+export async function getRecordingEngineSessionsByIds(
+  client: ClientWithCoreApi,
+  recordingIdsInput: readonly string[],
+  recordingEngineSessionPackageId: string,
+): Promise<Partial<Record<string, RecordingEngineSessionView>>> {
+  return readSoftFields(
+    client,
+    recordingIdsInput,
+    (recordingId) => recordingEngineSessionFieldId(recordingId, recordingEngineSessionPackageId),
+    parseRecordingEngineSessionContent,
+  );
 }
 
 // ── Master-reference reads ───────────────────────────────────────────────────

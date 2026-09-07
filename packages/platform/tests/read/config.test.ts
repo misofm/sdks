@@ -20,6 +20,8 @@ describe("misoConfig", () => {
       releaseCoverArt: deployment.packages.releaseCoverArt,
       releaseKind: deployment.packages.releaseKind,
       recordingMasterReference: deployment.packages.recordingMasterReference,
+      recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode ?? null,
+      recordingEngineSession: deployment.packages.recordingEngineSession ?? null,
       compositionCredits: deployment.packages.compositionCredits,
       recordingCredits: deployment.packages.recordingCredits,
       releaseCredits: deployment.packages.releaseCredits,
