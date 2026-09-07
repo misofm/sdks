@@ -6,10 +6,12 @@ import {
   CODEC,
   DEFAULT_SEGMENT_TARGET_MS,
   HLS_CONTRACT,
+  MASTER_PLAYLIST,
   MAX_QUILT_ITEMS,
   MAX_SEGMENTS_PER_RENDITION,
   MAX_SEGMENT_TARGET_MS,
   RENDITIONS,
+  START_RENDITION,
   canonicalItemOrder,
   chooseSegmentTargetMs,
   contentTypeFor,
@@ -18,6 +20,8 @@ import {
   renditionInitIdentifier,
   renditionPlaylistIdentifier,
   segmentIdentifier,
+  startLevelIndex,
+  warmIdentifiers,
 } from "../src/index.ts";
 
 test("the ladder is fixed, ascending, and AAC-LC", () => {
@@ -65,6 +69,28 @@ test("segment targets stretch from the default toward the ceiling, then refuse",
   expect(longest).toBeGreaterThan(36 * 60_000);
   expect(longest).toBeLessThan(37 * 60_000);
   expect(chooseSegmentTargetMs(0)).toBeUndefined();
+});
+
+test("startLevelIndex points at START_RENDITION's slot in the bitrate-ascending ladder", () => {
+  expect(START_RENDITION).toBe("aac-256");
+  expect(RENDITIONS[startLevelIndex()]!.id).toBe(START_RENDITION);
+  expect(startLevelIndex()).toBe(RENDITIONS.length - 1);
+});
+
+test("warmIdentifiers lists the master playlist, rendition playlist, init, and leading segments in order", () => {
+  expect(warmIdentifiers(0)).toEqual([MASTER_PLAYLIST, "aac-256.m3u8", "aac-256-init.mp4"]);
+  expect(warmIdentifiers(2)).toEqual([
+    MASTER_PLAYLIST,
+    "aac-256.m3u8",
+    "aac-256-init.mp4",
+    "aac-256-00000.m4s",
+    "aac-256-00001.m4s",
+  ]);
+  expect(warmIdentifiers(1, "aac-96")).toEqual([MASTER_PLAYLIST, "aac-96.m3u8", "aac-96-init.mp4", "aac-96-00000.m4s"]);
+  for (const id of warmIdentifiers(2)) expect(isValidIdentifier(id)).toBe(true);
+  expect(() => warmIdentifiers(-1)).toThrow(RangeError);
+  expect(() => warmIdentifiers(1.5)).toThrow(RangeError);
+  expect(() => warmIdentifiers(MAX_SEGMENTS_PER_RENDITION + 1)).toThrow(RangeError);
 });
 
 test("quilt item URLs follow the aggregator by-quilt-id shape", async () => {

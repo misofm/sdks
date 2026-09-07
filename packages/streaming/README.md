@@ -30,6 +30,27 @@ const stream = player.open(audioElement, quiltId, () => resetTransport());
 stream.play();
 ```
 
+## Cold origins
+
+Miso serves transcodes off a Walrus aggregator behind Cloudflare. A cold
+segment costs ~2.7 s (2.2 s time-to-first-byte); a warm one costs ~0.1 s.
+`HlsPlayer` accounts for the cold case, and `@misofm/streaming/warm` makes
+the warm case happen:
+
+- **`HLS_COLD_ORIGIN_DEFAULTS`** — the hls.js config `HlsPlayer` builds its
+  engine with: a deterministic `startLevel` (see `startLevelIndex`) so a warm
+  primes what actually plays, buffer margin for aggregator tail latency, and
+  a longer `maxTimeToFirstByteMs` on fragment loads than hls.js's own
+  default. Pass `hlsConfig` to `HlsPlayer` to override any of it.
+- **`warmTrack` / `HlsPlayer#warm`** — issues the same anonymous-CORS
+  requests hls.js's loader will make for a track's opening playlists, init
+  segment, and first few media segments, and drains every body so the
+  browser's HTTP cache holds them warm for hls.js's later load.
+
+The split is deliberate: this package owns the mechanics of warming and cold
+tolerance; the app decides *when* and *what* to warm (on hover, on queue, on
+route) by calling `warm` or `warmTrack` itself.
+
 ## License
 
 Apache-2.0

@@ -26,6 +26,15 @@ export type Rendition = (typeof RENDITIONS)[number];
 export type RenditionId = Rendition["id"];
 export type NominalBitrate = Rendition["nominalBitrate"];
 
+/**
+ * The rendition a player starts on, and a warm (see `@misofm/streaming/warm`)
+ * primes. A cold Walrus aggregator fetch's cost is dominated by
+ * time-to-first-byte, not bytes on the wire, so starting on a lower rendition
+ * buys only a fraction of a second and trades away quality for the whole
+ * first buffer. Starting at the top of the ladder is the better trade.
+ */
+export const START_RENDITION: RenditionId = "aac-256" as const;
+
 /** RFC 6381 codec string every rendition declares. */
 export const CODEC = "mp4a.40.2" as const;
 
@@ -83,6 +92,35 @@ export function segmentIdentifier(id: RenditionId, sequence: number): string {
     throw new RangeError(`segment sequence must be a non-negative integer, got ${sequence}`);
   }
   return `${id}-${String(sequence).padStart(SEGMENT_SEQUENCE_DIGITS, "0")}.m4s`;
+}
+
+/**
+ * Index of {@link START_RENDITION} in hls.js's level array. The master
+ * playlist orders `#EXT-X-STREAM-INF` entries by ascending
+ * `nominalBitrate` (see `@misofm/transcoding`'s `renderMasterPlaylist`, which
+ * sorts renditions the same way), and hls.js assigns level indices in that
+ * playlist order — so this is `RENDITIONS`'s own index, not a separate
+ * lookup. If the transcoder ever orders the master playlist differently from
+ * `RENDITIONS`, this must be derived from that order instead.
+ */
+export function startLevelIndex(): number {
+  return RENDITIONS.findIndex((rendition) => rendition.id === START_RENDITION);
+}
+
+/**
+ * Identifiers a warm (see `@misofm/streaming/warm`) fetches to prime a
+ * track's first moments: the master playlist, `rendition`'s playlist, its
+ * init segment, and its first `segments` media segments in sequence order.
+ */
+export function warmIdentifiers(segments: number, rendition: RenditionId = START_RENDITION): string[] {
+  if (!Number.isSafeInteger(segments) || segments < 0 || segments > MAX_SEGMENTS_PER_RENDITION) {
+    throw new RangeError(`warm segments must be a non-negative integer at most ${MAX_SEGMENTS_PER_RENDITION}, got ${segments}`);
+  }
+  const identifiers = [MASTER_PLAYLIST, renditionPlaylistIdentifier(rendition), renditionInitIdentifier(rendition)];
+  for (let sequence = 0; sequence < segments; sequence += 1) {
+    identifiers.push(segmentIdentifier(rendition, sequence));
+  }
+  return identifiers;
 }
 
 /** Content type for an item, by its identifier. */

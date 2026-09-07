@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
-import { HlsPlayer } from "../src/player.ts";
+import { startLevelIndex } from "../src/index.ts";
+import { HLS_COLD_ORIGIN_DEFAULTS, HlsPlayer } from "../src/player.ts";
 
 interface FakeAudio {
   crossOrigin: string | null;
@@ -38,7 +39,9 @@ class FakeHls {
   source: string | null = null;
   attached: unknown = null;
   destroyed = false;
-  constructor() {
+  config: Record<string, unknown>;
+  constructor(config: Record<string, unknown> = {}) {
+    this.config = config;
     FakeHls.instances.push(this);
   }
   on(event: string, handler: (event: string, data: { fatal: boolean }) => void) {
@@ -100,6 +103,46 @@ test("with MSE hls.js attaches lazily, replays a remembered play, and reports fa
   expect(errors).toBe(1);
   expect(hls.destroyed).toBe(true);
   stream.destroy();
+});
+
+test("hls.js is constructed with the cold-origin defaults, and a caller override wins", async () => {
+  FakeHls.instances = [];
+  const player = new HlsPlayer({ baseUrl: BASE, loadHls: loader, mseUsable: () => true });
+  const stream = player.open(fakeAudio(false) as unknown as HTMLAudioElement, QUILT);
+  await Promise.resolve();
+  await Promise.resolve();
+  const hls = FakeHls.instances[0]!;
+  expect(hls.config.startLevel).toBe(startLevelIndex());
+  expect(hls.config.maxBufferLength).toBe(HLS_COLD_ORIGIN_DEFAULTS.maxBufferLength);
+  expect(hls.config.fragLoadPolicy).toEqual(HLS_COLD_ORIGIN_DEFAULTS.fragLoadPolicy);
+  stream.destroy();
+
+  FakeHls.instances = [];
+  const overriding = new HlsPlayer({
+    baseUrl: BASE,
+    loadHls: loader,
+    mseUsable: () => true,
+    hlsConfig: { startLevel: 0 },
+  });
+  overriding.open(fakeAudio(false) as unknown as HTMLAudioElement, QUILT);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(FakeHls.instances[0]!.config.startLevel).toBe(0);
+});
+
+test("warm delegates to warmTrack against the player's own base URL", async () => {
+  const player = new HlsPlayer({ baseUrl: BASE, loadHls: loader, mseUsable: () => true });
+  const calls: string[] = [];
+  const fetchImpl = ((url: string) => {
+    calls.push(url);
+    return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) } as Response);
+  }) as typeof fetch;
+  await player.warm(QUILT, { segments: 0, fetch: fetchImpl });
+  expect(calls).toEqual([
+    `${BASE}/v1/blobs/by-quilt-id/${QUILT}/master.m3u8`,
+    `${BASE}/v1/blobs/by-quilt-id/${QUILT}/aac-256.m3u8`,
+    `${BASE}/v1/blobs/by-quilt-id/${QUILT}/aac-256-init.mp4`,
+  ]);
 });
 
 test("destroying before hls.js resolves never attaches", async () => {
