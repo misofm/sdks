@@ -1,0 +1,72 @@
+{
+  "schema": "miso.transcoder-hls-golden/1",
+  "image": "ghcr.io/linuxserver/ffmpeg:8.1.2-cli-ls76@sha256:8e412a7a8bdbb65df95afced960f34ac1e7a8b90c17501b7c774053c08d18e25",
+  "sourceSha256": "306e1210f2f05ee3baf5cd4aef85cc8a4672219f605ddd4afb1753dc7eb18c7d",
+  "files": [
+    [
+      "master.m3u8",
+      299,
+      "d08e782491e4e300361ea393fe619f6191b5e9eae948595df4469384fa6c471f"
+    ],
+    [
+      "aac-96.m3u8",
+      216,
+      "f2841789358a640ecc4859d9d702823d820eab95099b225b6be5120a08cc3063"
+    ],
+    [
+      "aac-96-init.mp4",
+      765,
+      "29a71aa0ca38b92e10e50356d0b7555103dfeafeb834f2835c2164a706677eaf"
+    ],
+    [
+      "aac-96-00000.m4s",
+      73635,
+      "b12dfd3960fc3af3124e84b563a3f2082f8ce7d2b9e329cb150c76dab9ed5ee3"
+    ],
+    [
+      "aac-96-00001.m4s",
+      12701,
+      "54a297275b21ceabdbc9d8d6b7ee093da6cdfbef55b12c12bd9cf544312a599e"
+    ],
+    [
+      "aac-160.m3u8",
+      219,
+      "9e4cd6e2871be78f500641ff93c897d71b5a6a19e9e4b4c308c93555e72d5ea8"
+    ],
+    [
+      "aac-160-init.mp4",
+      765,
+      "9858e12b498a3c9024102feb5ac3dd9f9f51c3f17e1a50a96cfa2948715030f3"
+    ],
+    [
+      "aac-160-00000.m4s",
+      121575,
+      "50f6f2de1af5b27d52848f57c58317fad8cf949457830eaefcc1b578f231e5ee"
+    ],
+    [
+      "aac-160-00001.m4s",
+      20653,
+      "7accf1b79f74de84ae80d7d97b1cd2985e9bbb0191e9bba4ece0ab02b735ae3a"
+    ],
+    [
+      "aac-256.m3u8",
+      219,
+      "59d61d265385155a8e919b1a211bb6e92ead47d107d6b059abf5c910b33b96c3"
+    ],
+    [
+      "aac-256-init.mp4",
+      765,
+      "f62260f9c72a543c5b3ee0539cd8bf0b5e19da2540110368c117c725490ee4dd"
+    ],
+    [
+      "aac-256-00000.m4s",
+      181879,
+      "7fe9f13a08258f283916c4b32694cba941b2dec0b834663f3a619e567fa03c68"
+    ],
+    [
+      "aac-256-00001.m4s",
+      30693,
+      "6cd143739889deb4d06b7c13f7e837f8269782e97cfa92cac04562f30397ac64"
+    ]
+  ]
+}
