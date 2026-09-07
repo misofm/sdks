@@ -6,10 +6,9 @@ import { EncryptedObject } from "@mysten/seal";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
-import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/walrus_data";
+import * as engineSessionContract from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
 import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
 import {
-  attachRecordingEngineSession,
   base64UrlToBytes,
   bytesToBase64Url,
   encodeEngineSessionV1,
@@ -20,10 +19,8 @@ import {
   parseEngineSessionV1,
   parseRecordingSessionIdentity,
   recordingEngineSessionFieldId,
-  replaceRecordingEngineSession,
   stemCipherBytes,
   stemCipherDomain,
-  unsetRecordingEngineSession,
   walrusBlobIdFromU256,
   type EngineSessionV1,
 } from "../src/mix.ts";
@@ -196,8 +193,8 @@ test("base64url and Walrus u256 conversion are canonical and little-endian", () 
 
 const Field = bcs.struct("Field", {
   id: bcs.Address,
-  name: bcs.tuple([bcs.bool()]),
-  value: bcs.struct("EngineSession", { reference: walrusData.WalrusData }),
+  name: engineSessionContract.ExtensionKey,
+  value: engineSessionContract.EngineSession,
 });
 
 test("Recording session lookup derives one deterministic field and rejects encrypted roots", async () => {
@@ -205,7 +202,7 @@ test("Recording session lookup derives one deterministic field and rejects encry
   const valid = Field.serialize({
     id: fieldId,
     name: [false],
-    value: { reference: { Blob: [123n, { Unencrypted: true }] } },
+    value: { data: { blob_id: 123n, confidentiality: { Unencrypted: true } } },
   }).toBytes();
   const client = {
     core: {
@@ -220,7 +217,7 @@ test("Recording session lookup derives one deterministic field and rejects encry
   const encrypted = Field.serialize({
     id: fieldId,
     name: [false],
-    value: { reference: { Blob: [123n, { Encrypted: { dek: [1, 2, 3] } }] } },
+    value: { data: { blob_id: 123n, confidentiality: { Encrypted: { sealed_dek: [1, 2, 3] } } } },
   }).toBytes();
   const badClient = {
     core: { getObjects: async () => ({ objects: [{ objectId: fieldId, content: encrypted }] }) },
@@ -251,43 +248,3 @@ test("Record release lookup validates the configured concrete type before BCS", 
   await expect(getRecordReleaseId(client, RECORD, EXTENSION)).rejects.toThrow(/configured concrete/);
 });
 
-interface Call { package?: string; module: string; function: string; typeArguments: string[] }
-function calls(tx: Transaction): Call[] {
-  const data = tx.getData() as { commands: { $kind: string; MoveCall?: Call }[] };
-  return data.commands.flatMap((command) => command.MoveCall ? [command.MoveCall] : []);
-}
-
-test("session writes use Recording admin authority and explicit attach/replace/unset semantics", () => {
-  const base = {
-    recordingId: RECORDING,
-    authority: { kind: "direct" as const, adminCap: CAP },
-    recordingShareType: SHARE,
-    compositionShareType: COMPOSITION_SHARE,
-    sessionBlobId: 123n,
-    oriPackageId: ORI,
-    recordingEngineSessionPackageId: EXTENSION,
-  };
-  const attach = new Transaction();
-  attachRecordingEngineSession(base)(attach);
-  expect(calls(attach).map((call) => `${call.module}::${call.function}`)).toEqual([
-    "walrus_data::new_blob",
-    "recording_engine_session::attach_engine_session",
-  ]);
-  expect(calls(attach)[1]!.typeArguments).toEqual([SHARE, COMPOSITION_SHARE]);
-
-  const replace = new Transaction();
-  replaceRecordingEngineSession(base)(replace);
-  expect(calls(replace)[1]!.function).toBe("replace_engine_session");
-
-  const unset = new Transaction();
-  unsetRecordingEngineSession({
-    recordingId: RECORDING,
-    authority: base.authority,
-    recordingShareType: SHARE,
-    compositionShareType: COMPOSITION_SHARE,
-    recordingEngineSessionPackageId: EXTENSION,
-  })(unset);
-  expect(calls(unset).map((call) => `${call.module}::${call.function}`)).toEqual([
-    "recording_engine_session::unset_engine_session",
-  ]);
-});

@@ -42,6 +42,7 @@ export * as releaseRevenueDistributor from "@misofm/protocol/contracts/release_r
 export * as recordingAdvisory from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
 export * as recordingLanguage from "@misofm/protocol/contracts/recording_language/recording_language";
 export * as recordingMasterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
+export * as recordingEngineSession from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
 export * as recordingStreamingTranscode from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
 
 // Credits extensions (per-work credit stores + their role vocabularies).

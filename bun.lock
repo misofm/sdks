@@ -13,9 +13,9 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.19.0",
+      "version": "0.20.0",
       "dependencies": {
-        "@misofm/protocol": "0.13.0",
+        "@misofm/protocol": "0.14.0",
         "@mysten/bcs": "^2.1.1",
       },
       "devDependencies": {
@@ -35,7 +35,7 @@
     },
     "packages/protocol": {
       "name": "@misofm/protocol",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "dependencies": {
         "@mysten/bcs": "^2.1.1",
       },

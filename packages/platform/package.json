@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui \u2014 high-level reads, pressings, listings, records, and work publishing.",
   "license": "Apache-2.0",
@@ -129,7 +129,7 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "dependencies": {
-    "@misofm/protocol": "0.13.0",
+    "@misofm/protocol": "0.14.0",
     "@mysten/bcs": "^2.1.1"
   },
   "devDependencies": {

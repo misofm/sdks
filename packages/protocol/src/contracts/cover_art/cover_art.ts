@@ -10,18 +10,19 @@
  * CoverArt format changes over time (static-only → +animated → future formats).
  * Keeping it in an extension rather than immutable core means a new format is a
  * republish of this small package (or a brand-new cover art standard), not of the
- * frozen protocol. `CoverArt` references external storage via `ori::WalrusData`.
+ * frozen protocol. `CoverArt` references external storage via
+ * `ori::data::WalrusBlob`.
  */
 
 import { MoveStruct, normalizeMoveArguments } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as walrus_data from './deps/ori/walrus_data.ts';
+import * as data from './deps/ori/data.ts';
 const $moduleName = '@local-pkg/cover_art::cover_art';
 export const CoverArt = new MoveStruct({ name: `${$moduleName}::CoverArt`, fields: {
-        still: walrus_data.WalrusData,
-        animated: bcs.option(walrus_data.WalrusData)
+        still: data.WalrusBlob,
+        animated: bcs.option(data.WalrusBlob)
     } });
 export interface NewArguments {
     still: TransactionArgument;
@@ -34,10 +35,7 @@ export interface NewOptions {
         animated: TransactionArgument
     ];
 }
-/**
- * Creates cover art with a still image and optional animated version. Both
- * references must be Walrus blobs.
- */
+/** Creates cover art with a still image and optional animated version. */
 export function _new(options: NewOptions) {
     const packageAddress = options.package ?? '@local-pkg/cover_art';
     const argumentsTypes = [

@@ -100,7 +100,8 @@ test("release metadata builders cover every attach-at-publish extension", () => 
           "release_dsp_link",
           "release_cover_art",
           "cover_art",
-          "walrus_data",
+          "confidentiality",
+          "data",
         ].includes(call.module),
       )
       .every((call) => call.package === PKG),

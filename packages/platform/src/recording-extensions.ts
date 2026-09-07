@@ -11,9 +11,11 @@ import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
 import * as language from "@misofm/protocol/contracts/recording_language/recording_language";
-import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/walrus_data";
+import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/data";
 import * as masterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
+import * as engineSession from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
 import * as streamingTranscode from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import { unencryptedWalrusBlob } from "./internal.ts";
 
 export interface RecordingExtensionTarget {
   readonly recordingId: ObjectInput;
@@ -77,7 +79,7 @@ export function setRecordingInstrumental(p: Omit<SetRecordingLanguagesParams, "l
 }
 
 interface RecordingWalrusReferenceParams extends RecordingExtensionTarget {
-  /** An ori::WalrusData value assembled in the same PTB (must be a standalone blob on chain). */
+  /** An `ori::data::WalrusBlob` value assembled in the same PTB. */
   readonly reference: TransactionArgument;
 }
 
@@ -130,6 +132,52 @@ export type UnsetRecordingStreamingTranscodeParams = Omit<
   "oriPackageId" | "quiltId"
 >;
 
+export interface SetRecordingEngineSessionParams extends RecordingExtensionTarget {
+  readonly recordingEngineSessionPackageId: string;
+  /** External `ori` package used to construct the plaintext Walrus blob reference. */
+  readonly oriPackageId: string;
+  /** Unencrypted Walrus blob ID of the Miso Engine session file, as its on-chain `u256`. */
+  readonly sessionBlobId: bigint | string;
+}
+
+/**
+ * Sets or replaces the Miso Engine session file attached to a Recording.
+ *
+ * `recording_engine_session::new` rejects encrypted blobs on chain, so the
+ * reference is always built as a plaintext `ori::data::WalrusBlob`.
+ */
+export function setRecordingEngineSession(p: SetRecordingEngineSessionParams): TxThunk {
+  return (tx) => {
+    const session = tx.add(engineSession._new({
+      package: p.recordingEngineSessionPackageId,
+      arguments: [unencryptedWalrusBlob(tx, p.oriPackageId, p.sessionBlobId)],
+    }));
+    invokeWithAdminCap(tx, p.authority, {
+      target: `${p.recordingEngineSessionPackageId}::recording_engine_session::set_engine_session`,
+      typeArguments: [p.recordingShareType, p.compositionShareType],
+      arguments: [object(tx, p.recordingId), session],
+      adminCapIndex: 1,
+    });
+  };
+}
+
+export type UnsetRecordingEngineSessionParams = Omit<
+  SetRecordingEngineSessionParams,
+  "oriPackageId" | "sessionBlobId"
+>;
+
+/** Removes the Recording's Miso Engine session reference, if present. */
+export function unsetRecordingEngineSession(p: UnsetRecordingEngineSessionParams): TxThunk {
+  return (tx) => {
+    invokeWithAdminCap(tx, p.authority, {
+      target: `${p.recordingEngineSessionPackageId}::recording_engine_session::unset_engine_session`,
+      typeArguments: [p.recordingShareType, p.compositionShareType],
+      arguments: [object(tx, p.recordingId)],
+      adminCapIndex: 1,
+    });
+  };
+}
+
 /** Removes the Recording's streaming-transcode reference, if present. */
 export function unsetRecordingStreamingTranscode(
   p: UnsetRecordingStreamingTranscodeParams,
@@ -146,30 +194,26 @@ export function unsetRecordingStreamingTranscode(
 
 // ── Master-reference reads ───────────────────────────────────────────────────
 
-// recording_master_reference stores the ori::WalrusData value inline in a
+// recording_master_reference stores the ori::data::WalrusBlob value inline in a
 // dynamic field on the Recording. Its empty ExtensionKey serializes to one false
 // byte, so the field object id can be derived without listing the Recording's
 // dynamic fields.
 const MasterReferenceField = bcs.struct("Field", {
   id: bcs.Address,
   name: masterReference.ExtensionKey,
-  value: walrusData.WalrusData,
+  value: walrusData.WalrusBlob,
 });
 const MASTER_REFERENCE_KEY_BYTES = masterReference.ExtensionKey.serialize([
   false,
 ]).toBytes();
 
-/** Parse an attached master reference's standalone Walrus blob id. */
-export function parseRecordingMasterReferenceContent(
-  content: Uint8Array,
-): string | null {
-  const reference = MasterReferenceField.parse(content).value as
-    | { $kind: "Blob"; Blob: [string | number | bigint, unknown] }
-    | {
-        $kind: "QuiltPatch";
-        QuiltPatch: [string | number | bigint, number, number, number];
-      };
-  return reference.$kind === "Blob" ? String(reference.Blob[0]) : null;
+/**
+ * Parse an attached master reference's standalone Walrus blob id (decimal
+ * `u256`). Encrypted masters are returned as-is: the reference is the same
+ * either way, and access control belongs to the caller.
+ */
+export function parseRecordingMasterReferenceContent(content: Uint8Array): string {
+  return String(MasterReferenceField.parse(content).value.blob_id);
 }
 
 /** Deterministic dynamic-field id for a Recording's master reference. */
@@ -231,8 +275,7 @@ export async function getRecordingMasterReferencesByIds(
     const target = targets[index];
     if (!target || object instanceof Error || !object.content) return;
     try {
-      const blobId = parseRecordingMasterReferenceContent(object.content);
-      if (blobId) out[target.recordingId] = blobId;
+      out[target.recordingId] = parseRecordingMasterReferenceContent(object.content);
     } catch {
       // Extension metadata is soft: retain valid tracks when one field is stale.
     }

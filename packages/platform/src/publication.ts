@@ -48,11 +48,13 @@ import {
 } from "./credits.ts";
 import {
   setRecordingAdvisory,
+  setRecordingEngineSession,
   setRecordingInstrumental,
   setRecordingLanguages,
   setRecordingMasterReference,
   setRecordingStreamingTranscode,
 } from "./recording-extensions.ts";
+import { unencryptedWalrusBlob } from "./internal.ts";
 import {
   setReleaseDescription,
   setReleaseDspLinks,
@@ -171,6 +173,8 @@ export type PublicationRecording = PublicationRecordingParent & {
   readonly masterReferenceBlobId?: bigint | string;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
   readonly streamingTranscodeQuiltId?: bigint | string;
+  /** Unencrypted Walrus blob ID of this Recording's Miso Engine session file. */
+  readonly engineSessionBlobId?: bigint | string;
 };
 
 export interface PublicationFreshTrack {
@@ -332,10 +336,7 @@ function languageVector(tx: Transaction, p: AtomicPublicationParams, codes: stri
 }
 
 function walrusBlob(tx: Transaction, p: AtomicPublicationParams, blobId: bigint | string) {
-  return tx.moveCall({
-    target: `${p.deployment.packages.ori}::walrus_data::new_blob`,
-    arguments: [tx.pure.u256(blobId)],
-  });
+  return unencryptedWalrusBlob(tx, p.deployment.packages.ori, blobId);
 }
 
 function listingPrice(tx: Transaction, p: AtomicPublicationParams, price: ListingPrice) {
@@ -652,6 +653,14 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
       "A recording streaming transcode requires deployment.packages.recordingStreamingTranscode",
     );
   }
+  if (
+    p.recordings.some((node) => node.engineSessionBlobId !== undefined) &&
+    !p.deployment.packages.recordingEngineSession
+  ) {
+    throw new Error(
+      "A recording engine session requires deployment.packages.recordingEngineSession",
+    );
+  }
   if (publicationUsesVault(p)) {
     requireOperationsDeployment(p.deployment.operations);
   }
@@ -868,6 +877,14 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
           p.deployment.packages.recordingStreamingTranscode!,
         oriPackageId: p.deployment.packages.ori,
         quiltId: node.streamingTranscodeQuiltId,
+      })(tx);
+      if (node.engineSessionBlobId !== undefined) setRecordingEngineSession({
+        recordingId: parts.work, authority,
+        recordingShareType: node.shareType,
+        compositionShareType: node.compositionShareType,
+        recordingEngineSessionPackageId: p.deployment.packages.recordingEngineSession!,
+        oriPackageId: p.deployment.packages.ori,
+        sessionBlobId: node.engineSessionBlobId,
       })(tx);
     });
 

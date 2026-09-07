@@ -57,6 +57,7 @@ function params(): AtomicPublicationParams {
       packages: {
         ...getMisoPlatformDeployment("testnet").packages,
         recordingStreamingTranscode: id(110),
+        recordingEngineSession: id(111),
       },
       recordSales: {
         status: "available",
@@ -119,6 +120,7 @@ function params(): AtomicPublicationParams {
         languages: { kind: "languages", codes: ["en"] },
         masterReferenceBlobId: 1n,
         streamingTranscodeQuiltId: 2n,
+        engineSessionBlobId: 4n,
       },
     ],
     release: {
@@ -183,6 +185,7 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("recording_language::set_languages")).toBe(1);
   expect(count("recording_master_reference::set_master_reference")).toBe(1);
   expect(count("recording_streaming_transcode::set_streaming_transcode")).toBe(1);
+  expect(count("recording_engine_session::set_engine_session")).toBe(1);
   expect(count("release_credits::add_credit")).toBe(1);
   expect(count("release_kind::set_kind")).toBe(1);
   expect(count("release_description::set_description")).toBe(1);
@@ -368,6 +371,20 @@ test("streaming-transcode publication fails before PTB construction without its 
   };
   expect(() => publishAtomicCatalog({ ...input, deployment })).toThrow(
     /deployment\.packages\.recordingStreamingTranscode/,
+  );
+});
+
+test("engine-session publication fails before PTB construction without its package identity", () => {
+  const input = params();
+  const deployment = {
+    ...input.deployment,
+    packages: {
+      ...input.deployment.packages,
+      recordingEngineSession: undefined,
+    },
+  };
+  expect(() => publishAtomicCatalog({ ...input, deployment })).toThrow(
+    /deployment\.packages\.recordingEngineSession/,
   );
 });
 

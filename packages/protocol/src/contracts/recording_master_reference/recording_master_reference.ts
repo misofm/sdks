@@ -6,7 +6,7 @@
 /**
  * A pointer to a recording's master audio — nothing more.
  *
- * The value is a bare `ori::WalrusData` blob reference. This extension makes no
+ * The value is a bare `ori::data::WalrusBlob` reference. This extension makes no
  * claim about what the blob contains: not its codec, not its sample rate, not its
  * duration, not that it is even audio. The only assertion is that the holder of
  * the recording's admin cap says this blob is the master. Everything else is
@@ -31,16 +31,16 @@
  * attesting, and belongs in the ingested `Audio` rather than here.
  */
 
-import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.js';
+import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as walrus_data from './deps/ori/walrus_data.js';
+import * as data from './deps/ori/data.ts';
 const $moduleName = '@local-pkg/recording_master_reference::recording_master_reference';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
 export const MasterReferenceSetEvent = new MoveStruct({ name: `${$moduleName}::MasterReferenceSetEvent`, fields: {
         recording_id: bcs.Address,
-        reference: walrus_data.WalrusData
+        reference: data.WalrusBlob
     } });
 export const MasterReferenceUnsetEvent = new MoveStruct({ name: `${$moduleName}::MasterReferenceUnsetEvent`, fields: {
         recording_id: bcs.Address
@@ -65,11 +65,9 @@ export interface SetMasterReferenceOptions {
 /**
  * Sets (or replaces) the recording's master reference.
  *
- * The reference must be a standalone blob. A quilt patch is rejected: a master is
- * addressed and fetched on its own, and batching it with unrelated files would
- * make its identity depend on what it happened to be stored alongside. Encrypted
- * blobs are accepted — a sealed master is the expected shape once access control
- * lands, and the reference is the same either way.
+ * The reference is a standalone blob by type. Encrypted blobs are accepted — a
+ * sealed master is the expected shape once access control lands, and the reference
+ * is the same either way.
  */
 export function setMasterReference(options: SetMasterReferenceOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_master_reference';

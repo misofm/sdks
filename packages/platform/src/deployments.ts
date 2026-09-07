@@ -216,11 +216,11 @@ export interface MisoPlatformDeployment {
     readonly recordingMasterReference: string;
     /** Complete Walrus Quilt containing the Recording's streaming transcodes. */
     readonly recordingStreamingTranscode?: string;
-    /** Canonical plaintext session pointer extension; absent before publication. */
+    /** Unencrypted Walrus blob of a Recording's Miso Engine session file; absent before publication. */
     readonly recordingEngineSession?: string;
     /** Original immutable Record-gated Seal policy; absent before publication. */
     readonly recordSealPolicy?: string;
-    /** External `ori::walrus_data::WalrusData` dependency used by cover art. */
+    /** External `ori` package (`data::WalrusBlob`, `data::WalrusQuilt`) used by Walrus-backed extensions. */
     readonly ori: string;
   };
   readonly objects: {

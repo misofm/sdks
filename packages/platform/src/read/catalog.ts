@@ -49,7 +49,6 @@ import type { MisoClient } from "./client.ts";
 import { getRecordingTitles, parseReleaseObject } from "./works.ts";
 import { int } from "./internal/scalars.ts";
 import {
-  quiltPatchId,
   u256ToB64Url,
   walrusBlobReadUrl,
 } from "./internal/walrus.ts";
@@ -75,17 +74,9 @@ import type {
 
 // ── Walrus URLs ──────────────────────────────────────────────────────────────
 
-/** Aggregator URL for a cover image ref, whichever Walrus variant it is. */
+/** Aggregator URL for a cover image ref (a standalone Walrus blob). */
 function imageUrl(aggregator: string, ref: CoverImageRef): string {
-  const base = aggregator.replace(/\/$/, "");
-  if (ref.kind === "blob") return walrusBlobReadUrl(base, ref.blobId);
-  const patch = quiltPatchId(
-    ref.quiltId,
-    ref.version,
-    ref.startIndex,
-    ref.endIndex,
-  );
-  return `${base}/v1/blobs/by-quilt-patch-id/${patch}`;
+  return walrusBlobReadUrl(aggregator.replace(/\/$/, ""), ref.blobId);
 }
 
 function toCover(

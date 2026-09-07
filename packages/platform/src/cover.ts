@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Release cover art. A cover is a still image (optionally an animation) stored as
-// a Walrus blob and referenced on-chain via `ori::WalrusData`. We build the ref
-// (`ori::walrus_data::new_blob`, a raw call — ori is an external dep), wrap it in a
-// `cover_art::CoverArt`, and attach it to the Release with
+// a Walrus blob and referenced on-chain via `ori::data::WalrusBlob`. We build the
+// plaintext ref (`ori::data::new_blob`, a raw call — ori is an external dep), wrap
+// it in a `cover_art::CoverArt`, and attach it to the Release with
 // `release_cover_art::set_cover` (gated by the ReleaseAdminCap).
 //
 // Blob ids are passed as `u256` (decimal string or bigint) — the CLI converts the
@@ -20,7 +20,7 @@ import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
-import { OPTION_NONE, OPTION_SOME } from "./internal.ts";
+import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
 import * as coverArt from "@misofm/protocol/contracts/cover_art/cover_art";
 import * as releaseCoverArt from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
 
@@ -44,7 +44,7 @@ interface SetReleaseCoverParamsBase {
   coverArtPackageId: string;
   /** `release_cover_art` package — home of the `set_cover` extension entry point. */
   releaseCoverArtPackageId: string;
-  /** `ori` package (home of `walrus_data::new_blob` / the `WalrusData` type). */
+  /** `ori` package (home of `data::new_blob` / the `WalrusBlob` type). */
   oriPackageId: string;
 }
 
@@ -59,12 +59,8 @@ export type SetReleaseTrackCoverParams = SetReleaseCoverParams & {
 };
 
 function buildCover(tx: Parameters<TxThunk>[0], p: SetReleaseCoverParams) {
-  const walrusType = `${p.oriPackageId}::walrus_data::WalrusData`;
-  const blob = (id: bigint | string) =>
-    tx.moveCall({
-      target: `${p.oriPackageId}::walrus_data::new_blob`,
-      arguments: [tx.pure.u256(id)],
-    });
+  const walrusType = `${p.oriPackageId}::data::WalrusBlob`;
+  const blob = (id: bigint | string) => unencryptedWalrusBlob(tx, p.oriPackageId, id);
 
   const still = blob(p.stillBlobId);
   const animated =
@@ -113,17 +109,12 @@ export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): TxThunk {
 /**
  * A normalized reference to a cover image's Walrus data. Blob ids are returned as
  * `u256` decimal strings (the on-chain form); callers convert to a base64url
- * aggregator URL with `@unconfirmed/ori` (`u256ToB64Url` / `walrusDataUrl`).
+ * aggregator URL with `@unconfirmed/ori` (`u256ToB64Url` / `walrusBlobUrl`).
+ *
+ * The current `cover_art` generation stores standalone `ori::data::WalrusBlob`
+ * values only, so every cover image is a `blob` reference.
  */
-export type CoverImageRef =
-  | { kind: "blob"; blobId: string }
-  | {
-      kind: "quiltPatch";
-      quiltId: string;
-      version: number;
-      startIndex: number;
-      endIndex: number;
-    };
+export type CoverImageRef = { kind: "blob"; blobId: string };
 
 /** A release's album-level cover: a still image and an optional animation. */
 export interface ReleaseCoverView {
@@ -143,24 +134,13 @@ const COVER_ART_KEY_BYTES = releaseCoverArt.ExtensionKey.serialize([
   false,
 ]).toBytes();
 
-/** A parsed `ori::WalrusData` value (a MoveEnum: `Blob` or `QuiltPatch`). */
-type ParsedWalrusData =
-  | { $kind: "Blob"; Blob: [string | number | bigint, unknown] }
-  | {
-      $kind: "QuiltPatch";
-      QuiltPatch: [string | number | bigint, number, number, number];
-    };
+/** A parsed `ori::data::WalrusBlob` value. */
+interface ParsedWalrusBlob {
+  blob_id: string | number | bigint;
+}
 
-function toCoverImageRef(wd: ParsedWalrusData): CoverImageRef {
-  if (wd.$kind === "Blob") return { kind: "blob", blobId: String(wd.Blob[0]) };
-  const [quiltId, version, startIndex, endIndex] = wd.QuiltPatch;
-  return {
-    kind: "quiltPatch",
-    quiltId: String(quiltId),
-    version,
-    startIndex,
-    endIndex,
-  };
+function toCoverImageRef(blob: ParsedWalrusBlob): CoverImageRef {
+  return { kind: "blob", blobId: String(blob.blob_id) };
 }
 
 /**
@@ -185,8 +165,8 @@ export function parseReleaseCoverContent(
   content: Uint8Array,
 ): ReleaseCoverView | null {
   const cover = CoverArtField.parse(content).value.cover as {
-    still: ParsedWalrusData;
-    animated: ParsedWalrusData | null;
+    still: ParsedWalrusBlob;
+    animated: ParsedWalrusBlob | null;
   } | null;
   if (!cover) return null;
 

@@ -1,6 +1,6 @@
 {
   "name": "@misofm/protocol",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "packageManager": "bun@1.4.0",
   "description": "Typed bindings, queries, event decoders, and PTB builders for the Miso protocol and Party package set on Sui.",
   "license": "Apache-2.0",

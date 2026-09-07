@@ -25,9 +25,11 @@ test("generated BCS modules carry exactly one direct declaration anchor", async 
 
 test("release cover bindings use the verified transitive Ori address", async () => {
   const currentOri =
-    "0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a";
-  const retiredOri =
-    "0x340057f2174fb59e4626742dd2b46c662237837b6187450cb59e4976ce7eac78";
+    "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60";
+  const retiredOris = [
+    "0x340057f2174fb59e4626742dd2b46c662237837b6187450cb59e4976ce7eac78",
+    "0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a",
+  ];
   const generated = new Bun.Glob("src/contracts/**/*.ts");
   const files: string[] = [];
   let sources = "";
@@ -42,9 +44,16 @@ test("release cover bindings use the verified transitive Ori address", async () 
   }
 
   expect(files).toContain(
-    `src/contracts/release_cover_art/deps/${currentOri}/walrus_data.ts`,
+    `src/contracts/release_cover_art/deps/${currentOri}/data.ts`,
   );
-  expect(files.some((path) => path.includes(retiredOri))).toBeFalse();
-  expect(sources).toContain(`${currentOri}::walrus_data`);
-  expect(sources).not.toContain(retiredOri);
+  expect(files).toContain(
+    `src/contracts/release_cover_art/deps/${currentOri}/confidentiality.ts`,
+  );
+  expect(sources).toContain(`${currentOri}::data`);
+  for (const retiredOri of retiredOris) {
+    expect(files.some((path) => path.includes(retiredOri))).toBeFalse();
+    expect(sources).not.toContain(retiredOri);
+  }
+  // The pre-split ori module is gone from every generated binding.
+  expect(sources).not.toContain("::walrus_data");
 });

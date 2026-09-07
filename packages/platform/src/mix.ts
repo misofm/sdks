@@ -23,7 +23,7 @@ import {
   parseStructTag,
 } from "@mysten/sui/utils";
 import { getReleaseById, isNotFound } from "@misofm/protocol";
-import { WalrusData } from "@misofm/protocol/contracts/recording_master_reference/deps/ori/walrus_data";
+import * as engineSessionContract from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
 import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
 import type { TxThunk } from "./transactions.ts";
 import {
@@ -432,14 +432,27 @@ export function inspectEngineSessionKey(
 
 const EngineSessionField = bcs.struct("Field", {
   id: bcs.Address,
-  name: bcs.tuple([bcs.bool()]),
-  value: bcs.struct("EngineSession", { reference: WalrusData }),
+  name: engineSessionContract.ExtensionKey,
+  value: engineSessionContract.EngineSession,
 });
-const ENGINE_SESSION_KEY_BYTES = new Uint8Array([0]);
+const ENGINE_SESSION_KEY_BYTES = engineSessionContract.ExtensionKey.serialize([
+  false,
+]).toBytes();
+// `release_mix_reference` predates the ori `walrus_data` → `data` split and is
+// not part of the current deployment. Its stored value is still the legacy
+// `ori::walrus_data::WalrusData` enum, kept here verbatim for reads.
+const LegacyConfidentiality = bcs.enum("Confidentiality", {
+  Unencrypted: null,
+  Encrypted: bcs.struct("Confidentiality.Encrypted", { dek: bcs.vector(bcs.u8()) }),
+});
+const LegacyWalrusData = bcs.enum("WalrusData", {
+  Blob: bcs.tuple([bcs.u256(), LegacyConfidentiality]),
+  QuiltPatch: bcs.tuple([bcs.u256(), bcs.u8(), bcs.u16(), bcs.u16()]),
+});
 const ReleaseMixReferenceField = bcs.struct("Field", {
   id: bcs.Address,
   name: bcs.tuple([bcs.bool()]),
-  value: bcs.tuple([bcs.vector(bcs.option(WalrusData))]),
+  value: bcs.tuple([bcs.vector(bcs.option(LegacyWalrusData))]),
 });
 
 export interface RecordingEngineSessionReference {
@@ -492,15 +505,11 @@ export function recordingEngineSessionFieldId(
 export function parseRecordingEngineSessionContent(
   content: Uint8Array,
 ): RecordingEngineSessionReference {
-  const reference = EngineSessionField.parse(content).value.reference;
-  if (reference.$kind !== "Blob") {
-    throw new Error("Recording engine session is not a standalone Walrus blob");
-  }
-  const [id, confidentiality] = reference.Blob;
-  if (confidentiality.$kind !== "Unencrypted") {
+  const { data } = EngineSessionField.parse(content).value;
+  if (data.confidentiality.$kind !== "Unencrypted") {
     throw new Error("Recording engine session is unexpectedly encrypted");
   }
-  return { blobId: BigInt(id) };
+  return { blobId: BigInt(data.blob_id) };
 }
 
 export async function getRecordingEngineSession(
@@ -593,62 +602,6 @@ export async function resolveRecordEngineSession(
     releaseId,
     recordingId,
     sessionBlobId: walrusBlobIdFromU256(reference.blobId),
-  };
-}
-
-// ── Recording extension writes ──────────────────────────────────────────────
-
-export interface WriteRecordingEngineSessionParams {
-  readonly recordingId: ObjectInput;
-  readonly authority: AdminCapAuthority;
-  readonly recordingShareType: string;
-  readonly compositionShareType: string;
-  readonly sessionBlobId: bigint | string;
-  readonly oriPackageId: string;
-  readonly recordingEngineSessionPackageId: string;
-}
-
-export function attachRecordingEngineSession(
-  params: WriteRecordingEngineSessionParams,
-): TxThunk {
-  return writeRecordingEngineSession("attach_engine_session", params);
-}
-
-export function replaceRecordingEngineSession(
-  params: WriteRecordingEngineSessionParams,
-): TxThunk {
-  return writeRecordingEngineSession("replace_engine_session", params);
-}
-
-export function unsetRecordingEngineSession(
-  params: Omit<WriteRecordingEngineSessionParams, "sessionBlobId" | "oriPackageId">,
-): TxThunk {
-  return (tx) => {
-    invokeWithAdminCap(tx, params.authority, {
-      target: `${params.recordingEngineSessionPackageId}::recording_engine_session::unset_engine_session`,
-      typeArguments: [params.recordingShareType, params.compositionShareType],
-      arguments: [object(tx, params.recordingId)],
-      adminCapIndex: 1,
-    });
-  };
-}
-
-function writeRecordingEngineSession(
-  fn: "attach_engine_session" | "replace_engine_session",
-  params: WriteRecordingEngineSessionParams,
-): TxThunk {
-  const blob = u256("sessionBlobId", params.sessionBlobId);
-  return (tx) => {
-    const reference = tx.moveCall({
-      target: `${params.oriPackageId}::walrus_data::new_blob`,
-      arguments: [tx.pure.u256(blob)],
-    });
-    invokeWithAdminCap(tx, params.authority, {
-      target: `${params.recordingEngineSessionPackageId}::recording_engine_session::${fn}`,
-      typeArguments: [params.recordingShareType, params.compositionShareType],
-      arguments: [object(tx, params.recordingId), reference],
-      adminCapIndex: 1,
-    });
   };
 }
 

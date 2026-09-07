@@ -80,17 +80,9 @@ const config: MisoCodegenConfig = {
     { package: "@local-pkg/recording_credits", path: source("misofm/protocol-extensions/recording_credits") },
     { package: "@local-pkg/recording_language", path: source("misofm/protocol-extensions/recording_language") },
 
-    // The deployed recording_master_reference package predates the ori
-    // walrus_data -> data migration: on-chain, its reference field is
-    // `ori::walrus_data::WalrusData` (an enum — Blob | QuiltPatch, with a
-    // leading BCS variant byte), not the `ori::data::WalrusBlob` struct that
-    // regenerating against current Move source now produces. The two are not
-    // wire-compatible; decoding one as the other corrupts on-chain reads.
-    // Frozen on the existing binding (carried forward from
-    // packages/platform/src/contracts) until a deployment explicitly
-    // replaces this package and its ABI actually moves to `data.ts`.
-    { package: "@local-pkg/recording_master_reference", frozen: true },
+    { package: "@local-pkg/recording_master_reference", path: source("misofm/protocol-extensions/recording_master_reference") },
 
+    { package: "@local-pkg/recording_engine_session", path: source("misofm/protocol-extensions/recording_engine_session") },
     { package: "@local-pkg/recording_streaming_transcode", path: source("misofm/protocol-extensions/recording_streaming_transcode") },
     { package: "@local-pkg/release_cover_art", path: source("misofm/protocol-extensions/release_cover_art") },
     { package: "@local-pkg/release_credits", path: source("misofm/protocol-extensions/release_credits") },

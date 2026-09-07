@@ -58,8 +58,10 @@ the encrypted stem blob IDs and one Seal-wrapped 32-byte session key. No event
 scan, indexer-maintained relationship, or second encrypted manifest is needed.
 
 The same entry point exposes exact identity encoding, strict canonical-session
-parsing, Seal-envelope inspection, and explicit attach/replace/unset PTB
-builders. The bundled Testnet deployment pins the Record, policy, gate, and
+parsing, and Seal-envelope inspection. `setRecordingEngineSession` and
+`unsetRecordingEngineSession` are the cap-authorized PTB builders; the session
+reference is always a plaintext `ori::data::WalrusBlob`, matching the on-chain
+`recording_engine_session::new` check. The bundled Testnet deployment pins the Record, policy, gate, and
 engine-session identities together at `recordSales.recordPackageId`,
 `packages.recordSealPolicy`, `objects.recordGate`, and
 `packages.recordingEngineSession`.

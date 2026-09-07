@@ -310,7 +310,7 @@ export interface MisoPlatformConfig {
   /** Curated genre vocabulary package and its shared derivation parent. */
   genrePackageId?: string;
   genreRegistryId?: string;
-  /** External ori package used to create WalrusData values. */
+  /** External ori package used to create `data::WalrusBlob` values. */
   oriPackageId?: string;
 }
 
