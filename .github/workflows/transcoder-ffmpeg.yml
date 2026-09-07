@@ -1,0 +1,84 @@
+name: Transcoder FFmpeg conformance
+
+# The transcoder's byte-golden conformance needs the pinned FFmpeg image and a
+# Chromium for the HLS smoke test, which is far heavier than the workspace
+# gate in ci.yml. Run it only when the transcoder (or its contract) changes,
+# and always before a transcoder release tag publishes.
+on:
+  pull_request:
+    paths:
+      - "packages/transcoder/**"
+      - "packages/streaming/**"
+      - ".github/workflows/transcoder-ffmpeg.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/transcoder/**"
+      - "packages/streaming/**"
+      - ".github/workflows/transcoder-ffmpeg.yml"
+    tags: ["transcoder-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transcoder-ffmpeg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-ffmpeg:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ghcr.io/linuxserver/ffmpeg:8.1.2-cli-ls76@sha256:8e412a7a8bdbb65df95afced960f34ac1e7a8b90c17501b7c774053c08d18e25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - run: apt-get update
+      - run: apt-get install --yes unzip
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chrome
+        working-directory: packages/transcoder
+      - name: Pinned structural and golden conformance
+        working-directory: packages/transcoder
+        env:
+          MISO_FFMPEG: /usr/local/bin/ffmpeg
+          MISO_FFPROBE: /usr/local/bin/ffprobe
+          MISO_PINNED_FFMPEG: "1"
+          MISO_HLS_SMOKE: "1"
+          MISO_CHROMIUM_PATH: /opt/google/chrome/chrome
+        run: bun run test:ffmpeg
+
+  consumers:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Pack the transcoder and its contract
+        run: |
+          (cd packages/streaming && npm pack --pack-destination "$RUNNER_TEMP")
+          (cd packages/transcoder && npm pack --pack-destination "$RUNNER_TEMP")
+      - name: Install in isolated Node consumer
+        working-directory: packages/transcoder
+        run: node test/isolated-consumer.mjs node "$RUNNER_TEMP"/misofm-transcoder-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
+      - name: Install in isolated Bun consumer
+        working-directory: packages/transcoder
+        run: bun test/isolated-consumer.mjs bun "$RUNNER_TEMP"/misofm-transcoder-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz

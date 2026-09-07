@@ -3,10 +3,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
-const [runtime, tarballArgument] = process.argv.slice(2);
+const [runtime, tarballArgument, ...extraTarballs] = process.argv.slice(2);
 if ((runtime !== "node" && runtime !== "bun") || tarballArgument === undefined)
   process.exit(64);
 const tarball = resolve(tarballArgument);
+// Sibling workspace tarballs (the @misofm/hls contract) so the install never
+// reaches the registry for an unpublished version.
+const extras = extraTarballs.map((path) => resolve(path));
 const directory = await mkdtemp(join(tmpdir(), `transcoder-${runtime}-`));
 await writeFile(
   join(directory, "package.json"),
@@ -33,6 +36,7 @@ if (runtime === "node") {
     "install",
     "--ignore-scripts",
     tarball,
+    ...extras,
     "effect@4.0.0-rc.112",
     "@effect/platform-node@4.0.0-rc.112",
   ]);
@@ -46,6 +50,7 @@ if (runtime === "node") {
     "add",
     "--ignore-scripts",
     tarball,
+    ...extras,
     "effect@4.0.0-rc.112",
     "@effect/platform-node@4.0.0-rc.112",
   ]);

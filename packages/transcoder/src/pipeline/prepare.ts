@@ -4,6 +4,7 @@ import { chmod, lstat, mkdir, open, readdir, rm } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { Effect } from "effect";
+import { MASTER_PLAYLIST, renditionPlaylistIdentifier } from "@misofm/streaming";
 
 import {
   InvalidRequestError,
@@ -173,14 +174,14 @@ const sourceIdentity = (value: {
 const plaintextIdentifiers = (
   playlists: readonly MediaPlaylist[],
 ): readonly string[] => [
-  "master.m3u8",
+  MASTER_PLAYLIST,
   ...playlists.flatMap((playlist) => [
     playlist.lines.find((line) => line.startsWith("#EXT-X-MAP:")) === undefined
       ? ""
       : playlist.mapIdentifier,
     ...playlist.segments.map((segment) => segment.identifier),
   ]),
-  ...RENDITIONS.map((rendition) => `${rendition.id}.m3u8`),
+  ...RENDITIONS.map((rendition) => renditionPlaylistIdentifier(rendition.id)),
 ];
 
 const collectPlaintextFiles = async (

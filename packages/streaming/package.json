@@ -1,0 +1,67 @@
+{
+  "name": "@misofm/streaming",
+  "version": "0.1.0",
+  "packageManager": "bun@1.4.0",
+  "description": "The miso-hls/1 streaming transcode contract (rendition ladder, segment policy, Quilt item naming) plus a browser player for Miso streams.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misofm/sdks.git",
+    "directory": "packages/streaming"
+  },
+  "homepage": "https://github.com/misofm/sdks#readme",
+  "bugs": {
+    "url": "https://github.com/misofm/sdks/issues"
+  },
+  "keywords": [
+    "miso",
+    "hls",
+    "aac",
+    "walrus",
+    "streaming"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./player": {
+      "types": "./dist/player.d.ts",
+      "default": "./dist/player.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "rm -rf dist && tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "hls.js": "^1.6"
+  },
+  "peerDependenciesMeta": {
+    "hls.js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.0",
+    "hls.js": "1.6.13",
+    "typescript": "^7.0.2"
+  }
+}

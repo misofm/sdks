@@ -12,6 +12,13 @@ import {
 import { basename, join } from "node:path";
 
 import { Effect } from "effect";
+import {
+  CODEC,
+  MASTER_PLAYLIST,
+  MEDIA_CONTENT_TYPE,
+  PLAYLIST_CONTENT_TYPE,
+  renditionPlaylistIdentifier,
+} from "@misofm/streaming";
 
 import { ArtifactValidationError, WorkspaceIoError } from "../errors.js";
 import { calculateBandwidth } from "../hls/bandwidth.js";
@@ -34,8 +41,7 @@ import { verifyArtifact } from "./verify.js";
 
 const MAX_ARTIFACT_FILE_BYTES = 256 * 1024 * 1024;
 const MAX_FILE_CONCURRENCY = 16;
-const PLAYLIST_CONTENT_TYPE = "application/vnd.apple.mpegurl" as const;
-const AUDIO_CONTENT_TYPE = "audio/mp4" as const;
+const AUDIO_CONTENT_TYPE = MEDIA_CONTENT_TYPE;
 
 const throwIfAborted = (signal: AbortSignal): void => {
   if (signal.aborted)
@@ -243,7 +249,7 @@ const buildArtifact = async (
 ): Promise<TranscodeArtifact> => {
   const renditions: RenditionDescriptor[] = [];
   for (const rendition of RENDITIONS) {
-    const playlistIdentifier = `${rendition.id}.m3u8`;
+    const playlistIdentifier = renditionPlaylistIdentifier(rendition.id);
     const parsed = parsePlaintextMediaPlaylist(
       await readBounded(join(rootPath, playlistIdentifier), 1_048_576),
     );
@@ -272,7 +278,7 @@ const buildArtifact = async (
     }
     renditions.push({
       id: rendition.id,
-      codec: "mp4a.40.2",
+      codec: CODEC,
       nominalBitrate: rendition.nominalBitrate,
       ...calculateBandwidth(segments),
       sampleRateHz: request.prepared.sampleRateHz,
@@ -284,8 +290,8 @@ const buildArtifact = async (
   }
   const masterPlaylist = descriptor(
     rootPath,
-    "master.m3u8",
-    await inspectAndHash(join(rootPath, "master.m3u8")),
+    MASTER_PLAYLIST,
+    await inspectAndHash(join(rootPath, MASTER_PLAYLIST)),
   );
   const files = [
     masterPlaylist,
@@ -367,7 +373,7 @@ const finalizeUnsafe = async (
     const copyIdentifiers: string[] = [];
     const descriptors: RenditionDescriptor[] = [];
     for (const rendition of RENDITIONS) {
-      const playlistIdentifier = `${rendition.id}.m3u8`;
+      const playlistIdentifier = renditionPlaylistIdentifier(rendition.id);
       const playlistBytes = await readBounded(
         join(request.prepared.rootPath, playlistIdentifier),
         1_048_576,
@@ -401,7 +407,7 @@ const finalizeUnsafe = async (
       );
       descriptors.push({
         id: rendition.id,
-        codec: "mp4a.40.2",
+        codec: CODEC,
         nominalBitrate: rendition.nominalBitrate,
         ...calculateBandwidth(segments),
         sampleRateHz: request.prepared.sampleRateHz,

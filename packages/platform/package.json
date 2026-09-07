@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.21.1",
+  "version": "0.22.0",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui \u2014 high-level reads, pressings, listings, records, and work publishing.",
   "license": "Apache-2.0",
@@ -89,6 +89,10 @@
       "types": "./dist/recording-extensions.d.ts",
       "default": "./dist/recording-extensions.js"
     },
+    "./streaming": {
+      "types": "./dist/streaming.d.ts",
+      "default": "./dist/streaming.js"
+    },
     "./read": {
       "types": "./dist/read/index.d.ts",
       "default": "./dist/read/index.js"
@@ -125,6 +129,7 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "dependencies": {
+    "@misofm/streaming": "0.1.0",
     "@misofm/protocol": "0.15.0",
     "@mysten/bcs": "^2.1.1"
   },

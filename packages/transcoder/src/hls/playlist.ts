@@ -1,7 +1,7 @@
+import { isValidIdentifier } from "@misofm/streaming";
 import { Parser } from "m3u8-parser";
 
 export const MAX_PLAYLIST_BYTES = 1_048_576;
-const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 export interface MediaSegment {
   readonly sequence: number;
@@ -24,7 +24,7 @@ const parseQuotedUri = (line: string): string | undefined => {
 };
 
 export const assertSafeIdentifier = (value: string): void => {
-  if (!SAFE_IDENTIFIER.test(value) || value.includes("..")) {
+  if (!isValidIdentifier(value)) {
     throw new TypeError(`unsafe HLS identifier: ${value}`);
   }
 };

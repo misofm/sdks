@@ -11,7 +11,10 @@ test("Effect peers are exact and the runtime dependency is storage-neutral", asy
     "@effect/platform-node": "4.0.0-rc.112",
     effect: "4.0.0-rc.112",
   });
-  expect(manifest.dependencies).toEqual({ "m3u8-parser": "7.2.0" });
+  expect(manifest.dependencies).toEqual({
+    "@misofm/streaming": "0.1.0",
+    "m3u8-parser": "7.2.0",
+  });
 });
 
 const files = async (root: string): Promise<readonly string[]> =>

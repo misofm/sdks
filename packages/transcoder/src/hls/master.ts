@@ -1,4 +1,5 @@
 import type { RenditionDescriptor } from "../model.js";
+import { CODEC } from "@misofm/streaming";
 import { Parser } from "m3u8-parser";
 
 export const assertMasterPlaylistParses = (bytes: Uint8Array): void => {
@@ -25,7 +26,7 @@ export const renderMasterPlaylist = (
   const lines = ["#EXTM3U", "#EXT-X-VERSION:7"];
   for (const rendition of sorted) {
     lines.push(
-      `#EXT-X-STREAM-INF:BANDWIDTH=${rendition.peakBandwidth},AVERAGE-BANDWIDTH=${rendition.averageBandwidth},CODECS="mp4a.40.2"`,
+      `#EXT-X-STREAM-INF:BANDWIDTH=${rendition.peakBandwidth},AVERAGE-BANDWIDTH=${rendition.averageBandwidth},CODECS="${CODEC}"`,
       rendition.playlist.identifier,
     );
   }

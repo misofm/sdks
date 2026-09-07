@@ -1,10 +1,6 @@
-export const RENDITIONS = [
-  { id: "aac-96", nominalBitrate: 96_000 },
-  { id: "aac-160", nominalBitrate: 160_000 },
-  { id: "aac-256", nominalBitrate: 256_000 },
-] as const;
+import { RENDITIONS, type RenditionId } from "@misofm/streaming";
 
-export type RenditionId = (typeof RENDITIONS)[number]["id"];
+export { RENDITIONS, type RenditionId };
 
 export interface TranscodeProfile {
   readonly segmentTargetMs?: number;

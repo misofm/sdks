@@ -4,6 +4,7 @@ import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
 import { Effect } from "effect";
+import { CODEC, MASTER_PLAYLIST } from "@misofm/streaming";
 
 import { ArtifactValidationError } from "../errors.js";
 import { calculateBandwidth } from "../hls/bandwidth.js";
@@ -108,7 +109,7 @@ const verifyUnsafe = async (
   if (!root.isDirectory() || root.isSymbolicLink())
     throw failure(artifact.rootPath, "Artifact root must be a real directory");
   const expectedIdentifiers = [
-    "master.m3u8",
+    MASTER_PLAYLIST,
     ...artifact.renditions.flatMap((item) => [
       item.playlist.identifier,
       item.init.identifier,
@@ -162,14 +163,14 @@ const verifyUnsafe = async (
   const canonicalFiles = new Map(
     verifiedFiles.map((descriptor) => [descriptor.identifier, descriptor]),
   );
-  const canonicalMaster = canonicalFiles.get("master.m3u8");
+  const canonicalMaster = canonicalFiles.get(MASTER_PLAYLIST);
   if (
     canonicalMaster === undefined ||
     !sameDescriptor(artifact.masterPlaylist, canonicalMaster)
   )
-    throw failure("master.m3u8", "Master descriptor is not canonical");
+    throw failure(MASTER_PLAYLIST, "Master descriptor is not canonical");
   validateMasterPlaylist(
-    await read(join(artifact.rootPath, "master.m3u8")),
+    await read(join(artifact.rootPath, MASTER_PLAYLIST)),
     artifact.renditions,
   );
   const segmentCounts: number[] = [];
@@ -179,7 +180,7 @@ const verifyUnsafe = async (
     if (
       rendition.id !== expected.id ||
       rendition.nominalBitrate !== expected.nominalBitrate ||
-      rendition.codec !== "mp4a.40.2" ||
+      rendition.codec !== CODEC ||
       (rendition.sampleRateHz !== 44_100 &&
         rendition.sampleRateHz !== 48_000) ||
       rendition.channels !== 2
