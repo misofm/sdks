@@ -56,7 +56,7 @@ export interface TranscoderService {
 export class Transcoder extends Context.Service<
   Transcoder,
   TranscoderService
->()("@misofm/transcoder/Transcoder") {}
+>()("@misofm/transcoding/Transcoder") {}
 
 export const TranscoderLive = Layer.effect(
   Transcoder,

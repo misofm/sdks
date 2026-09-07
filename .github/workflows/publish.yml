@@ -1,13 +1,13 @@
 name: Publish to npm
 
 # Publishes on a per-package version tag (protocol-v0.12.0, platform-v0.17.4,
-# streaming-v0.1.0, transcoder-v0.3.0, …), so a release is a deliberate act rather
+# streaming-v0.1.0, transcoding-v0.3.0, …), so a release is a deliberate act rather
 # than a side effect of merging, and releasing one workspace package never
 # implies another. Failed tag jobs
 # can be re-run from Actions without permitting a branch to publish a package.
 on:
   push:
-    tags: ["protocol-v*", "platform-v*", "streaming-v*", "transcoder-v*"]
+    tags: ["protocol-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -65,12 +65,12 @@ jobs:
               DIR="packages/streaming"
               VERSION="${TAG#streaming-v}"
               ;;
-            transcoder-v*)
-              DIR="packages/transcoder"
-              VERSION="${TAG#transcoder-v}"
+            transcoding-v*)
+              DIR="packages/transcoding"
+              VERSION="${TAG#transcoding-v}"
               ;;
             *)
-              echo "::error::Tag '$TAG' does not match protocol-v*, platform-v*, streaming-v*, or transcoder-v*"
+              echo "::error::Tag '$TAG' does not match protocol-v*, platform-v*, streaming-v*, or transcoding-v*"
               exit 1
               ;;
           esac

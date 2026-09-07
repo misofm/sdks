@@ -7,22 +7,22 @@ name: Transcoder FFmpeg conformance
 on:
   pull_request:
     paths:
-      - "packages/transcoder/**"
+      - "packages/transcoding/**"
       - "packages/streaming/**"
-      - ".github/workflows/transcoder-ffmpeg.yml"
+      - ".github/workflows/transcoding-ffmpeg.yml"
   push:
     branches: [main]
     paths:
-      - "packages/transcoder/**"
+      - "packages/transcoding/**"
       - "packages/streaming/**"
-      - ".github/workflows/transcoder-ffmpeg.yml"
-    tags: ["transcoder-v*"]
+      - ".github/workflows/transcoding-ffmpeg.yml"
+    tags: ["transcoding-v*"]
 
 permissions:
   contents: read
 
 concurrency:
-  group: transcoder-ffmpeg-${{ github.ref }}
+  group: transcoding-ffmpeg-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,9 +42,9 @@ jobs:
           bun-version: 1.4.0
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chrome
-        working-directory: packages/transcoder
+        working-directory: packages/transcoding
       - name: Pinned structural and golden conformance
-        working-directory: packages/transcoder
+        working-directory: packages/transcoding
         env:
           MISO_FFMPEG: /usr/local/bin/ffmpeg
           MISO_FFPROBE: /usr/local/bin/ffprobe
@@ -75,10 +75,10 @@ jobs:
       - name: Pack the transcoder and its contract
         run: |
           (cd packages/streaming && npm pack --pack-destination "$RUNNER_TEMP")
-          (cd packages/transcoder && npm pack --pack-destination "$RUNNER_TEMP")
+          (cd packages/transcoding && npm pack --pack-destination "$RUNNER_TEMP")
       - name: Install in isolated Node consumer
-        working-directory: packages/transcoder
-        run: node test/isolated-consumer.mjs node "$RUNNER_TEMP"/misofm-transcoder-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
+        working-directory: packages/transcoding
+        run: node test/isolated-consumer.mjs node "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
       - name: Install in isolated Bun consumer
-        working-directory: packages/transcoder
-        run: bun test/isolated-consumer.mjs bun "$RUNNER_TEMP"/misofm-transcoder-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz
+        working-directory: packages/transcoding
+        run: bun test/isolated-consumer.mjs bun "$RUNNER_TEMP"/misofm-transcoding-*.tgz "$RUNNER_TEMP"/misofm-streaming-*.tgz

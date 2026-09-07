@@ -107,7 +107,7 @@ export const makeFfmpeg = (process: NativeProcessService): FfmpegService => ({
 });
 
 export class Ffmpeg extends Context.Service<Ffmpeg, FfmpegService>()(
-  "@misofm/transcoder/internal/Ffmpeg",
+  "@misofm/transcoding/internal/Ffmpeg",
 ) {}
 
 export const FfmpegLive = Layer.effect(

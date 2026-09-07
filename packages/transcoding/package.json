@@ -1,13 +1,13 @@
 {
-  "name": "@misofm/transcoder",
+  "name": "@misofm/transcoding",
   "version": "0.3.0",
   "description": "Effect-based deterministic plaintext AAC fMP4 HLS transcoder.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/misofm/sdks.git",
-    "directory": "packages/transcoder"
+    "directory": "packages/transcoding"
   },
-  "homepage": "https://github.com/misofm/sdks/tree/main/packages/transcoder#readme",
+  "homepage": "https://github.com/misofm/sdks/tree/main/packages/transcoding#readme",
   "bugs": {
     "url": "https://github.com/misofm/sdks/issues"
   },

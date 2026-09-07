@@ -17,7 +17,7 @@ export interface TranscodeObserverService {
 export class TranscodeObserver extends Context.Service<
   TranscodeObserver,
   TranscodeObserverService
->()("@misofm/transcoder/TranscodeObserver") {}
+>()("@misofm/transcoding/TranscodeObserver") {}
 
 export const TranscodeObserverNoop = Layer.succeed(TranscodeObserver, {
   emit: () => Effect.void,

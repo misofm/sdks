@@ -55,7 +55,7 @@ const wav = (sampleRate: 48_000, seconds: number): Uint8Array => {
 test("pinned FFmpeg produces the golden verified loose HLS ladder and plays locally", async () => {
   if (process.platform === "win32") return;
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "misofm-transcoder-integration-")),
+    await mkdtemp(join(tmpdir(), "misofm-transcoding-integration-")),
   );
   roots.push(root);
   const inputPath = join(root, "hostile ; $(no-shell) *.wav");
@@ -203,7 +203,7 @@ test("pinned FFmpeg produces the golden verified loose HLS ladder and plays loca
 test("pipeline interruption joins finalization, removes staging, and releases its lock", async () => {
   if (process.platform === "win32") return;
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "misofm-transcoder-interrupt-")),
+    await mkdtemp(join(tmpdir(), "misofm-transcoding-interrupt-")),
   );
   roots.push(root);
   const workspacePath = join(root, "workspace");

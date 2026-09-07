@@ -7,7 +7,7 @@ Monorepo for the Miso platform-layer TypeScript SDKs.
 | [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — the complete client SDK for the Miso platform layer: catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins. |
 | [`packages/protocol`](packages/protocol/README.md) | `@misofm/protocol` — typed bindings, queries, event decoders, and PTB builders for the Miso protocol and Party package set.            |
 | [`packages/streaming`](packages/streaming/README.md)           | `@misofm/streaming` — the `miso-hls/v1` streaming transcode contract (ladder, segment policy, Quilt item naming) plus a browser player entry point. |
-| [`packages/transcoder`](packages/transcoder/README.md) | `@misofm/transcoder` — deterministic AAC-LC fMP4 HLS transcoder that produces and verifies the `miso-hls/v1` layout. Node only, FFmpeg required. |
+| [`packages/transcoding`](packages/transcoding/README.md) | `@misofm/transcoding` — deterministic AAC-LC fMP4 HLS transcoder that produces and verifies the `miso-hls/v1` layout. Node only, FFmpeg required. |
 
 This root `package.json` is private; each package under `packages/*` is
 published independently. See each package's own README for install

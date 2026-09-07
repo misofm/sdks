@@ -1,4 +1,4 @@
-# @misofm/transcoder
+# @misofm/transcoding
 
 Deterministic, storage-neutral AAC-LC fMP4 HLS transcoding for Node 22/24 and Bun 1.4. The Effect v4 library performs local computation only; callers choose how to package, upload, address, or publish its verified loose files.
 

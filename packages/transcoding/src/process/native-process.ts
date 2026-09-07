@@ -50,4 +50,4 @@ export interface NativeProcessService {
 export class NativeProcess extends Context.Service<
   NativeProcess,
   NativeProcessService
->()("@misofm/transcoder/internal/NativeProcess") {}
+>()("@misofm/transcoding/internal/NativeProcess") {}

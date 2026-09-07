@@ -18,7 +18,7 @@ async function tarballPackageName(path) {
   const { stdout } = await promisify(execFile)("tar", ["-xOf", path, "package/package.json"]);
   return JSON.parse(stdout).name;
 }
-const directory = await mkdtemp(join(tmpdir(), `transcoder-${runtime}-`));
+const directory = await mkdtemp(join(tmpdir(), `transcoding-${runtime}-`));
 // Sibling workspace tarballs are pinned through overrides so neither runtime
 // resolves an unpublished version of a workspace dependency from the registry.
 const overrides = Object.fromEntries(
@@ -62,7 +62,7 @@ if (runtime === "node") {
   await run("node", [
     "--input-type=module",
     "-e",
-    'await import("@misofm/transcoder"); await import("@misofm/transcoder/node")',
+    'await import("@misofm/transcoding"); await import("@misofm/transcoding/node")',
   ]);
 } else {
   await run("bun", [
@@ -75,11 +75,11 @@ if (runtime === "node") {
   ]);
   await run("bun", [
     "-e",
-    'await import("@misofm/transcoder"); await import("@misofm/transcoder/node")',
+    'await import("@misofm/transcoding"); await import("@misofm/transcoding/node")',
   ]);
 }
 
-const installed = join(directory, "node_modules", "@misofm", "transcoder");
+const installed = join(directory, "node_modules", "@misofm", "transcoding");
 const manifest = JSON.parse(await readFile(join(installed, "package.json")));
 const expectedExports = [".", "./node", "./package.json"];
 if (
