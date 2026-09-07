@@ -93,6 +93,10 @@
       "types": "./dist/streaming.d.ts",
       "default": "./dist/streaming.js"
     },
+    "./walrus": {
+      "types": "./dist/walrus.d.ts",
+      "default": "./dist/walrus.js"
+    },
     "./read": {
       "types": "./dist/read/index.d.ts",
       "default": "./dist/read/index.js"

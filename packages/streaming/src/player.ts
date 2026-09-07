@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Browser playback of a `miso-hls/1` transcode served out of a Walrus Quilt.
+ * Browser playback of a `miso-hls/v1` transcode served out of a Walrus Quilt.
  *
  * hls.js drives the element through MediaSource wherever MSE can take AAC in
  * fMP4; only browsers without usable MSE get the playlist URL straight in

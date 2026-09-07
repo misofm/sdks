@@ -2,7 +2,7 @@
   "name": "@misofm/streaming",
   "version": "0.1.0",
   "packageManager": "bun@1.4.0",
-  "description": "The miso-hls/1 streaming transcode contract (rendition ladder, segment policy, Quilt item naming) plus a browser player for Miso streams.",
+  "description": "The miso-hls/v1 streaming transcode contract (rendition ladder, segment policy, Quilt item naming) plus a browser player for Miso streams.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

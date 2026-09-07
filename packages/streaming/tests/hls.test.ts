@@ -21,7 +21,7 @@ import {
 } from "../src/index.ts";
 
 test("the ladder is fixed, ascending, and AAC-LC", () => {
-  expect(HLS_CONTRACT).toBe("miso-hls/1");
+  expect(HLS_CONTRACT).toBe("miso-hls/v1");
   expect(RENDITIONS.map((r) => r.id)).toEqual(["aac-96", "aac-160", "aac-256"]);
   expect(RENDITIONS.map((r) => r.nominalBitrate)).toEqual([96_000, 160_000, 256_000]);
   expect(CODEC).toBe("mp4a.40.2");

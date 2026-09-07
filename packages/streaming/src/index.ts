@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * `miso-hls/1`: the one definition of a Miso streaming transcode.
+ * `miso-hls/v1`: the one definition of a Miso streaming transcode.
  *
  * The transcoder produces this layout, the publisher packs it into one Walrus
  * Quilt, and players fetch items out of that Quilt by identifier. All three
@@ -13,7 +13,7 @@
  */
 
 /** Contract identifier recorded next to every transcode this layout describes. */
-export const HLS_CONTRACT = "miso-hls/1" as const;
+export const HLS_CONTRACT = "miso-hls/v1" as const;
 
 /** The rendition ladder, ascending. AAC-LC, stereo, source sample rate. */
 export const RENDITIONS = [

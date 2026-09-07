@@ -1,6 +1,6 @@
 # @misofm/streaming
 
-The `miso-hls/1` streaming transcode contract, as one dependency-free module.
+The `miso-hls/v1` streaming transcode contract, as one dependency-free module.
 
 A Miso streaming transcode is a fixed AAC-LC fMP4 ladder (96, 160, 256 kbps,
 stereo, source sample rate) cut into aligned segments and packed into one
