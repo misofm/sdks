@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui \u2014 high-level reads, pressings, listings, records, and work publishing.",
   "license": "Apache-2.0",
@@ -134,7 +134,7 @@
   },
   "dependencies": {
     "@misofm/streaming": "0.1.0",
-    "@misofm/protocol": "0.15.0",
+    "@misofm/protocol": "0.16.0",
     "@mysten/bcs": "^2.1.1"
   },
   "devDependencies": {

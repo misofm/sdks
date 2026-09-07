@@ -5,7 +5,7 @@
 // it through the generated struct, and map to the public camelCase types.
 
 import type { ClientWithCoreApi } from "@mysten/sui/client";
-import { deriveDynamicFieldID, deriveObjectID } from "@mysten/sui/utils";
+import { deriveDynamicFieldID, deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { bcs } from "@mysten/sui/bcs";
 import { fromBase64 } from "@mysten/sui/utils";
 import {
@@ -43,17 +43,50 @@ async function getContent(client: ClientWithCoreApi, objectId: string): Promise<
   }
 }
 
-/** Fetches and parses a shared `Party` object. */
-export async function getPartyById(client: ClientWithCoreApi, partyId: string): Promise<Party> {
-  const content = await getContent(client, partyId);
-  if (!content) throw new Error(`Party not found: ${partyId}`);
-  return mapParty(partyId, PartyBcs.parse(content));
+/** The `Party` struct tag of one miso_party deployment. */
+export function partyType(partyPackageId: string): string {
+  return normalizeStructTag(`${partyPackageId}::party::Party`);
 }
 
-/** Fetches and parses multiple shared `Party` objects in one Core request. */
+// A Party from another miso_party package (a previous protocol generation)
+// parses identically but no deployed package accepts it, so the object's type
+// is checked against the deployment before its content is trusted.
+function assertPartyType(objectId: string, type: string | undefined, partyPackageId: string): void {
+  const expected = partyType(partyPackageId);
+  if (type === undefined || normalizeStructTag(type) !== expected) {
+    throw new Error(
+      `Object ${objectId} is ${type ?? "of unknown type"}, not a ${expected}` +
+        (type?.endsWith("::party::Party") ? " (a Party from a different miso_party deployment)" : ""),
+    );
+  }
+}
+
+/** Fetches and parses a shared `Party` object of this deployment's miso_party package. */
+export async function getPartyById(
+  client: ClientWithCoreApi,
+  partyId: string,
+  partyPackageId: string,
+): Promise<Party> {
+  let object;
+  try {
+    ({ object } = await client.core.getObject({ objectId: partyId, include: { content: true } }));
+  } catch (e) {
+    if (isNotFound(e)) throw new Error(`Party not found: ${partyId}`);
+    throw e;
+  }
+  if (!object?.content) throw new Error(`Party not found: ${partyId}`);
+  assertPartyType(partyId, object.type, partyPackageId);
+  return mapParty(partyId, PartyBcs.parse(object.content));
+}
+
+/**
+ * Fetches and parses multiple shared `Party` objects in one Core request.
+ * Missing objects are skipped; an object of another type is an error.
+ */
 export async function getPartiesByIds(
   client: ClientWithCoreApi,
   partyIds: readonly string[],
+  partyPackageId: string,
 ): Promise<Partial<Record<string, Party>>> {
   if (partyIds.length === 0) return {};
   const { objects } = await client.core.getObjects({
@@ -63,6 +96,7 @@ export async function getPartiesByIds(
   const parties: Partial<Record<string, Party>> = {};
   for (const obj of objects) {
     if (obj instanceof Error) continue;
+    assertPartyType(obj.objectId, obj.type, partyPackageId);
     parties[obj.objectId] = mapParty(obj.objectId, PartyBcs.parse(obj.content));
   }
   return parties;
