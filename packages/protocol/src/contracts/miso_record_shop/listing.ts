@@ -11,11 +11,11 @@
  * remain separate consensus lanes except for their common edition sequence.
  */
 
-import { MoveTuple, MoveEnum, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.js';
+import { MoveTuple, MoveEnum, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as type_name from './deps/std/type_name.js';
+import * as type_name from './deps/std/type_name.ts';
 const $moduleName = '@local-pkg/miso_record_shop::listing';
 export const ListingKey = new MoveTuple({ name: `${$moduleName}::ListingKey<phantom Currency>`, fields: [bcs.bool()] });
 /** Payment rule for a Listing. */

@@ -6,7 +6,7 @@
 /** Vault adapter for Release revenue-distribution Actions. */
 
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.js';
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;
@@ -114,14 +114,12 @@ export function receiveAndDistribute(options: ReceiveAndDistributeOptions) {
 export interface RedeemAllAndDistributeArguments {
     vault: RawTransactionArgument<string>;
     release: RawTransactionArgument<string>;
-    root: RawTransactionArgument<string>;
 }
 export interface RedeemAllAndDistributeOptions {
     package?: string;
     arguments: RedeemAllAndDistributeArguments | [
         vault: RawTransactionArgument<string>,
-        release: RawTransactionArgument<string>,
-        root: RawTransactionArgument<string>
+        release: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -132,9 +130,9 @@ export function redeemAllAndDistribute(options: RedeemAllAndDistributeOptions) {
     const argumentsTypes = [
         null,
         null,
-        null
+        '0x2::accumulator::AccumulatorRoot'
     ] satisfies (string | null)[];
-    const parameterNames = ["vault", "release", "root"];
+    const parameterNames = ["vault", "release"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'release_revenue_distributor_plugin',

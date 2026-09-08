@@ -33,7 +33,14 @@ import * as type_name from './deps/std/type_name.ts';
 const $moduleName = '@local-pkg/royalty_pool::stake';
 export const Registration = new MoveStruct({ name: `${$moduleName}::Registration`, fields: {
         pool_id: bcs.Address,
-        last_claim_index: bcs.u256()
+        /**
+         * Reward debt in `shares · index` units: `shares · index` as of registration, plus
+         * `reward · PRECISION` for every payout since. The pending reward is
+         * `(shares · index − debt) / PRECISION`, computed by `royalty_pool::pool`. Kept at
+         * full precision so no rounding is ever stored: `debt ≤ shares · index` always
+         * holds.
+         */
+        debt: bcs.u256()
     } });
 export const Stake = new MoveStruct({ name: `${$moduleName}::Stake<phantom Share>`, fields: {
         id: bcs.Address,
@@ -274,16 +281,16 @@ export function registrationPoolId(options: RegistrationPoolIdOptions) {
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface RegistrationLastClaimIndexArguments {
+export interface RegistrationDebtArguments {
     r: TransactionArgument;
 }
-export interface RegistrationLastClaimIndexOptions {
+export interface RegistrationDebtOptions {
     package?: string;
-    arguments: RegistrationLastClaimIndexArguments | [
+    arguments: RegistrationDebtArguments | [
         r: TransactionArgument
     ];
 }
-export function registrationLastClaimIndex(options: RegistrationLastClaimIndexOptions) {
+export function registrationDebt(options: RegistrationDebtOptions) {
     const packageAddress = options.package ?? '@local-pkg/royalty_pool';
     const argumentsTypes = [
         null
@@ -292,7 +299,7 @@ export function registrationLastClaimIndex(options: RegistrationLastClaimIndexOp
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'stake',
-        function: 'registration_last_claim_index',
+        function: 'registration_debt',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }

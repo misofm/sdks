@@ -734,17 +734,18 @@ export function redeemAllAndDistributeReleaseRevenue(
     readonly accumulatorRoot?: ObjectInput;
   },
 ): void {
-  tx.add(
-    releaseRevenueDistributorPlugin.redeemAllAndDistribute({
-      package: params.pluginPackageId,
-      typeArguments: [params.currencyType],
-      arguments: [
-        params.vault,
-        params.release,
-        object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
-      ],
-    }),
-  );
+  // The generated binding resolves the chain-wide accumulator root itself, so it
+  // no longer accepts one. Call the target directly to keep honoring an explicit
+  // `accumulatorRoot` (a test fixture root) while the on-chain shape is unchanged.
+  tx.moveCall({
+    target: `${params.pluginPackageId}::release_revenue_distributor_plugin::redeem_all_and_distribute`,
+    typeArguments: [params.currencyType],
+    arguments: [
+      object(tx, params.vault),
+      params.release,
+      object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
+    ],
+  });
 }
 
 /** Convenience form of the fixed crank for a known Release object ID. */

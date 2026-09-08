@@ -253,89 +253,89 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
     recordSales: {
       status: "available",
       recordPackageId:
-        "0xc9411d3e2cb9600081544572036bec049624db1707f9354c342090f440b6e1a2",
+        "0x0ad1ad504c63f8e14f74f0535600eb965217bc9ef3305d6d4bd3dad077bb832f",
       recordShopPackageId:
-        "0xc6d49266080b8f165b6c1fc48e1aa4a6d719183d78a8d1043bfe0f2d6c744ed1",
+        "0x6f075182093837a6b9ea00be706c94d896a3cf62567e05a74d902716a7ac8730",
     },
     operations: {
       status: "available",
       vault: {
         packageId:
-          "0x77b74e9221874b9e29f6743a277810480bf89d71b5cb71741cd52dfcd83035d2",
+          "0x994699b7df4963aa3ad4ca3253d26e7271b8f8e76b50108f00eb69e7aca4637a",
         registryId:
-          "0x0fcfe3bb47f0ee2fbf0dcb65b48741efd06b4d746f1df14fe6ac3c00e9e35287",
+          "0xeaad77ce26cc610340c32c55f8fe0ae6f63639431c4608c7466703dee8450c7a",
       },
       actions: {
         compositionRoyaltyPool:
-          "0x26c574e0aa01f504833b4f01dad44e2cd17b8718630e025d85ce05b843092085",
+          "0x8a55e02198a9ab7997abf2815e7f4b587d976570128741dfed2e152b7c0e9cab",
         recordingRoyaltyPool:
-          "0x84b3cc36907112da74c88c78d1ac20e17010a30e206dfa4322a300c87032d405",
+          "0x404089e5da21fe26dd6b9b346f457b3cbe34977bb12c503036e6b625fa34ba41",
         partyWallet:
-          "0xa3d6016f2da63b53546e3f9922e8f0c12c27ca532509ef8c0e778f3e7cd56ee6",
+          "0x0bdd7e78d46834546b54d6c02697cf67b37d36a2c6fdbb19e290729529fdb3a9",
         compositionRoutedStake:
-          "0x8e32cdb08953afe0b72f46fde2b0fe1ab0ab3c12885c1e41883ccb5d8703e144",
+          "0xf5138fd64c16a43bead17e56fe7ac6900c214cd55233c069f47b13174d0a9ff8",
         releaseRevenueDistributor:
-          "0x5ab255ed56c601c5d3c79502e81cfd4fd534c166fa731c2275a65d5fd2b34615",
+          "0x24656bb1feafc1a3d0ec30b8f10b364983c7a9c12febb5b7f6acd007f013a54b",
       },
       plugins: {
         compositionRoyaltyPool:
-          "0x6969b98c0322a8a7ba2478d900fc88e1c9ba17903c310c7fdb133c0789bd5ba8",
+          "0x8934a96dd9cbdc64040d74810556deef0a39d28ea7033f633d76d7b560e9191c",
         recordingRoyaltyPool:
-          "0x4ac310583eda99e148207f99618ce5d21d7e7680e7c92b58422113b155a97455",
+          "0x92b8b21483241e39ddab66a67fb1fc99f553eef9b53f47747cb59515540c8dec",
         releaseRevenueDistributor:
-          "0xf13e254b32cee1315d9c0af3c4ef6e3bb770c293eee90afe30a009cde30bb381",
+          "0xbebed662371093a75c0d24a2c34a161339a2e4ab981594de8aa7157c555c620e",
       },
     },
     packages: {
       minato:
         "0xcdf58ed7e4580118a6a3f2a8077abffe633c551b2f19e95ce01685d42f90b8d9",
       credit:
-        "0xb82c6c2524ede481cfa3c1066c70c1e43b1a5f6f11e40d5633153c2c3150bba7",
+        "0xdcbe495da81859e16540e2df44e86123217930ac9066a8aecebf479cbe73006f",
       compositionCredits:
-        "0x09434b8b65fb25a703b9c762abbb9075b5bfde6baffc923baac9353ab2191a65",
+        "0x54cac9dde365a08eff983af16d74d798e6c0a14264bf6cc8a24790708498e37b",
       recordingCredits:
-        "0x598303437c97ab1ec232be884d041587f18647b71fb36f4cf76cbbcc3c276dd2",
+        "0x0ca2c727c3eb8d3f889d9b29ce1118bc60518c6990e26e9ab278a7ffe635bf1e",
       releaseCredits:
-        "0xd6e9f090d581779099cc4beaf6c8843f1d569dea85fdde004748c8f03aadafcb",
+        "0x3a05d0c863ca0b5210f90f69cf87da59791b127c9eaaa10633961aee229a3ed5",
       royaltyPool:
-        "0xce4a1415255ac043301f3057b1dbd1095ad4959fcbe5bfceb9dbb7cf1144def1",
+        "0xa49e297e4ed8c29ea9bd5941b3ac7d41327f97c85fc35e11bda466f09fce1943",
       routedStake:
-        "0xaa37871d4ba3ce4a465c13c79d1a701941efbf33491633c744ad4b7035f7f894",
+        "0xc920af18421cd11c315fa8d0cdd56056854cf453f1ced1fa1b32d555bca2955a",
       coverArt:
-        "0x711f7041fc9e12d045b278c07ff9cf5047b69002e91e9dd881ad51c09ec389f6",
+        "0xb7c82b0435e6f577cdc334a9b2d8940b869dacb846d72ddb3ee566b5e8c63b52",
       releaseCoverArt:
-        "0xfb1dc55719142fb575c6242f338447fa87bf4618f6903c7a6e30489f4e810fb3",
+        "0xb289dfb58ccf2af3722f7bc93b072426a791d05a401115f2901d130f12d8e4b2",
       genre:
-        "0x095c412a9e9846b091b8f93d9bd50bca5d98a2e65063cb6c20265dc307c4b319",
+        "0x6ae4aefdd9d147db6f04a14e4f6149944c485fc7d87d8201dcdb0dee15f0f296",
       releaseDescription:
-        "0x957b633fd186f65f953e17caaeec2e3385431c6f55914cb31dfb775368f89d9e",
+        "0x60a8bc11b7d41d594a2c54c8dee4534dcf94d3be20054100c7774026a543ec6f",
       releaseDspLink:
-        "0x7bce4d548314d9cff3145732f19ad7e67b3c00e2cf4d6f295f8af6d02108884e",
+        "0xbeffd79f656ce89d3595c9fb36dac42a169b72a5e7090504c48ba6c2425961a6",
       releaseGenre:
-        "0x9770bc7cf9d9b2fa35af194d14f0c36320fbf6541c5ee12b884f0db44d1b5a4f",
+        "0x111dd8bff35a1779067d7c75f8a514691342f91f67d2fcdae392768ba6db26f2",
       releaseKind:
-        "0x187f6f881623cc843d2c6dc98fe23203598fd3992b6a78c1b5990f3fd60a0f5b",
+        "0x90bf2633b45699d424da616869ecb3d824a88d78d8f8d2ccf5b711b18a734bf1",
       recordingAdvisory:
-        "0x8f745dac70fef5327e686b31acbe3f3504dc7eeb63da5f31a4660bb5aea5ee4b",
+        "0x48a16738e6af6548e50d8f76dce9b9de247f365ef2a07c171f732bdc9c88b235",
       recordingLanguage:
-        "0xd6b7f206f838018a28d33b77bade2b8476ccafab5fe526345c375d3b47bb892f",
+        "0x677cef9c766b17f87fdf9d6623f1adca0d2e244ee228c86d82c23599ad9a828a",
       recordingMasterReference:
-        "0x65309bf315f3e035b0f10c706eb5c327af5038be1637a0cee74f4ae62872f6ce",
+        "0x2b1ca393e8d41eba5b0d3cabf6df1e207a349bba0486ca9ea3a31734d3445971",
       // Stems generation (Session V1 blob + Stem { digest, data } vector).
       // 0x2fcb9ab9… was the retired single-blob generation.
       recordingEngineSession:
-        "0x0ec0227854f418a6accfbdcca5d41fd22b6906f5034c8ea1545dfe42a2a7f020",
+        "0x55ca06d2ac044247e55165a9cb661219d47cee94789cc289a6e1e91ac8159a76",
       recordingStreamingTranscode:
-        "0x622cd2a9e49ee2639f5c1d922d2fc75e89e810e80da8dd6d4a843bcefa0aacb0",
+        "0x45ee95108ddc6f90c1f4c73fb8aff5f0b7047d4982e6f997e2c9afe02f908a05",
       recordSealPolicy:
-        "0x2b806033f31ed0af5a9118429111dd5c91f44d9229c41aa9d5cbaec7e3910c0a",
+        "0x3af51d7c48b32d37a1a3bd31f06cdd873032fca8663cb3f9d9cf516bc4ee08ba",
       ori: "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
     },
     objects: {
       releaseRegistry:
-        "0x40700d8fd9de26392d10c4a3c0759b08f60be43e2f80681650e87a4efdac5cf1",
+        "0xbb947ba51420df59a726487e008adaf352b7c58c1dbfe1e5e6b19131a98cc43c",
       genreRegistry:
-        "0x479a1f43c8118b24d10cba62d64ad782c19fad974cdbc5020c909ea943c857a8",
+        "0x63cfb245a15871b7a4c33b66487a3f4de0a7bd6431e3f0434cad4176c25e6eb5",
     },
     legacy: {
       releaseCoverArtPackages: [],

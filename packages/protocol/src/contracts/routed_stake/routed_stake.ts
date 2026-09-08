@@ -308,13 +308,18 @@ export interface SweepOptions {
     ];
 }
 /**
- * Claim the wrapped stake's accrued rewards from `stake_pool` and deposit them
- * into `routed_pool` — the parent's own pool. Permissionless: the caller supplies
+ * Claim the wrapped stake's accrued rewards from `stake_pool` and commit them to
+ * `routed_pool` — the parent's own pool. Permissionless: the caller supplies
  * `parent_id`, but cannot lie, because both the wrapper's own address and
  * `routed_pool`'s address must derive from it. A zero reward is a no-op (no
- * event), so the call composes safely into batch PTBs; a positive reward aborts
- * (in `royalty_pool::pool`) if `routed_pool` has no registered stakes — the reward
- * stays claimable here until it does.
+ * event), so the call composes safely into batch PTBs.
+ *
+ * A pool deposit needs a registered stake to attribute to. While `routed_pool` has
+ * none, the reward is instead sent to the pool's own address — ordinary
+ * address-delivered funds, folded in permissionlessly by `pool::sweep_and_deposit`
+ * once a stake registers. Either way the money is committed to the parent's pool,
+ * so the route stays fixed and this call — and therefore `unregister`/`unstake` —
+ * can never be blocked by the destination's state.
  */
 export function sweep(options: SweepOptions) {
     const packageAddress = options.package ?? '@local-pkg/routed_stake';

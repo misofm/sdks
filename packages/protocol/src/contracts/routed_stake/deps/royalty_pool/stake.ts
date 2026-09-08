@@ -32,7 +32,14 @@ import * as type_name from '../std/type_name.ts';
 const $moduleName = 'royalty_pool::stake';
 export const Registration = new MoveStruct({ name: `${$moduleName}::Registration`, fields: {
         pool_id: bcs.Address,
-        last_claim_index: bcs.u256()
+        /**
+         * Reward debt in `shares · index` units: `shares · index` as of registration, plus
+         * `reward · PRECISION` for every payout since. The pending reward is
+         * `(shares · index − debt) / PRECISION`, computed by `royalty_pool::pool`. Kept at
+         * full precision so no rounding is ever stored: `debt ≤ shares · index` always
+         * holds.
+         */
+        debt: bcs.u256()
     } });
 export const Stake = new MoveStruct({ name: `${$moduleName}::Stake<phantom Share>`, fields: {
         id: bcs.Address,

@@ -5,7 +5,7 @@
 
 /** Module-controlled authority used by the Miso Record Shop to mint Records. */
 
-import { MoveTuple } from '../utils/index.js';
+import { MoveTuple } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 const $moduleName = '@local-pkg/miso_record_shop::witness';

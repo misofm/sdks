@@ -6,7 +6,7 @@
 /** Vault adapter for Recording royalty-pool Actions. */
 
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.js';
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;
