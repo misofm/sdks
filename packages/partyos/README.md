@@ -23,6 +23,7 @@ bun add @misofm/partyos @mysten/sui
 
 ```ts
 import { SuiGrpcClient } from "@mysten/sui/grpc";
+import { Transaction } from "@mysten/sui/transactions";
 import { partyos } from "@misofm/partyos";
 
 const client = new SuiGrpcClient({ network: "testnet" }).$extend(partyos());

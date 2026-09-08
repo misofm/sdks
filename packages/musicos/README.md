@@ -1,9 +1,10 @@
 # @misofm/musicos
 
-`@misofm/musicos` is the object model. Everything Miso offers on top of it —
-work extensions, royalty primitives, Party, and every product-specific
-workflow — is platform, and lives in
-[`@misofm/platform`](../platform/README.md). This package holds ONLY the
+`@misofm/musicos` is the object model of works. Everything Miso offers on top
+of it — work extensions, royalty primitives, Party extensions, and every
+product-specific workflow — is platform, and lives in
+[`@misofm/platform`](../platform/README.md); the Party object model itself is
+[`@misofm/partyos`](../partyos/README.md). This package holds ONLY the
 typed bindings, queries, event decoders, and PTB builders for the `musicos`
 Move package: Composition, Recording, Release, and Track.
 
@@ -56,8 +57,9 @@ freshly-published deployment.
 
 Work extensions (composition/recording/release credits, advisory ratings,
 genres, DSP links, cover art, ...), royalty primitives (royalty pools,
-stakes, routed stakes), Party (`partyos` and its extensions), and every
-other first-party Move package live in `@misofm/platform`. See
+stakes, routed stakes), the Party extensions, and every other first-party
+Move package live in `@misofm/platform`; the `partyos` object model has its
+own package, `@misofm/partyos`. See
 [`sui-codegen.config.ts`](../../sui-codegen.config.ts) at the repo root for
 the authoritative list of Move packages and which generated tree each one
 lands in.

@@ -46,6 +46,8 @@ export * as listing from "./contracts/record_shop/listing.ts";
 // plugins (BCS codecs remain available; PTB-inaccessible references do not).
 export const royaltyPool = withoutUnsafeCalls(rawRoyaltyPool, ["balance", "_new"] as const);
 export const royaltyPoolStake = withoutUnsafeCalls(rawRoyaltyStake, ["balance", "getRegistration"] as const);
+/** The name the retired `@misofm/protocol` barrel used for {@link royaltyPoolStake}. */
+export { royaltyPoolStake as royaltyStake };
 export * as vault from "./contracts/vault/vault.ts";
 export * as compositionRoyaltyPool from "./contracts/composition_royalty_pool/composition_royalty_pool.ts";
 export * as recordingRoyaltyPool from "./contracts/recording_royalty_pool/recording_royalty_pool.ts";

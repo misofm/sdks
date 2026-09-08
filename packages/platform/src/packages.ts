@@ -88,7 +88,6 @@ export const REF_RETURNING_CALLS = {
   // caller-provided PTB input. Only `share`, `sweep`, scalar reads and derives
   // remain usable at this layer.
   routedStake: ["stake", "_new", "register", "unregister", "unstake", "restake"],
-  party: ["groupMembers", "uid", "uidMut"],
   partyProfile: ["profile"],
 } as const;
 
