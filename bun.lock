@@ -13,7 +13,7 @@
     },
     "packages/effect": {
       "name": "@misofm/effect",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
@@ -30,9 +30,9 @@
     },
     "packages/musicos": {
       "name": "@misofm/musicos",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
-        "@misofm/effect": "0.1.0",
+        "@misofm/effect": "0.1.1",
         "@mysten/bcs": "^2.1.1",
       },
       "devDependencies": {
@@ -51,9 +51,9 @@
     },
     "packages/partyos": {
       "name": "@misofm/partyos",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "dependencies": {
-        "@misofm/effect": "0.1.0",
+        "@misofm/effect": "0.1.1",
         "@mysten/bcs": "^2.1.1",
       },
       "devDependencies": {
@@ -72,11 +72,11 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.26.0",
+      "version": "0.26.1",
       "dependencies": {
-        "@misofm/effect": "0.1.0",
-        "@misofm/musicos": "0.3.0",
-        "@misofm/partyos": "0.3.0",
+        "@misofm/effect": "0.1.1",
+        "@misofm/musicos": "0.3.1",
+        "@misofm/partyos": "0.3.1",
         "@misofm/streaming": "0.3.0",
         "@mysten/bcs": "^2.1.1",
       },

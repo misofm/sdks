@@ -1,6 +1,6 @@
 {
   "name": "@misofm/effect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageManager": "bun@1.4.0",
   "description": "Shared Effect foundation for the Miso SDKs: one SuiClient service, one error vocabulary, and the read/execute primitives every package builds on.",
   "license": "Apache-2.0",

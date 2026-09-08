@@ -40,7 +40,9 @@ export interface ExecResult {
 }
 
 /** Builds a fresh `Transaction` from one or more thunks (awaiting async ones); never fails. */
-export const buildTx = Effect.fn("buildTx")(function* (...thunks: readonly TxThunk[]): Effect.fn.Return<Transaction> {
+export const buildTx: (...thunks: readonly TxThunk[]) => Effect.Effect<Transaction> = Effect.fn("buildTx")(function* (
+  ...thunks: readonly TxThunk[]
+): Effect.fn.Return<Transaction> {
   const tx = new Transaction();
   for (const thunk of thunks) {
     yield* Effect.promise(() => Promise.resolve(thunk(tx)));
