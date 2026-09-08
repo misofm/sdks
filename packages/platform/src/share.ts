@@ -33,7 +33,7 @@ import {
   allCreatedByType,
   type ExecResult,
 } from "@misofm/musicos";
-import { SuiClient, type SuiRpcError, type TransactionFailedError } from "@misofm/effect";
+import { SuiClient, SuiRpcError, type TransactionFailedError } from "@misofm/effect";
 
 import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
 import { SHARE_TEMPLATE } from "./share-template.ts";
@@ -241,8 +241,16 @@ export const initializeShareCurrencies = Effect.fn("initializeShareCurrencies")(
         }),
       ).pipe(
         Effect.map((res) => ({ batchCurrencies: currenciesFromResult(res, batchPkgs), gasUsed: res.gasUsed })),
+        // A rejecting callback is this batch's failure, not a defect: a defect
+        // would fail the whole forEach and interrupt sibling batches whose
+        // transactions are already submitted.
         Effect.tap(({ batchCurrencies, gasUsed }) =>
-          onBatch ? Effect.promise(() => Promise.resolve(onBatch(batchCurrencies, gasUsed))) : Effect.void,
+          onBatch
+            ? Effect.tryPromise({
+                try: () => Promise.resolve(onBatch(batchCurrencies, gasUsed)),
+                catch: (cause) => new SuiRpcError({ operation: "onBatch", cause }),
+              })
+            : Effect.void,
         ),
         Effect.result,
       ),

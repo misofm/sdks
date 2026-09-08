@@ -14,6 +14,7 @@
 // return `Option.none()` for "not attached" — extension data is optional by
 // design, and absence is a normal, expected state, not a failure.
 
+import { ConflictingWorkKindError } from "./errors.ts";
 import { Effect, Option, Schema } from "effect";
 import { graphql } from "@mysten/sui/graphql/schema";
 import { deriveObjectID, normalizeSuiAddress } from "@mysten/sui/utils";
@@ -462,14 +463,14 @@ export interface WorksById {
 /** Fetch and parse heterogeneous work objects through one Core bulk request. */
 export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
   ids: WorkIds,
-): Effect.fn.Return<WorksById, SuiRpcError | BcsDecodeError, SuiClient> {
+): Effect.fn.Return<WorksById, ConflictingWorkKindError | SuiRpcError | BcsDecodeError, SuiClient> {
   const kinds = new Map<string, keyof WorksById>();
   for (const [kind, objectIds] of Object.entries(ids) as Array<[keyof WorksById, readonly string[]]>) {
     for (const objectId of objectIds) {
       const normalized = normalizeSuiAddress(objectId);
       const previous = kinds.get(normalized);
       if (previous && previous !== kind) {
-        throw new Error(`Work ${normalized} was requested as both ${previous} and ${kind}`);
+        return yield* new ConflictingWorkKindError({ objectId: normalized, kinds: [previous, kind] });
       }
       kinds.set(normalized, kind);
     }

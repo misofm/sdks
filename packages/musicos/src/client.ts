@@ -1,6 +1,7 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ConflictingWorkKindError } from "./errors.ts";
 import type {
   ClientWithCoreApi,
   SuiClientRegistration,
@@ -166,7 +167,7 @@ export class MisoProtocolClient {
   getCompositionsByIds(ids: string[]): Effect.Effect<Record<string, Composition>, SuiRpcError | BcsDecodeError> {
     return this.#run(queries.getCompositionsByIds(ids));
   }
-  getWorksByIds(ids: queries.WorkIds): Effect.Effect<queries.WorksById, SuiRpcError | BcsDecodeError> {
+  getWorksByIds(ids: queries.WorkIds): Effect.Effect<queries.WorksById, ConflictingWorkKindError | SuiRpcError | BcsDecodeError> {
     return this.#run(queries.getWorksByIds(ids));
   }
   getWorkAddressesByShareTypes(

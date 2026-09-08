@@ -7,6 +7,8 @@
 // `@misofm/effect`'s tagged errors. Re-exported here so callers can import the
 // complete error vocabulary from one place (`@misofm/musicos/errors`) without
 // also depending on `@misofm/effect` directly.
+import { Schema } from "effect";
+
 export {
   ObjectNotFoundError,
   ObjectTypeMismatchError,
@@ -17,3 +19,12 @@ export {
   DeploymentError,
   type SuiReadError,
 } from "@misofm/effect/errors";
+
+/** One object id was requested under two different work kinds in a single batched read. */
+export class ConflictingWorkKindError extends Schema.TaggedError<ConflictingWorkKindError>()(
+  "ConflictingWorkKindError",
+  {
+    objectId: Schema.String,
+    kinds: Schema.Array(Schema.String),
+  },
+) {}

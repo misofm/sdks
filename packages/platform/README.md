@@ -120,7 +120,7 @@ const program = Effect.gen(function* () {
   yield* client.miso.ready();
 
   // The permissionless object-model SDK is part of the same facade.
-  const release = yield* client.miso.protocol.getReleaseById(releaseId);
+  const release = yield* client.miso.protocol!.getReleaseById(releaseId); // protocol is set once ready() succeeded
   // Party identity comes from @misofm/partyos; platform adds the extensions.
   // client.miso.party is a PartyPlatformClient wrapping a PartyosClient (core
   // reads/builders delegate straight through) bound to this deployment's
@@ -161,7 +161,7 @@ recover with `Effect.catchTag`/`Effect.catchTags` instead of inspecting a
 thrown message:
 
 ```ts
-const releaseOrNull = client.miso.protocol
+const releaseOrNull = client.miso.protocol!
   .getReleaseById(releaseId)
   .pipe(Effect.catchTag("ObjectNotFoundError", () => Effect.succeed(null)));
 ```
@@ -759,7 +759,7 @@ Platform-specific tags:
 ```ts
 import { Effect } from "effect";
 
-const release = client.miso.protocol
+const release = client.miso.protocol!
   .getReleaseById(releaseId)
   .pipe(
     Effect.catchTags({
