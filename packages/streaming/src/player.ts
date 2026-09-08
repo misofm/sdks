@@ -15,8 +15,10 @@
 // under bundler resolution, so type against the main entry.
 import type HlsType from "hls.js";
 import type { HlsConfig, LoadPolicy, LoaderConfig, RetryConfig } from "hls.js";
+import { Effect, type Scope } from "effect";
 import { MASTER_PLAYLIST, quiltItemUrl, startLevelIndex } from "./index.ts";
 import { warmTrack, type WarmOptions } from "./warm.ts";
+import { PlayerError } from "./errors.ts";
 
 type HlsConstructor = typeof HlsType;
 type HlsModule = { default: HlsConstructor };
@@ -187,7 +189,7 @@ export class HlsPlayer {
    * Prime the browser cache and delivery edge for a track's first moments,
    * ahead of `open`. Delegates to `warmTrack`; see `@misofm/streaming/warm`.
    */
-  warm(quiltId: string, options?: WarmOptions): Promise<void> {
+  warm(quiltId: string, options?: WarmOptions): Effect.Effect<void> {
     return warmTrack(this.#baseUrl, quiltId, options);
   }
 
@@ -200,11 +202,11 @@ export class HlsPlayer {
   /**
    * Point the element at a track's stream. The native path is synchronous,
    * keeping `play()` inside the user gesture on iOS; the MSE path attaches as
-   * soon as hls.js resolves. A fatal hls.js error or a rejected native play
-   * reports through `onError` so the caller can reset instead of showing a
-   * dead stream as playing.
+   * soon as hls.js resolves. A failed engine load, a fatal hls.js error, or a
+   * rejected native play reports as a {@link PlayerError} through `onError`
+   * so the caller can reset instead of showing a dead stream as playing.
    */
-  open(audio: HTMLAudioElement, quiltId: string, onError?: () => void): AudioStream {
+  open(audio: HTMLAudioElement, quiltId: string, onError?: (error: PlayerError) => void): AudioStream {
     const url = this.masterPlaylistUrl(quiltId);
     // The native path fetches the playlist and segments through the element,
     // a no-cors request that COEP: require-corp blocks. Asking for CORS keeps
@@ -213,7 +215,10 @@ export class HlsPlayer {
     if (!this.#mseUsable()) {
       if (canPlayNatively(audio)) audio.src = url;
       return {
-        play: () => void audio.play().catch(() => onError?.()),
+        play: () =>
+          void audio
+            .play()
+            .catch((cause) => onError?.(new PlayerError({ reason: "media", message: "audio.play() rejected", cause }))),
         destroy: () => {},
       };
     }
@@ -221,27 +226,33 @@ export class HlsPlayer {
     let destroyed = false;
     let wantPlay = false;
     let hls: HlsType | null = null;
-    void this.#engine().then(({ default: Hls }) => {
-      if (destroyed) return;
-      if (!Hls.isSupported()) {
-        if (canPlayNatively(audio)) {
-          audio.src = url;
-          if (wantPlay) void audio.play().catch(() => {});
+    void this.#engine().then(
+      ({ default: Hls }) => {
+        if (destroyed) return;
+        if (!Hls.isSupported()) {
+          if (canPlayNatively(audio)) {
+            audio.src = url;
+            if (wantPlay) void audio.play().catch(() => {});
+          }
+          return;
         }
-        return;
-      }
-      hls = new Hls(mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, this.#hlsConfig) as HlsConfig);
-      hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
-        if (data.fatal) {
-          hls?.destroy();
-          hls = null;
-          onError?.();
-        }
-      });
-      hls.loadSource(url);
-      hls.attachMedia(audio);
-      if (wantPlay) void audio.play().catch(() => {});
-    });
+        hls = new Hls(mergeHlsConfig(HLS_COLD_ORIGIN_DEFAULTS, this.#hlsConfig) as HlsConfig);
+        hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
+          if (data.fatal) {
+            hls?.destroy();
+            hls = null;
+            onError?.(new PlayerError({ reason: "fatal", message: "fatal hls.js error", cause: data }));
+          }
+        });
+        hls.loadSource(url);
+        hls.attachMedia(audio);
+        if (wantPlay) void audio.play().catch(() => {});
+      },
+      (cause) => {
+        if (destroyed) return;
+        onError?.(new PlayerError({ reason: "engine-load", message: "failed to load the hls.js engine", cause }));
+      },
+    );
     return {
       play: () => {
         wantPlay = true;
@@ -258,4 +269,50 @@ export class HlsPlayer {
   #engine(): Promise<HlsModule> {
     return (this.#hlsModule ??= this.#loadHls());
   }
+}
+
+export interface AcquirePlayerOptions {
+  /** The origin's player, from `new HlsPlayer(...)`. One `HlsPlayer` caches
+   *  its hls.js engine across every stream it opens; reuse it across calls. */
+  readonly player: HlsPlayer;
+  /** The element to attach the stream to. */
+  readonly audio: HTMLAudioElement;
+  /** The track's Quilt id. */
+  readonly quiltId: string;
+  /** A failed engine load, a fatal hls.js error, or a rejected native play,
+   *  reported the same way `HlsPlayer#open`'s `onError` always has. */
+  readonly onFatal?: (error: PlayerError) => void;
+}
+
+/**
+ * `HlsPlayer#open` as a `Scope`-managed resource: acquiring it attaches the
+ * stream exactly as `open` does today — synchronously on the native path, so
+ * `play()` on the returned {@link AudioStream} is still safe to call inside
+ * the same user gesture that acquired it — and releasing it (when the
+ * `Scope` closes) detaches hls.js and clears the media element, on top of
+ * the `AudioStream`'s own `destroy`.
+ *
+ * `play()`/`pause`-equivalent controls on the returned object stay plain,
+ * synchronous methods: wrapping them in `Effect` would push them outside the
+ * gesture that must call them.
+ *
+ * ```ts
+ * const program = Effect.gen(function* () {
+ *   const stream = yield* acquirePlayer({ player, audio, quiltId });
+ *   stream.play();
+ * });
+ * Effect.runSync(Effect.scoped(program)); // releases when the scope closes
+ * ```
+ */
+export function acquirePlayer(options: AcquirePlayerOptions): Effect.Effect<AudioStream, PlayerError, Scope.Scope> {
+  const { player, audio, quiltId, onFatal } = options;
+  return Effect.acquireRelease(
+    Effect.sync(() => player.open(audio, quiltId, onFatal)),
+    (stream) =>
+      Effect.sync(() => {
+        stream.destroy();
+        audio.removeAttribute("src");
+        audio.load();
+      }),
+  );
 }

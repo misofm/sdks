@@ -1,6 +1,6 @@
 {
   "name": "@misofm/transcoding",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Effect-based deterministic plaintext AAC fMP4 HLS transcoder.",
   "repository": {
     "type": "git",
@@ -33,6 +33,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js",
+      "default": "./dist/errors.js"
     },
     "./node": {
       "types": "./dist/node.d.ts",

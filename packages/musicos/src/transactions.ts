@@ -33,6 +33,7 @@ import {
   Transaction,
   type TransactionObjectArgument,
 } from "@mysten/sui/transactions";
+import type { TxThunk } from "@misofm/effect";
 
 import * as composition from "./contracts/musicos/composition.ts";
 import * as recording from "./contracts/musicos/recording.ts";
@@ -41,7 +42,7 @@ import { asU256, type UnsignedInput } from "./numeric.ts";
 import * as track from "./contracts/musicos/track.ts";
 
 /** A thunk that adds commands to a transaction. May be async (resolves at build time). */
-export type TxThunk = (tx: Transaction) => void | Promise<void>;
+export type { TxThunk };
 
 // ============================================================================
 // Shared inputs

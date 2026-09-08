@@ -7,8 +7,8 @@
  * and nested layouts exactly, which is the safe indexer boundary.
  */
 
+import type { BcsParser } from "@misofm/effect";
 import * as release from "./contracts/musicos/release.ts";
-import type { BcsParser } from "./queries.ts";
 
 /** Decode raw event BCS with the corresponding generated codec. */
 export function decodeEvent<T>(codec: BcsParser<T>, bytes: Uint8Array): T {

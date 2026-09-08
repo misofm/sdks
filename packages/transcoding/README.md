@@ -21,3 +21,26 @@ The result is the `miso-hls/v1` layout defined by [`@misofm/streaming`](../strea
 FFmpeg and FFprobe are caller-supplied and fingerprinted. Workspaces use restrictive modes, locks, durable checkpoints, atomic writes and directory promotion, interruption-safe cleanup, and deterministic `transcodeDigest` identities. The optional `maxSegmentsPerRendition` is a generic consumer constraint.
 
 The package never shells out to publication tools and contains no network client, credentials, package index, or provider-specific metadata.
+
+## Errors
+
+Every failure `transcode`, `verify`, and `cleanup` can produce is a `Data.TaggedError` from
+the `@misofm/transcoding/errors` subpath — `InvalidRequestError`, `UnsupportedSourceError`,
+`ToolNotFoundError`, `ToolchainCapabilityError`, `ProcessSpawnError`, `ProcessExitError`,
+`ProcessOutputLimitError`, `WorkspaceLockedError`, `StaleWorkspaceError`, `WorkspaceIoError`,
+`SegmentLimitExceededError`, `PlaylistValidationError`, `MediaValidationError`, and
+`ArtifactValidationError`. Each carries a `code`, the `TranscodePhase` it failed in, a
+`subject`, and a `message`, plus whatever fields the specific failure needs (e.g.
+`ProcessExitError`'s `exitCode`, `signal`, and `stderrTail`). Recover from one by its tag
+instead of inspecting a message:
+
+```ts
+import { Effect } from "effect";
+import { ProcessExitError } from "@misofm/transcoding/errors";
+
+const program = transcoder.transcode(request).pipe(
+  Effect.catchTag("ProcessExitError", (error) =>
+    Effect.logError(`ffmpeg exited ${error.exitCode}: ${error.stderrTail}`),
+  ),
+);
+```

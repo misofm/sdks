@@ -22,12 +22,33 @@ a Walrus aggregator, and nothing else: no storage client, no encoder.
 uses to attach a stream to an `<audio>` element, with hls.js as an optional
 peer that loads only when playback needs it.
 
+`HlsPlayer#open` stays a plain, synchronous method — safe to call from
+inside a user gesture (iOS requires `play()` to run there) — but the same
+attach/detach lifecycle is also available as a `Scope`-managed resource,
+`acquirePlayer`, for callers who want the media element's cleanup guaranteed
+by the `Scope` instead of a manual `destroy()` call:
+
 ```ts
-import { HlsPlayer } from "@misofm/streaming/player";
+import { Effect } from "effect";
+import { HlsPlayer, acquirePlayer } from "@misofm/streaming/player";
 
 const player = new HlsPlayer({ baseUrl: "https://stream.miso.fm" });
-const stream = player.open(audioElement, quiltId, () => resetTransport());
-stream.play();
+
+const program = Effect.gen(function* () {
+  // Acquisition is synchronous, so play() is still safe inside the click
+  // handler that ran Effect.runSync/Effect.runPromise.
+  const stream = yield* acquirePlayer({
+    player,
+    audio: audioElement,
+    quiltId,
+    onFatal: (error) => resetTransport(error), // PlayerError: reason "engine-load" | "media" | "fatal"
+  });
+  stream.play();
+});
+
+// Run inside a Scope you control (e.g. tied to a component's lifecycle);
+// closing it detaches hls.js and clears the media element.
+Effect.runPromise(Effect.scoped(program));
 ```
 
 ## Cold origins
@@ -51,7 +72,21 @@ the warm case happen:
 - **`warmTrack` / `HlsPlayer#warm`** — issues the same anonymous-CORS
   requests hls.js's loader will make for a track's opening playlists, init
   segment, and first few media segments, and drains every body so the
-  browser's HTTP cache holds them warm for hls.js's later load.
+  browser's HTTP cache holds them warm for hls.js's later load. Both return
+  an `Effect.Effect<void>`: run it with `Effect.runPromise`, or fold it into
+  a larger `Effect.gen` program. A missing item (a non-2xx response) never
+  fails the effect, and neither does one item's network error — its
+  siblings still warm; see `WarmError` in `@misofm/streaming/errors` for the
+  shape of that per-item failure. There is no separate cancellation API:
+  interrupt the fiber running the effect (`Fiber.interrupt`, a `Scope`
+  closing, `Effect.timeout`, ...) and every in-flight fetch aborts with it.
+
+```ts
+import { Effect } from "effect";
+import { warmTrack } from "@misofm/streaming/warm";
+
+await Effect.runPromise(warmTrack("https://stream.miso.fm", quiltId));
+```
 
 The split is deliberate: this package owns the mechanics of warming and cold
 tolerance; the app decides *when* and *what* to warm (on hover, on queue, on

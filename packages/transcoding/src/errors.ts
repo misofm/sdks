@@ -1,3 +1,16 @@
+// Copyright (c) Miso Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// Every failure this package can produce — from ffmpeg/ffprobe discovery through
+// process spawning, workspace I/O, and artifact validation — is one of the
+// `Data.TaggedError` classes below (also re-exported at the `@misofm/transcoding/errors`
+// subpath). Each carries a `code`, the `TranscodePhase` it failed in, a `subject`,
+// and a human-readable `message`, plus whatever operation-specific fields a caller
+// needs to act (e.g. `role`, `exitCode`, `segmentCount`). Recover from a specific
+// failure with `Effect.catchTag("ProcessExitError", (error) => ...)` rather than
+// inspecting `error.message` or a bespoke predicate; recover from several at once
+// with `Effect.catchTags({ ... })`.
+
 import { Data } from "effect";
 
 export type TranscodePhase =

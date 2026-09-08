@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
+import { DeploymentError } from "@misofm/effect";
 import { PartyosClient, partyos } from "../src/client.ts";
-import { PARTYOS_DEPLOYMENTS, assertPartyDeployment, getPartyDeployment } from "../src/deployments.ts";
+import {
+  PARTYOS_DEPLOYMENTS,
+  assertPartyDeployment,
+  getPartyDeployment,
+  validatePartyDeployment,
+} from "../src/deployments.ts";
 
 const PKG = "0x" + "a".repeat(64);
 
@@ -17,6 +24,15 @@ test("unbundled networks and malformed manifests fail closed", () => {
   expect(() => assertPartyDeployment({ partyos: PKG, misoParty: PKG })).toThrow(/exactly these package IDs/);
   expect(() => assertPartyDeployment({ partyos: "0xabc" })).toThrow(/must be normalized/);
   expect(() => assertPartyDeployment({})).toThrow(/exactly these package IDs/);
+});
+
+test("validatePartyDeployment mirrors normalizePartyDeployment but as a typed Effect failure", async () => {
+  const ok = await Effect.runPromise(validatePartyDeployment({ partyos: PKG }));
+  expect(ok).toEqual({ partyos: PKG });
+
+  const err = await Effect.runPromise(validatePartyDeployment({}).pipe(Effect.flip));
+  expect(err).toBeInstanceOf(DeploymentError);
+  expect(err.message).toMatch(/exactly these package IDs/);
 });
 
 test("the client extension registers under `partyos` and binds the package to every builder", async () => {

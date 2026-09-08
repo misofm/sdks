@@ -6,9 +6,10 @@
 // changing state — used where the value is a pure function of inputs the chain
 // derives (e.g. the deterministic release id).
 
+import { Effect } from "effect";
 import { Transaction } from "@mysten/sui/transactions";
 import { bcs } from "@mysten/sui/bcs";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient, SuiRpcError } from "@misofm/effect";
 import * as release from "./contracts/musicos/release.ts";
 import { asU256, asU64, type UnsignedInput } from "./numeric.ts";
 
@@ -31,13 +32,14 @@ export interface DeriveTargetReleaseIdParams {
  * Tracks embedded in a release must reference this exact ID, so it is computed
  * up front and threaded into the core release builder.
  */
-export async function deriveTargetReleaseId(
-  client: ClientWithCoreApi,
+export const deriveTargetReleaseId = Effect.fn("deriveTargetReleaseId")(function* (
   misoPackageId: string,
   params: DeriveTargetReleaseIdParams,
-): Promise<string> {
+): Effect.fn.Return<string, SuiRpcError, SuiClient> {
   if (params.recordingIds.length !== params.splitBps.length) {
-    throw new Error(`deriveTargetReleaseId: recordingIds (${params.recordingIds.length}) and splitBps (${params.splitBps.length}) length mismatch.`);
+    throw new Error(
+      `deriveTargetReleaseId: recordingIds (${params.recordingIds.length}) and splitBps (${params.splitBps.length}) length mismatch.`,
+    );
   }
 
   const tx = new Transaction();
@@ -54,12 +56,24 @@ export async function deriveTargetReleaseId(
     }),
   );
 
+  const client = yield* SuiClient;
   // gRPC/Core equivalent of devInspect: simulate with per-command return values.
-  const res = await client.core.simulateTransaction({ transaction: tx, include: { commandResults: true } });
+  const res = yield* Effect.tryPromise({
+    try: (signal) => client.core.simulateTransaction({ transaction: tx, include: { commandResults: true }, signal }),
+    catch: (cause) => new SuiRpcError({ operation: "simulateTransaction", cause }),
+  });
   if (res.$kind !== "Transaction") {
-    throw new Error(`derive_target_release_id simulation failed: ${JSON.stringify(res.FailedTransaction.status)}`);
+    return yield* new SuiRpcError({
+      operation: "simulateTransaction",
+      cause: new Error(`derive_target_release_id simulation failed: ${JSON.stringify(res.FailedTransaction.status)}`),
+    });
   }
   const returned = res.commandResults?.[0]?.returnValues?.[0]?.bcs;
-  if (!returned) throw new Error("derive_target_release_id returned no value.");
+  if (!returned) {
+    return yield* new SuiRpcError({
+      operation: "simulateTransaction",
+      cause: new Error("derive_target_release_id returned no value."),
+    });
+  }
   return bcs.Address.parse(returned);
-}
+});

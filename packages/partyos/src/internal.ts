@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The single boundary between generated BCS-parse output (snake_case, Move-shaped)
-// and the public camelCase types.
+// and the public camelCase types. `mapParty` returns a plain object shaped like
+// `Party`'s encoded form; `Schema.decodeUnknownEffect(Party)` (via `decodeBcs`)
+// validates and constructs the class from it.
 
 import { fromBase64 } from "@mysten/sui/utils";
 import type { Party } from "./types.ts";
 
 // deno-lint-ignore no-explicit-any -- generated parse output is loosely typed
-export function mapParty(id: string, d: any): Party {
+export function mapParty(id: string, d: any): typeof Party.Encoded {
   const kind = d.kind;
   const createdAtMs = Number(d.created_at_ms);
   // PartyKind is `Individual | Group(VecSet<ID>)`. The enum parses to

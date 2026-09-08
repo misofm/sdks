@@ -1,6 +1,6 @@
 {
   "name": "@misofm/partyos",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "packageManager": "bun@1.4.0",
   "description": "Typed bindings, queries, and PTB builders for the PartyOS object model (Party identity, admin caps, and group membership) on Sui.",
   "license": "Apache-2.0",
@@ -50,6 +50,10 @@
       "types": "./dist/deployments.d.ts",
       "default": "./dist/deployments.js"
     },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
     "./queries": {
       "types": "./dist/queries.d.ts",
       "default": "./dist/queries.js"
@@ -80,17 +84,20 @@
     "package.json"
   ],
   "dependencies": {
+    "@misofm/effect": "0.1.0",
     "@mysten/bcs": "^2.1.1"
   },
   "devDependencies": {
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.4.0",
+    "effect": "4.0.0-rc.112",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@mysten/sui": "2.29.0",
+    "effect": "4.0.0-rc.112",
     "typescript": "^5.7 || ^6 || ^7"
   },
   "main": "./dist/index.js"

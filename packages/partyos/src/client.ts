@@ -5,7 +5,10 @@
 // deployment. Consumers reach this through `client.partyos` after
 // `$extend(partyos())`, or construct `PartyosClient` directly.
 
+import { Effect } from "effect";
 import type { ClientWithCoreApi, SuiClientRegistration } from "@mysten/sui/client";
+import { SuiClient } from "@misofm/effect";
+import type { BcsDecodeError, ObjectNotFoundError, ObjectTypeMismatchError, SuiRpcError } from "@misofm/effect";
 import { getPartyDeployment, normalizePartyDeployment, type PartyDeployment } from "./deployments.ts";
 import { PARTY_REF_RETURNING_CALLS } from "./contracts.ts";
 import * as queries from "./queries.ts";
@@ -74,10 +77,12 @@ export function partyos<const Name extends string = "partyos">(
 export class PartyosClient {
   #client: ClientWithCoreApi;
   #deployment: PartyDeployment;
+  #layer: ReturnType<typeof SuiClient.layer>;
 
   constructor(client: ClientWithCoreApi, deployment: PartyDeployment) {
     this.#client = client;
     this.#deployment = normalizePartyDeployment(deployment);
+    this.#layer = SuiClient.layer(client);
   }
 
   /** The exact deployment selected for this client. */
@@ -89,32 +94,43 @@ export class PartyosClient {
     return this.#deployment.partyos;
   }
 
-  // === Queries ===
-
-  async getPartyById(partyId: string): Promise<Party> {
-    return queries.getPartyById(this.#client, partyId, this.#pkg);
+  /** Provides the `SuiClient` service bound to this client, discharging `R`. */
+  #provide<A, E>(effect: Effect.Effect<A, E, SuiClient>): Effect.Effect<A, E> {
+    return effect.pipe(Effect.provide(this.#layer));
   }
-  async getPartiesByIds(partyIds: readonly string[]): Promise<Partial<Record<string, Party>>> {
-    return queries.getPartiesByIds(this.#client, partyIds, this.#pkg);
+
+  // === Queries ===
+  // Each method provides `SuiClient` internally, so callers get `Effect<A, E>`
+  // (R = never) and only need `Effect.runPromise` (or their own composition).
+
+  getPartyById(
+    partyId: string,
+  ): Effect.Effect<Party, ObjectNotFoundError | ObjectTypeMismatchError | BcsDecodeError | SuiRpcError> {
+    return this.#provide(queries.getPartyById(partyId, this.#pkg));
+  }
+  getPartiesByIds(
+    partyIds: readonly string[],
+  ): Effect.Effect<Partial<Record<string, Party>>, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError> {
+    return this.#provide(queries.getPartiesByIds(partyIds, this.#pkg));
   }
   derivePartyAdminCapId(partyId: string): string {
     return queries.derivePartyAdminCapId(partyId, this.#pkg);
   }
   /** Group ids a party belongs to (member-side membership records). */
-  async getMemberships(partyId: string): Promise<string[]> {
-    return queries.getMemberships(this.#client, partyId);
+  getMemberships(partyId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getMemberships(partyId));
   }
   /** Member ids invited to a group but not yet accepted. */
-  async getPendingInvites(groupId: string): Promise<string[]> {
-    return queries.getPendingInvites(this.#client, groupId);
+  getPendingInvites(groupId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getPendingInvites(groupId));
   }
   /** Group ids that have invited this party but are awaiting its response. */
-  async getPendingMemberships(partyId: string): Promise<string[]> {
-    return queries.getPendingMemberships(this.#client, partyId);
+  getPendingMemberships(partyId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getPendingMemberships(partyId));
   }
   /** Whether a party is a member of a group. */
-  async isMember(memberId: string, groupId: string): Promise<boolean> {
-    return queries.isMember(this.#client, memberId, groupId, this.#pkg);
+  isMember(memberId: string, groupId: string): Effect.Effect<boolean, SuiRpcError> {
+    return this.#provide(queries.isMember(memberId, groupId, this.#pkg));
   }
 
   // === Transaction builders (thunks; the package id is bound from the client) ===
