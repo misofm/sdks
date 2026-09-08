@@ -4,7 +4,7 @@
 import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";
 import * as vaultApi from "../src/vault.ts";
-import * as releasePluginContract from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
+import * as releasePluginContract from "../src/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import {
   createCompositionRoutedStake, directAdminCap,
   custodyNewAdminCap, deriveVaultAdminCapId, deriveVaultId,

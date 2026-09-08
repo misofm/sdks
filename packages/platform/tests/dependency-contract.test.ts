@@ -27,8 +27,11 @@ test("Sui uses one exact development and peer dependency contract", async () => 
   );
 
   expect(Object.keys(consumer.dependencies ?? {})).toEqual([
+    "@misofm/musicos",
+    "@misofm/partyos",
     "@misofm/platform",
-    "@misofm/protocol",
+    "@misofm/streaming",
+    "@misofm/transcoding",
     "typescript",
   ]);
 

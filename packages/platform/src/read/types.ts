@@ -294,7 +294,7 @@ export interface PartySummary {
 export interface OwnedRecord {
   /** Canonical object id — the `recordId` route param. */
   id: string;
-  /** Full on-chain type, e.g. `<miso_record>::record::Record`. */
+  /** Full on-chain type, e.g. `<record>::record::Record`. */
   type: string;
   releaseId: string;
   pressingId: string;

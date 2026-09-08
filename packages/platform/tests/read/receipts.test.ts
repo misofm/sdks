@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
-import * as listing from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as listing from "../../src/contracts/record_shop/listing.ts";
 import {
   MalformedRecordSoldEventError,
   findRecordSale,

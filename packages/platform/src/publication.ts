@@ -21,8 +21,9 @@ import {
   deriveCompositionAdminCapId,
   deriveRecordingAdminCapId,
   deriveReleaseAdminCapId,
-} from "@misofm/protocol";
-import { derivePartyAdminCapId } from "@misofm/protocol/party";
+} from "@misofm/musicos";
+import { party } from "@misofm/partyos/contracts";
+import { derivePartyAdminCapId } from "@misofm/partyos";
 import {
   requireOperationsDeployment,
   type AvailableOperationsDeployment,
@@ -88,10 +89,10 @@ import {
 } from "./pressing.ts";
 import { requireRecordSalesDeployment } from "./deployments.ts";
 import { allCreatedByType, createdByExactType, type PlatformExecResult } from "./execute.ts";
-import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as pressingContract from "./contracts/record/pressing.ts";
+import * as listingContract from "./contracts/record_shop/listing.ts";
 
-const { composition, recording, release, track, party } = protocolContracts;
+const { composition, recording, release, track } = protocolContracts;
 
 export const MAX_ATOMIC_PUBLICATION_COMMANDS = 900;
 export const MAX_ATOMIC_PUBLICATION_INPUTS = 2048;
@@ -274,19 +275,19 @@ function requiredAt<T>(items: readonly T[], index: number, description: string):
 }
 
 function partyCapType(p: AtomicPublicationParams): string {
-  return `${p.deployment.protocol.misoParty}::party::PartyAdminCap`;
+  return `${p.deployment.partyos.partyos}::party::PartyAdminCap`;
 }
 
 function compositionCapType(p: AtomicPublicationParams, shareType: string): string {
-  return `${p.deployment.protocol.miso}::composition::CompositionAdminCap<${shareType}>`;
+  return `${p.deployment.protocol.musicos}::composition::CompositionAdminCap<${shareType}>`;
 }
 
 function recordingCapType(p: AtomicPublicationParams, shareType: string): string {
-  return `${p.deployment.protocol.miso}::recording::RecordingAdminCap<${shareType}>`;
+  return `${p.deployment.protocol.musicos}::recording::RecordingAdminCap<${shareType}>`;
 }
 
 function releaseCapType(p: AtomicPublicationParams): string {
-  return `${p.deployment.protocol.miso}::release::ReleaseAdminCap`;
+  return `${p.deployment.protocol.musicos}::release::ReleaseAdminCap`;
 }
 
 function pressingCapType(p: AtomicPublicationParams): string {
@@ -339,11 +340,11 @@ function partyByRef(
 
 function languageVector(tx: Transaction, p: AtomicPublicationParams, codes: string[]) {
   const values = codes.map((code) => tx.moveCall({
-    target: `${p.deployment.protocol.languageCode}::language_code::new`,
+    target: `${p.deployment.packages.languageCode}::language_code::new`,
     arguments: [tx.pure.string(code)],
   }));
   return tx.makeMoveVec({
-    type: `${p.deployment.protocol.languageCode}::language_code::LanguageCode`,
+    type: `${p.deployment.packages.languageCode}::language_code::LanguageCode`,
     elements: values,
   });
 }
@@ -455,7 +456,7 @@ function publishComposition(
   const typeArguments: [string] = [node.shareType];
   if (node.custody.kind === "direct") {
     tx.add(composition.publish({
-      package: p.deployment.protocol.miso,
+      package: p.deployment.protocol.musicos,
       typeArguments,
       arguments: [parts.work, parts.adminCap],
     }));
@@ -502,7 +503,7 @@ function publishComposition(
         capType: compositionCapType(p, node.shareType),
         vaultPackageId: available!.vault.packageId,
       }, {
-        target: `${p.deployment.protocol.miso}::composition::publish`,
+        target: `${p.deployment.protocol.musicos}::composition::publish`,
         typeArguments,
         arguments: [parts.work, tx.object.clock()],
         adminCapIndex: 1,
@@ -524,7 +525,7 @@ function publishRecording(
   const stakes = allocatePublicationShares(tx, p, node, parts.balance);
   if (node.custody.kind === "direct") {
     tx.add(recording.publish({
-      package: p.deployment.protocol.miso,
+      package: p.deployment.protocol.musicos,
       typeArguments,
       arguments: [parts.work, parts.adminCap],
     }));
@@ -604,7 +605,7 @@ function publishRecording(
         capType: recordingCapType(p, node.shareType),
         vaultPackageId: available!.vault.packageId,
       }, {
-        target: `${p.deployment.protocol.miso}::recording::publish`,
+        target: `${p.deployment.protocol.musicos}::recording::publish`,
         typeArguments,
         arguments: [parts.work, tx.object.clock()],
         adminCapIndex: 1,
@@ -624,7 +625,7 @@ function publishReleaseObject(
   const available = node.custody.kind === "vault" ? operations(p) : undefined;
   if (node.custody.kind === "direct") {
     tx.add(release.publish({
-      package: p.deployment.protocol.miso,
+      package: p.deployment.protocol.musicos,
       arguments: [releaseObject, adminCap],
     }));
     disposeNewAdminCap(tx, adminCap, custody(p, node.custody, releaseCapType(p)));
@@ -648,7 +649,7 @@ function publishReleaseObject(
         capType: releaseCapType(p),
         vaultPackageId: available!.vault.packageId,
       }, {
-        target: `${p.deployment.protocol.miso}::release::publish`,
+        target: `${p.deployment.protocol.musicos}::release::publish`,
         arguments: [releaseObject, tx.object.clock()],
         adminCapIndex: 1,
       });
@@ -725,10 +726,10 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
         continue;
       }
       const kind = tx.add(node.create === "group"
-        ? party.newGroupKind({ package: p.deployment.protocol.misoParty })
-        : party.newIndividualKind({ package: p.deployment.protocol.misoParty }));
+        ? party.newGroupKind({ package: p.deployment.partyos.partyos })
+        : party.newIndividualKind({ package: p.deployment.partyos.partyos }));
       const created = tx.add(party._new({
-        package: p.deployment.protocol.misoParty,
+        package: p.deployment.partyos.partyos,
         arguments: [kind, node.name],
       }));
       const parts = {
@@ -741,7 +742,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
 
     const compositions: WorkParts[] = p.compositions.map((node) => {
       const created = tx.add(composition._new({
-        package: p.deployment.protocol.miso,
+        package: p.deployment.protocol.musicos,
         typeArguments: [node.shareType],
         arguments: [node.title, node.royaltyRateBps, node.shareCurrencyId, node.shareTreasuryCapId],
       }));
@@ -757,7 +758,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
         ? requiredAt(compositions, node.parentCompositionIndex, "parent composition").work
         : tx.object(node.parentCompositionId);
       const created = tx.add(recording._new({
-        package: p.deployment.protocol.miso,
+        package: p.deployment.protocol.musicos,
         typeArguments: [node.shareType, node.compositionShareType],
         arguments: [parent, node.shareCurrencyId, node.shareTreasuryCapId],
       }));
@@ -774,12 +775,12 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
       const ids = p.release.tracks.map((node) => "recordingIndex" in node
         ? tx.moveCall({
             target: "0x2::object::id",
-            typeArguments: [`${p.deployment.protocol.miso}::recording::Recording<${p.recordings[node.recordingIndex]!.shareType},${p.recordings[node.recordingIndex]!.compositionShareType}>`],
+            typeArguments: [`${p.deployment.protocol.musicos}::recording::Recording<${p.recordings[node.recordingIndex]!.shareType},${p.recordings[node.recordingIndex]!.compositionShareType}>`],
             arguments: [requiredAt(recordings, node.recordingIndex, "fresh recording").work],
           })
         : tx.pure.id(node.recordingId));
       const targetReleaseId = tx.moveCall({
-        target: `${p.deployment.protocol.miso}::release::derive_target_release_id`,
+        target: `${p.deployment.protocol.musicos}::release::derive_target_release_id`,
         arguments: [
           tx.object(p.deployment.objects.releaseRegistry),
           tx.makeMoveVec({ type: "0x2::object::ID", elements: ids }),
@@ -792,24 +793,24 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
           const recNode = requiredAt(p.recordings, node.recordingIndex, "fresh recording");
           const rec = requiredAt(recordings, node.recordingIndex, "fresh recording");
           return tx.add(track._new({
-            package: p.deployment.protocol.miso,
+            package: p.deployment.protocol.musicos,
             typeArguments: [recNode.shareType, recNode.compositionShareType],
             arguments: [rec.adminCap, rec.work, targetReleaseId, node.splitBps],
           }));
         }
         return invokeWithAdminCap(tx, node.authority, {
-          target: `${p.deployment.protocol.miso}::track::new`,
+          target: `${p.deployment.protocol.musicos}::track::new`,
           typeArguments: [node.recordingShareType, node.compositionShareType],
           arguments: [tx.object(node.recordingId), targetReleaseId, tx.pure.u16(node.splitBps)],
           adminCapIndex: 0,
         });
       });
       const created = tx.moveCall({
-        target: `${p.deployment.protocol.miso}::release::new`,
+        target: `${p.deployment.protocol.musicos}::release::new`,
         arguments: [
           tx.object(p.deployment.objects.releaseRegistry),
           tx.pure.string(p.release.title),
-          tx.makeMoveVec({ type: `${p.deployment.protocol.miso}::track::Track`, elements: tracks }),
+          tx.makeMoveVec({ type: `${p.deployment.protocol.musicos}::track::Track`, elements: tracks }),
           tx.pure.u256(BigInt(p.release.nonce)),
         ],
       });
@@ -1035,7 +1036,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
       if ("id" in node) continue;
       const parts = createdParties.get(node.ref)!;
       tx.add(party.share({
-        package: p.deployment.protocol.misoParty,
+        package: p.deployment.partyos.partyos,
         arguments: [parts.party, parts.adminCap],
       }));
       disposeNewAdminCap(tx, parts.adminCap, custody(p, node.custody, partyCapType(p)));
@@ -1164,15 +1165,15 @@ export function parseAtomicPublicationResult(
     if ("id" in node) {
       parties[node.ref] = {
         id: node.id,
-        adminCapId: derivePartyAdminCapId(node.id, p.deployment.protocol.misoParty),
+        adminCapId: derivePartyAdminCapId(node.id, p.deployment.partyos.partyos),
         created: false,
       };
     }
   }
   createdPartyNodes.forEach((node, index) => {
     const event = partyEvents[index]!;
-    const parsed = protocolContracts.party.PartyCreatedEvent.parse(event.bcs);
-    const adminCapId = derivePartyAdminCapId(parsed.party_id, p.deployment.protocol.misoParty);
+    const parsed = party.PartyCreatedEvent.parse(event.bcs);
+    const adminCapId = derivePartyAdminCapId(parsed.party_id, p.deployment.partyos.partyos);
     parties[node.ref] = {
       id: parsed.party_id,
       adminCapId,
@@ -1184,7 +1185,7 @@ export function parseAtomicPublicationResult(
   const compositions: AtomicPublicationResult["compositions"] = {};
   p.compositions.forEach((node) => {
     const id = findByShareType(createdCompositions, node.shareType, "Composition");
-    const adminCapId = deriveCompositionAdminCapId(id, p.deployment.protocol.miso);
+    const adminCapId = deriveCompositionAdminCapId(id, p.deployment.protocol.musicos);
     compositions[node.ref] = {
       id,
       adminCapId,
@@ -1197,7 +1198,7 @@ export function parseAtomicPublicationResult(
   const recordings: AtomicPublicationResult["recordings"] = {};
   p.recordings.forEach((node) => {
     const id = findByShareType(createdRecordings, node.shareType, "Recording");
-    const adminCapId = deriveRecordingAdminCapId(id, p.deployment.protocol.miso);
+    const adminCapId = deriveRecordingAdminCapId(id, p.deployment.protocol.musicos);
     recordings[node.ref] = {
       id,
       adminCapId,
@@ -1216,8 +1217,8 @@ export function parseAtomicPublicationResult(
 
   let releaseOut: AtomicPublicationResult["release"];
   if (p.release) {
-    const id = createdByExactType(result, `${p.deployment.protocol.miso}::release::Release`);
-    const adminCapId = deriveReleaseAdminCapId(id, p.deployment.protocol.miso);
+    const id = createdByExactType(result, `${p.deployment.protocol.musicos}::release::Release`);
+    const adminCapId = deriveReleaseAdminCapId(id, p.deployment.protocol.musicos);
     releaseOut = {
       id,
       adminCapId,

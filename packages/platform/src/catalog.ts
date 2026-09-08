@@ -3,7 +3,7 @@
 
 // Composed catalog reads.
 //
-// `@misofm/protocol` exposes one-question reads: fetch an object by id, list the
+// `@misofm/musicos` exposes one-question reads: fetch an object by id, list the
 // caps an address owns, resolve a share type to its work. Stitching several of
 // those together to answer a PRODUCT question — "show me everything this artist
 // administers" — is orchestration, and it lives here for the same reason the
@@ -19,7 +19,7 @@ import {
   getRecordingsByIds,
   getReleaseById,
   type Recording,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 import { getWorkAddressesByShareTypes } from "./read/works.ts";
 import {
   getCompositionCreditsByIds,

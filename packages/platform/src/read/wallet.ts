@@ -18,11 +18,12 @@ import {
   getRecordingByShareType,
   getReleaseById,
   isNotFound,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
+import { party as partyContracts } from "@misofm/partyos/contracts";
 import type { MisoClient } from "./client.ts";
 import { int, u64 } from "./internal/scalars.ts";
-import * as vaultContract from "@misofm/protocol/contracts/vault/vault";
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
+import * as vaultContract from "../contracts/vault/vault.ts";
+import * as recordContract from "../contracts/record/record.ts";
 import { deriveRecordId } from "../pressing.ts";
 import { requireRecordSalesDeployment } from "../deployments.ts";
 import type {
@@ -157,7 +158,7 @@ function isCanonicalRecordType(
 
 /**
  * The records `owner` holds. Ownership is DIRECT — a record is an address-owned
- * `<miso_record>::record::Record` with no pressing/license/receipt intermediary.
+ * `<record>::record::Record` with no pressing/license/receipt intermediary.
  * The server-side type filter and exact local check deliberately exclude records
  * from any retired package namespace.
  */
@@ -220,7 +221,7 @@ export async function getOwnedRecords(client: MisoClient, owner: string): Promis
  * authoritative in a way that remembering created parties client-side is not.
  */
 export async function getOwnedParties(client: MisoClient, owner: string): Promise<OwnedParty[]> {
-  const capType = `${client.config.deployment.misoParty}::party::PartyAdminCap`;
+  const capType = `${client.config.partyos.partyos}::party::PartyAdminCap`;
 
   // One page of 50 caps is plenty for launch-scale artists; paginate if labels
   // ever start hitting the cap.
@@ -233,7 +234,7 @@ export async function getOwnedParties(client: MisoClient, owner: string): Promis
 
   const caps = objects.flatMap((obj) => {
     try {
-      const cap = networkContracts.party.PartyAdminCap.parse(obj.content);
+      const cap = partyContracts.PartyAdminCap.parse(obj.content);
       return [{ capId: obj.objectId, partyId: cap.party_id }];
     } catch {
       return [];
@@ -241,7 +242,7 @@ export async function getOwnedParties(client: MisoClient, owner: string): Promis
   });
   if (caps.length === 0) return [];
 
-  const parties = await client.sui.miso.party.getPartiesByIds(caps.map((c) => c.partyId));
+  const parties = await client.party.getPartiesByIds(caps.map((c) => c.partyId));
   return caps.flatMap(({ capId, partyId }) => {
     const p = parties[partyId];
     return p ? [{ partyId, capId, name: p.name, kind: p.kind }] : [];
@@ -267,13 +268,13 @@ export async function getPendingMemberships(
   const invitations = await Promise.all(
     individuals.map(async (member) => ({
       member,
-      groupIds: await client.sui.miso.party.getPendingMemberships(member.partyId),
+      groupIds: await client.party.getPendingMemberships(member.partyId),
     })),
   );
   const groupIds = [...new Set(invitations.flatMap(({ groupIds }) => groupIds))];
   if (groupIds.length === 0) return [];
 
-  const groups = await client.sui.miso.party.getPartiesByIds(groupIds);
+  const groups = await client.party.getPartiesByIds(groupIds);
   return invitations.flatMap(({ member, groupIds }) =>
     groupIds.flatMap((groupId): PendingMembership[] => {
       const group = groups[groupId];
@@ -321,7 +322,7 @@ async function ownedVaultedWorkCaps(client: MisoClient, owner: string) {
     releases: VaultedReleaseCap[];
   } = { compositions: [], recordings: [], releases: [] };
   const vaultPackageId = client.config.protocol.vault;
-  const misoPackageId = client.config.deployment.miso;
+  const misoPackageId = client.config.deployment.musicos;
   const capType = `${vaultPackageId}::vault::VaultAdminCap`;
   let cursor: string | null = null;
 
@@ -369,7 +370,7 @@ async function resolveVaultedReleaseCaps(
   caps: readonly VaultedReleaseCap[],
 ): Promise<{ id: string; releaseId: string }[]> {
   if (caps.length === 0) return [];
-  const releaseCapType = `${client.config.deployment.miso}::release::ReleaseAdminCap`;
+  const releaseCapType = `${client.config.deployment.musicos}::release::ReleaseAdminCap`;
   const vaultType = normalizeStructTag(
     `${client.config.protocol.vault}::vault::Vault<${releaseCapType}>`,
   );
@@ -409,7 +410,7 @@ async function resolveVaultedReleaseCaps(
  * `release_id` directly.
  */
 export async function getOwnedWorks(client: MisoClient, owner: string): Promise<OwnedWork[]> {
-  const miso = client.config.deployment.miso;
+  const miso = client.config.deployment.musicos;
 
   const [directCompCaps, directRecCaps, directRelCaps, vaulted] = await Promise.all([
     ownedGenericCaps(client, owner, `${miso}::composition::CompositionAdminCap`),
@@ -468,7 +469,7 @@ export async function getOwnedWorks(client: MisoClient, owner: string): Promise<
 
 /** Classify a direct or vaulted cap by its on-chain type, then resolve its work. */
 export async function getWorkByCap(client: MisoClient, capId: string): Promise<WorkDetail | null> {
-  const miso = client.config.deployment.miso;
+  const miso = client.config.deployment.musicos;
 
   let type: string;
   let json: Record<string, unknown> | null;
@@ -664,7 +665,7 @@ function isAddressOwner(owner: unknown, address: string): boolean {
  * stays hidden rather than being offered and then rejected on submit.
  */
 export async function ownsParty(client: MisoClient, address: string, partyId: string): Promise<Ownership> {
-  const capId = client.sui.miso.party.derivePartyAdminCapId(partyId);
+  const capId = client.party.derivePartyAdminCapId(partyId);
   const isOwner = await client.protocol.core
     .getObject({ objectId: capId })
     .then(({ object }) => isAddressOwner(object?.owner, address))

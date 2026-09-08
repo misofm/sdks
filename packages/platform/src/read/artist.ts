@@ -41,7 +41,7 @@ export async function getArtistProfile(
   options: GetArtistOptions = {},
 ): Promise<ArtistProfile> {
   const include = new Set(options.include ?? []);
-  const { party } = client.sui.miso;
+  const { party } = client;
 
   const [profile, ctas, genreIds, links, roles, tags, entity] =
     await Promise.all([
@@ -95,7 +95,7 @@ async function resolveMembers(
   memberIds: readonly string[],
 ): Promise<PartyMember[]> {
   if (memberIds.length === 0) return [];
-  const parties = await client.sui.miso.party
+  const parties = await client.party
     .getPartiesByIds([...memberIds])
     .catch(() => ({}) as Record<string, undefined>);
   return memberIds.flatMap((id) => {
@@ -110,7 +110,7 @@ export async function getPartySummaries(
   ids: readonly string[],
 ): Promise<PartySummary[]> {
   if (ids.length === 0) return [];
-  const parties = await client.sui.miso.party.getPartiesByIds([...ids]);
+  const parties = await client.party.getPartiesByIds([...ids]);
   return ids.flatMap((id) => {
     const p = parties[id];
     return p ? [{ id, name: p.name, kind: p.kind }] : [];

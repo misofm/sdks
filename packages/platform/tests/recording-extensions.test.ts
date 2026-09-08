@@ -5,9 +5,9 @@ import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
-import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/data";
-import * as masterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
-import * as engineSessionContract from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
+import * as walrusData from "../src/contracts/recording_master_reference/deps/ori/data.ts";
+import * as masterReference from "../src/contracts/recording_master_reference/recording_master_reference.ts";
+import * as engineSessionContract from "../src/contracts/recording_engine_session/recording_engine_session.ts";
 import {
   getRecordingEngineSession,
   getRecordingMasterReference,
@@ -287,7 +287,7 @@ test("batches unique master-reference fields and omits absent recordings", async
 
 // ── Streaming transcode and batched engine-session reads ────────────────────
 
-import * as streamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import * as streamingTranscodeContract from "../src/contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import {
   getRecordingEngineSessionsByIds,
   getRecordingStreamingTranscode,

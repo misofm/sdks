@@ -1,13 +1,16 @@
 {
-  "name": "misofm-platform-isolated-consumer",
+  "name": "misofm-sdks-isolated-consumer",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit && node verify.mjs"
   },
   "dependencies": {
+    "@misofm/musicos": "file:../misofm-musicos.tgz",
+    "@misofm/partyos": "file:../misofm-partyos.tgz",
     "@misofm/platform": "file:../misofm-platform.tgz",
-    "@misofm/protocol": "file:../misofm-protocol.tgz",
+    "@misofm/streaming": "file:../misofm-streaming.tgz",
+    "@misofm/transcoding": "file:../misofm-transcoding.tgz",
     "typescript": "5.9.3"
   }
 }

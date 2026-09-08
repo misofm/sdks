@@ -12,7 +12,7 @@ test("Effect peers are exact and the runtime dependency is storage-neutral", asy
     effect: "4.0.0-rc.112",
   });
   expect(manifest.dependencies).toEqual({
-    "@misofm/streaming": "0.1.0",
+    "@misofm/streaming": "0.2.1",
     "m3u8-parser": "7.2.0",
   });
 });

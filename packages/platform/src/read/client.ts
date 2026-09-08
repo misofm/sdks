@@ -18,7 +18,9 @@
 
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { miso, type MisoProtocolClient } from "@misofm/protocol/client";
+import { miso, type MisoProtocolClient } from "@misofm/musicos/client";
+import { PartyosClient } from "@misofm/partyos";
+import { PartyPlatformClient } from "../party/index.ts";
 import { misoConfig, networkFrom, type MisoConfig, type MisoConfigOverrides, type Network } from "./config.ts";
 
 function definedOverrides<T extends object>(value: T): Partial<T> {
@@ -31,14 +33,14 @@ function definedOverrides<T extends object>(value: T): Partial<T> {
  * same shape from our side so the one cast in `createMisoClient` is explicit
  * rather than an `any` smeared across the codebase.
  */
-export type ProtocolClient = Parameters<typeof import("@misofm/protocol").getReleaseById>[0];
+export type ProtocolClient = Parameters<typeof import("@misofm/musicos").getReleaseById>[0];
 
 /** A GraphQL client in the shape the protocol SDK's type-discovery queries want. */
 export type ProtocolGraphQLClient = SuiGraphQLClient;
 
 export interface MisoClient {
   config: MisoConfig;
-  /** gRPC data plane, including Party at `sui.miso.party`. */
+  /** gRPC data plane (object-model core only; Party is `client.party`). */
   sui: SuiGrpcClient & { miso: MisoProtocolClient };
   /** The same client, typed for the protocol SDK's read helpers. */
   protocol: ProtocolClient;
@@ -46,6 +48,8 @@ export interface MisoClient {
   graphql: ProtocolGraphQLClient;
   /** The raw GraphQL client, for this SDK's own queries (the pruned-transaction read). */
   graphqlRaw: SuiGraphQLClient;
+  /** Party identity and profile reads/builders, bound to `config.partyos`/`config.party`. */
+  party: PartyPlatformClient;
 }
 
 export interface CreateMisoClientOptions extends MisoConfigOverrides {
@@ -76,6 +80,7 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
   const graphqlRaw = new SuiGraphQLClient({ url: config.graphqlUrl, network: config.network });
 
   const sui = grpc.$extend(miso({ deployment: config.deployment }));
+  const party = new PartyPlatformClient(sui, new PartyosClient(sui, config.partyos), config.party);
 
   return {
     config,
@@ -83,5 +88,6 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
     protocol: sui as unknown as ProtocolClient,
     graphql: graphqlRaw as unknown as ProtocolGraphQLClient,
     graphqlRaw,
+    party,
   };
 }

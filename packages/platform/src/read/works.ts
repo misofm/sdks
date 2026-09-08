@@ -12,7 +12,7 @@ import {
   type Recording,
   type Release,
   type TrackState,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 
 export interface WorkShareTypes {
   compositions: readonly string[];

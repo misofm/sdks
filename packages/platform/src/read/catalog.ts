@@ -44,8 +44,8 @@ import {
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
 import { getTrackCreditsByRecordingIds } from "../catalog.ts";
-import { getReleaseById, getReleasesByIds, isNotFound } from "@misofm/protocol";
-import type { Release } from "@misofm/protocol";
+import { getReleaseById, getReleasesByIds, isNotFound } from "@misofm/musicos";
+import type { Release } from "@misofm/musicos";
 import type { MisoClient } from "./client.ts";
 import { getRecordingTitles, parseReleaseObject } from "./works.ts";
 import { int } from "./internal/scalars.ts";
@@ -398,7 +398,7 @@ export async function getReleaseDetail(
       client.protocol,
       client.graphql,
       recordingIds,
-      client.config.deployment.miso,
+      client.config.deployment.musicos,
     ),
     getRecordingMasterReferencesByIds(
       client.protocol,
@@ -455,7 +455,7 @@ async function getTrackCreditsForRecordingIds(
     client.graphql,
     recordingIds,
     {
-      misoPackageId: client.config.deployment.miso,
+      misoPackageId: client.config.deployment.musicos,
       compositionCreditsPackageId: compositionCredits,
       recordingCreditsPackageId: recordingCredits,
     },

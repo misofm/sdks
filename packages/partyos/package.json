@@ -1,0 +1,97 @@
+{
+  "name": "@misofm/partyos",
+  "version": "0.2.0",
+  "packageManager": "bun@1.4.0",
+  "description": "Typed bindings, queries, and PTB builders for the PartyOS object model (Party identity, admin caps, and group membership) on Sui.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misofm/sdks.git"
+  },
+  "homepage": "https://github.com/misofm/sdks#readme",
+  "bugs": {
+    "url": "https://github.com/misofm/sdks/issues"
+  },
+  "keywords": [
+    "sui",
+    "move",
+    "miso",
+    "partyos",
+    "party",
+    "identity",
+    "blockchain",
+    "sdk"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "docs": "typedoc",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./deployments": {
+      "types": "./dist/deployments.d.ts",
+      "default": "./dist/deployments.js"
+    },
+    "./queries": {
+      "types": "./dist/queries.d.ts",
+      "default": "./dist/queries.js"
+    },
+    "./transactions": {
+      "types": "./dist/transactions.d.ts",
+      "default": "./dist/transactions.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "default": "./dist/contracts.js"
+    },
+    "./contracts/*": {
+      "types": "./dist/contracts/*.d.ts",
+      "default": "./dist/contracts/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "dependencies": {
+    "@mysten/bcs": "^2.1.1"
+  },
+  "devDependencies": {
+    "@mysten/sui": "2.29.0",
+    "@types/bun": "^1.4.0",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.0",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@mysten/sui": "2.29.0",
+    "typescript": "^5.7 || ^6 || ^7"
+  },
+  "main": "./dist/index.js"
+}

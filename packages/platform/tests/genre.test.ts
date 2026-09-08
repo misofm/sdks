@@ -6,8 +6,8 @@ import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
-import * as releaseGenreContract from "@misofm/protocol/contracts/release_genre/release_genre";
-import * as recordingGenreContract from "@misofm/protocol/contracts/recording_genre/recording_genre";
+import * as releaseGenreContract from "../src/contracts/release_genre/release_genre.ts";
+import * as recordingGenreContract from "../src/contracts/recording_genre/recording_genre.ts";
 import {
   addRecordingGenre,
   addReleaseGenre,

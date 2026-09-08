@@ -20,12 +20,12 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
-import * as vault from "@misofm/protocol/contracts/vault/vault";
-import * as releaseRevenueDistributor from "@misofm/protocol/contracts/release_revenue_distributor/release_revenue_distributor";
-import * as compositionRoyaltyPoolPlugin from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
-import * as recordingRoyaltyPoolPlugin from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
-import * as releaseRevenueDistributorPlugin from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
-import * as routedStake from "@misofm/protocol/contracts/routed_stake/routed_stake";
+import * as vault from "./contracts/vault/vault.ts";
+import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
+import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
+import * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
+import * as releaseRevenueDistributorPlugin from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
+import * as routedStake from "./contracts/routed_stake/routed_stake.ts";
 
 /** A legacy work whose raw protocol admin cap is still address-owned. */
 /** An object id resolved lazily when a transaction thunk is applied. */

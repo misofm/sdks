@@ -1,8 +1,8 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Primary Record sales. `miso_record` owns concrete Records and edition-scoped
-// Pressings; immutable `miso_record_shop` owns per-currency Listings and payment.
+// Primary Record sales. `record` owns concrete Records and edition-scoped
+// Pressings; immutable `record_shop` owns per-currency Listings and payment.
 
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import {
@@ -14,9 +14,9 @@ import {
 import type { TxThunk } from "./transactions.ts";
 import { isNotFound } from "./queries.ts";
 import { asU64, type U64Input } from "./vault.ts";
-import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as pressingContract from "./contracts/record/pressing.ts";
+import * as recordContract from "./contracts/record/record.ts";
+import * as listingContract from "./contracts/record_shop/listing.ts";
 
 const MAX_U16 = 0xffff;
 const MAX_U32 = 0xffff_ffff;

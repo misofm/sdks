@@ -38,37 +38,38 @@ import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 import {
   miso as protocolMiso,
   type MisoProtocolClient,
-} from "@misofm/protocol/client";
-import type { PartyProtocolClient } from "@misofm/protocol/party";
+} from "@misofm/musicos/client";
+import { PartyosClient } from "@misofm/partyos";
+import { PartyPlatformClient } from "./party/index.ts";
 
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
-import * as pressingContract from "@misofm/protocol/contracts/miso_record/pressing";
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
-import * as genreContract from "@misofm/protocol/contracts/genre/genre";
-import * as releaseDescriptionContract from "@misofm/protocol/contracts/release_description/release_description";
-import * as releaseDspLinkContract from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
-import * as releaseGenreContract from "@misofm/protocol/contracts/release_genre/release_genre";
-import * as releaseKindContract from "@misofm/protocol/contracts/release_kind/release_kind";
-import * as releaseRevenueDistributorContract from "@misofm/protocol/contracts/release_revenue_distributor/release_revenue_distributor";
-import * as vaultContract from "@misofm/protocol/contracts/vault/vault";
-import * as compositionRoyaltyPoolContract from "@misofm/protocol/contracts/composition_royalty_pool/composition_royalty_pool";
-import * as recordingRoyaltyPoolContract from "@misofm/protocol/contracts/recording_royalty_pool/recording_royalty_pool";
-import * as partyWalletContract from "@misofm/protocol/contracts/party_wallet/party_wallet";
-import * as compositionRoutedStakeContract from "@misofm/protocol/contracts/composition_routed_stake/composition_routed_stake";
-import * as compositionRoyaltyPoolPluginContract from "@misofm/protocol/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin";
-import * as recordingRoyaltyPoolPluginContract from "@misofm/protocol/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin";
-import * as releaseRevenueDistributorPluginContract from "@misofm/protocol/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin";
-import * as routedStakeContract from "@misofm/protocol/contracts/routed_stake/routed_stake";
-import * as royaltyPoolContract from "@misofm/protocol/contracts/royalty_pool/pool";
-import * as recordingAdvisoryContract from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
-import * as recordingLanguageContract from "@misofm/protocol/contracts/recording_language/recording_language";
-import * as recordingMasterReferenceContract from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
-import * as recordingStreamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
-import * as recordingGenreContract from "@misofm/protocol/contracts/recording_genre/recording_genre";
+import * as recordContract from "./contracts/record/record.ts";
+import * as pressingContract from "./contracts/record/pressing.ts";
+import * as listingContract from "./contracts/record_shop/listing.ts";
+import * as genreContract from "./contracts/genre/genre.ts";
+import * as releaseDescriptionContract from "./contracts/release_description/release_description.ts";
+import * as releaseDspLinkContract from "./contracts/release_dsp_link/release_dsp_link.ts";
+import * as releaseGenreContract from "./contracts/release_genre/release_genre.ts";
+import * as releaseKindContract from "./contracts/release_kind/release_kind.ts";
+import * as releaseRevenueDistributorContract from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
+import * as vaultContract from "./contracts/vault/vault.ts";
+import * as compositionRoyaltyPoolContract from "./contracts/composition_royalty_pool/composition_royalty_pool.ts";
+import * as recordingRoyaltyPoolContract from "./contracts/recording_royalty_pool/recording_royalty_pool.ts";
+import * as partyWalletContract from "./contracts/party_wallet/party_wallet.ts";
+import * as compositionRoutedStakeContract from "./contracts/composition_routed_stake/composition_routed_stake.ts";
+import * as compositionRoyaltyPoolPluginContract from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
+import * as recordingRoyaltyPoolPluginContract from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
+import * as releaseRevenueDistributorPluginContract from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
+import * as routedStakeContract from "./contracts/routed_stake/routed_stake.ts";
+import * as royaltyPoolContract from "./contracts/royalty_pool/pool.ts";
+import * as recordingAdvisoryContract from "./contracts/recording_advisory/recording_advisory.ts";
+import * as recordingLanguageContract from "./contracts/recording_language/recording_language.ts";
+import * as recordingMasterReferenceContract from "./contracts/recording_master_reference/recording_master_reference.ts";
+import * as recordingStreamingTranscodeContract from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
+import * as recordingGenreContract from "./contracts/recording_genre/recording_genre.ts";
 import * as vaultActions from "./vault.ts";
-import * as coverArtContract from "@misofm/protocol/contracts/cover_art/cover_art";
-import * as releaseCoverArtContract from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
-import * as releaseCreditsContract from "@misofm/protocol/contracts/release_credits/release_credits";
+import * as coverArtContract from "./contracts/cover_art/cover_art.ts";
+import * as releaseCoverArtContract from "./contracts/release_cover_art/release_cover_art.ts";
+import * as releaseCreditsContract from "./contracts/release_credits/release_credits.ts";
 import {
   authorizeRecordShop,
   deriveListingId,
@@ -284,7 +285,7 @@ export interface MisoPlatformConfig {
    * unavailable legacy state that makes every sales API fail closed. */
   recordSales?: RecordSalesDeployment;
   /**
-   * The `@misofm/protocol` protocol package (miso core). Required for the
+   * The `@misofm/musicos` protocol package (miso core). Required for the
    * publish builders (`publishComposition`, `publishRecording`,
    * `publishCompositionAndRecording`) — optional if this client only ever
    * sells pressed records.
@@ -404,6 +405,7 @@ export class MisoPlatformClient {
   readonly #client: ClientWithCoreApi;
   readonly #config: MisoPlatformConfig;
   readonly #protocol?: MisoProtocolClient;
+  readonly #party?: PartyPlatformClient;
   readonly #chainIdentifier?: string;
   /** Bundled/custom deployment selected for the full facade, when available. */
   readonly deployment?: MisoPlatformDeployment;
@@ -437,6 +439,16 @@ export class MisoPlatformClient {
           }).register(client)
         : undefined);
     this.deployment = deploymentSnapshot;
+    // The one place `PartyPlatformClient` is constructed: from this platform
+    // deployment's `partyos` (core) and `party` (extensions) sections, not
+    // from the object-model protocol client.
+    this.#party = deploymentSnapshot
+      ? new PartyPlatformClient(
+          client,
+          new PartyosClient(client, deploymentSnapshot.partyos),
+          deploymentSnapshot.party,
+        )
+      : undefined;
     this.#chainIdentifier =
       deploymentSnapshot?.chainIdentifier ?? configSnapshot.chainIdentifier;
   }
@@ -516,14 +528,14 @@ export class MisoPlatformClient {
   }
 
   /** Party identity and profile APIs, backed by the network SDK. */
-  get party(): PartyProtocolClient {
-    if (!this.#protocol) {
+  get party(): PartyPlatformClient {
+    if (!this.#party) {
       throw new Error(
         "misoPlatform: Party APIs require the complete platform deployment. Use miso({ deployment }).",
       );
     }
     this.#requireReady("party APIs");
-    return this.#protocol.party;
+    return this.#party;
   }
 
   #recordSales() {
@@ -1302,7 +1314,7 @@ export function miso<const Name extends string = "miso">(
         client,
         {
           recordSales: deployment.recordSales,
-          misoPackageId: deployment.protocol.miso,
+          misoPackageId: deployment.protocol.musicos,
           minatoPackageId: deployment.packages.minato,
           releaseRegistryId: deployment.objects.releaseRegistry,
           releaseKindPackageId: deployment.packages.releaseKind,

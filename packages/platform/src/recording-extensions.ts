@@ -7,15 +7,15 @@ import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { Transaction, TransactionArgument, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveDynamicFieldID, fromHex, toHex } from "@mysten/sui/utils";
-import { isNotFound } from "@misofm/protocol";
+import { isNotFound } from "@misofm/musicos";
 import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
-import * as advisory from "@misofm/protocol/contracts/recording_advisory/recording_advisory";
-import * as language from "@misofm/protocol/contracts/recording_language/recording_language";
-import * as walrusData from "@misofm/protocol/contracts/recording_master_reference/deps/ori/data";
-import * as masterReference from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
-import * as engineSession from "@misofm/protocol/contracts/recording_engine_session/recording_engine_session";
-import * as streamingTranscode from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
+import * as language from "./contracts/recording_language/recording_language.ts";
+import * as walrusData from "./contracts/recording_master_reference/deps/ori/data.ts";
+import * as masterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
+import * as engineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
+import * as streamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import { unencryptedWalrusBlob } from "./internal.ts";
 
 export interface RecordingExtensionTarget {
