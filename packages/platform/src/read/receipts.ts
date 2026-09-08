@@ -26,10 +26,13 @@ import {
   getCompositionsByIds,
 } from "@misofm/musicos";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
+import { Effect } from "effect";
+import { SuiClient, SuiGraphQL, SuiRpcError, type BcsDecodeError, type ObjectTypeMismatchError } from "@misofm/effect";
 import { getPressingDetail } from "./catalog.ts";
-import type { MisoClient } from "./client.ts";
 import { int } from "./internal/scalars.ts";
 import { requireRecordSalesDeployment } from "../deployments.ts";
+import { MalformedRecordSoldEventError, ReceiptNotFoundError, ReleaseNotFoundError, RecordPurchaseNotFoundError } from "../errors.ts";
+import type { MisoConfig } from "./config.ts";
 import type { Price, PressingDetail, PurchaseReceipt, RecordSale, TrackRoyalty } from "./types.ts";
 import { getWorkAddressesByShareTypes } from "./works.ts";
 
@@ -45,10 +48,6 @@ const RECORD_SOLD_EVENT_NAME = "listing::RecordSoldEvent";
  * digest the node genuinely doesn't have.
  */
 const FULLNODE_WAIT_MS = 5_000;
-
-export class MalformedRecordSoldEventError extends Error {
-  override readonly name = "MalformedRecordSoldEventError";
-}
 
 /** Composition royalty rate (bps) per recording id. Sparse — an unresolved parent has no entry. */
 type CompositionRates = Record<string, number | undefined>;
@@ -225,7 +224,7 @@ export function findRecordSales(
         !pricing || embeddedCurrency !== currencyType ||
         !validPricingRelationship(purchasePrice, pricing) ||
         s.edition <= 0 || s.number <= 0
-      ) throw new MalformedRecordSoldEventError("malformed canonical RecordSoldEvent");
+      ) throw new MalformedRecordSoldEventError({ reason: "malformed canonical RecordSoldEvent" });
       sales.push({
         listingId: s.listing_id,
         pressingId: s.pressing_id,
@@ -245,13 +244,13 @@ export function findRecordSales(
       // Never reinterpret malformed canonical BCS through a looser JSON view.
       if (e.bcs.length > 0) {
         if (error instanceof MalformedRecordSoldEventError) throw error;
-        throw new MalformedRecordSoldEventError(
-          `malformed canonical RecordSoldEvent BCS: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        throw new MalformedRecordSoldEventError({
+          reason: `malformed canonical RecordSoldEvent BCS: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     }
     const fromJson = e.json && saleFromJson(e.json, currencyType);
-    if (!fromJson) throw new MalformedRecordSoldEventError("malformed canonical RecordSoldEvent JSON");
+    if (!fromJson) throw new MalformedRecordSoldEventError({ reason: "malformed canonical RecordSoldEvent JSON" });
     sales.push(fromJson);
   }
   return sales;
@@ -270,23 +269,37 @@ export function findRecordSale(
 }
 
 /** Every canonical sale, read from the fullnode in event order. */
-async function salesFromFullnode(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  const result = await client.sui.waitForTransaction({
-    digest: txDigest,
-    include: { events: true },
-    timeout: FULLNODE_WAIT_MS,
+const salesFromFullnode = Effect.fn("salesFromFullnode")(function* (
+  txDigest: string,
+  config: MisoConfig,
+): Effect.fn.Return<
+  RecordSale[],
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
+  SuiClient
+> {
+  const client = yield* SuiClient;
+  const result = yield* Effect.tryPromise({
+    try: (signal) =>
+      client.core.waitForTransaction({
+        digest: txDigest,
+        include: { events: true },
+        timeout: FULLNODE_WAIT_MS,
+        signal,
+      }),
+    catch: (cause) => new SuiRpcError({ operation: "waitForTransaction", cause }),
   });
   if (result.$kind !== "Transaction" || !result.Transaction.status.success) {
-    throw new Error(`Transaction did not succeed: ${txDigest}`);
+    return yield* new ReceiptNotFoundError({ digest: txDigest });
   }
-  const sales = requireRecordSalesDeployment(client.config.recordSales);
-  const found = findRecordSales(
-    result.Transaction.events,
-    sales.recordShopPackageId,
-  );
-  if (found.length === 0) throw new Error(`No record purchase in transaction ${txDigest}`);
+  const sales = requireRecordSalesDeployment(config.recordSales);
+  // `findRecordSales` only ever throws `MalformedRecordSoldEventError`.
+  const found = yield* Effect.try({
+    try: () => findRecordSales(result.Transaction.events, sales.recordShopPackageId),
+    catch: (cause) => cause as MalformedRecordSoldEventError,
+  });
+  if (found.length === 0) return yield* new RecordPurchaseNotFoundError({ digest: txDigest });
   return found;
-}
+});
 
 const TX_EVENTS_QUERY = `query TransactionEvents($digest: String!) {
   transaction(digest: $digest) {
@@ -307,18 +320,35 @@ interface TxEventsResult {
 }
 
 /** Every canonical sale, read from the GraphQL indexer in event order. */
-async function salesFromIndexer(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  const { data, errors } = await client.graphqlRaw.query<TxEventsResult, { digest: string }>({
-    query: TX_EVENTS_QUERY,
-    variables: { digest: txDigest },
+const salesFromIndexer = Effect.fn("salesFromIndexer")(function* (
+  txDigest: string,
+  config: MisoConfig,
+): Effect.fn.Return<
+  RecordSale[],
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
+  SuiGraphQL
+> {
+  const client = yield* SuiGraphQL;
+  const { data, errors } = yield* Effect.tryPromise({
+    try: () =>
+      client.query<TxEventsResult, { digest: string }>({
+        query: TX_EVENTS_QUERY,
+        variables: { digest: txDigest },
+      }),
+    catch: (cause) => new SuiRpcError({ operation: "transactionEvents", cause }),
   });
-  if (errors?.length) throw new Error(errors[0]!.message);
+  if (errors?.length) {
+    return yield* new SuiRpcError({
+      operation: "transactionEvents",
+      cause: new AggregateError(errors.map((e) => new Error(e.message)), "Transaction events query failed"),
+    });
+  }
 
   const effects = data?.transaction?.effects;
-  if (!effects) throw new Error(`Transaction not found: ${txDigest}`);
-  if (effects.status !== "SUCCESS") throw new Error(`Transaction did not succeed: ${txDigest}`);
+  if (!effects) return yield* new ReceiptNotFoundError({ digest: txDigest });
+  if (effects.status !== "SUCCESS") return yield* new ReceiptNotFoundError({ digest: txDigest });
 
-  const salesDeployment = requireRecordSalesDeployment(client.config.recordSales);
+  const salesDeployment = requireRecordSalesDeployment(config.recordSales);
   const sales: RecordSale[] = [];
   for (const node of effects.events?.nodes ?? []) {
     const contents = node.contents;
@@ -332,19 +362,29 @@ async function salesFromIndexer(client: MisoClient, txDigest: string): Promise<R
       typeof contents.json === "object" && contents.json !== null
         ? saleFromJson(contents.json as Record<string, unknown>, currencyType)
         : null;
-    if (!sale) throw new MalformedRecordSoldEventError("malformed canonical RecordSoldEvent JSON");
+    if (!sale) return yield* new MalformedRecordSoldEventError({ digest: txDigest, reason: "malformed canonical RecordSoldEvent JSON" });
     sales.push(sale);
   }
   if (sales.length > 0) return sales;
-  throw new Error(`No record purchase in transaction ${txDigest}`);
-}
+  return yield* new RecordPurchaseNotFoundError({ digest: txDigest });
+});
 
-async function salesFromChain(client: MisoClient, txDigest: string): Promise<RecordSale[]> {
-  return salesFromFullnode(client, txDigest).catch((error) => {
-    if (error instanceof MalformedRecordSoldEventError) throw error;
-    return salesFromIndexer(client, txDigest);
-  });
-}
+const salesFromChain = Effect.fn("salesFromChain")(function* (
+  txDigest: string,
+  config: MisoConfig,
+): Effect.fn.Return<
+  RecordSale[],
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
+  SuiClient | SuiGraphQL
+> {
+  return yield* salesFromFullnode(txDigest, config).pipe(
+    Effect.catchIf(
+      (error): error is ReceiptNotFoundError | RecordPurchaseNotFoundError | SuiRpcError =>
+        error._tag !== "MalformedRecordSoldEventError",
+      () => salesFromIndexer(txDigest, config),
+    ),
+  );
+});
 
 /**
  * Each recording's parent composition royalty rate, in basis points, keyed by
@@ -357,11 +397,18 @@ async function salesFromChain(client: MisoClient, txDigest: string): Promise<Rec
  * Best-effort by design: any failure returns the rates resolved so far, and the
  * receipt drops to a track-level breakdown rather than failing the whole page.
  */
-async function compositionRatesByRecording(client: MisoClient, recordingIds: string[]): Promise<CompositionRates> {
+const compositionRatesByRecording = Effect.fn("compositionRatesByRecording")(function* (
+  recordingIds: string[],
+  config: MisoConfig,
+): Effect.fn.Return<CompositionRates, SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
   if (recordingIds.length === 0) return {};
 
+  const client = yield* SuiClient;
   const shareTypeByRecording: Record<string, string> = {};
-  const { objects } = await client.protocol.core.getObjects({ objectIds: [...new Set(recordingIds)] });
+  const { objects } = yield* Effect.tryPromise({
+    try: (signal) => client.core.getObjects({ objectIds: [...new Set(recordingIds)], signal }),
+    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
+  });
   for (const obj of objects) {
     if (obj instanceof Error || !obj.type) continue;
     try {
@@ -375,13 +422,12 @@ async function compositionRatesByRecording(client: MisoClient, recordingIds: str
   const shareTypes = Object.values(shareTypeByRecording);
   if (shareTypes.length === 0) return {};
 
-  const addresses = await getWorkAddressesByShareTypes(
-    client.graphql,
+  const addresses = yield* getWorkAddressesByShareTypes(
     { compositions: shareTypes, recordings: [] },
-    client.config.deployment.musicos,
+    config.deployment.musicos,
   );
   const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
-  const compositions = await getCompositionsByIds(client.protocol, compositionIds);
+  const compositions = yield* getCompositionsByIds(compositionIds);
 
   const rates: CompositionRates = {};
   for (const [recordingId, shareType] of Object.entries(shareTypeByRecording)) {
@@ -390,7 +436,7 @@ async function compositionRatesByRecording(client: MisoClient, recordingIds: str
     if (composition) rates[recordingId] = int(composition.royaltyRate.value);
   }
   return rates;
-}
+});
 
 /**
  * Split `paid` across the release's tracks by their `splitBps`, then split each
@@ -428,18 +474,31 @@ export function breakdown(
  * The sale identifies the Pressing before its detail is fetched. `null` only when
  * that immutable Pressing cannot be read; it is never superseded or destroyed.
  */
-async function hydratePurchaseReceipt(
-  client: MisoClient,
+type ReceiptError =
+  | ReceiptNotFoundError
+  | RecordPurchaseNotFoundError
+  | MalformedRecordSoldEventError
+  | ObjectTypeMismatchError
+  | ReleaseNotFoundError
+  | BcsDecodeError
+  | SuiRpcError;
+
+const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
   sale: RecordSale,
-): Promise<PurchaseReceipt | null> {
-  const detail = await getPressingDetail(client, sale.pressingId);
+  config: MisoConfig,
+): Effect.fn.Return<
+  PurchaseReceipt | null,
+  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
+  SuiClient | SuiGraphQL
+> {
+  const detail = yield* getPressingDetail(sale.pressingId, config);
   if (!detail) return null;
 
   // Best-effort: a failed composition lookup costs the sub-rows, not the page.
-  const rates = await compositionRatesByRecording(
-    client,
+  const rates = yield* compositionRatesByRecording(
     detail.release.tracks.map((t) => t.recordingId),
-  ).catch(() => ({}));
+    config,
+  ).pipe(Effect.catch(() => Effect.succeed({} as CompositionRates)));
 
   return {
     sale,
@@ -447,30 +506,32 @@ async function hydratePurchaseReceipt(
     price: sale.pricing.amount,
     tracks: breakdown(detail.release.tracks, sale.purchasePrice, rates),
   };
-}
+});
 
 /** Read and hydrate every canonical Record sale in transaction event order. */
-export async function getPurchaseReceipts(
-  client: MisoClient,
+export const getPurchaseReceipts = Effect.fn("getPurchaseReceipts")(function* (
   txDigest: string,
-): Promise<PurchaseReceipt[]> {
-  const sales = await salesFromChain(client, txDigest);
-  const hydrated = await Promise.all(sales.map((sale) => hydratePurchaseReceipt(client, sale)));
+  config: MisoConfig,
+): Effect.fn.Return<PurchaseReceipt[], ReceiptError, SuiClient | SuiGraphQL> {
+  const sales = yield* salesFromChain(txDigest, config);
+  const hydrated = yield* Effect.forEach(sales, (sale) => hydratePurchaseReceipt(sale, config), {
+    concurrency: "unbounded",
+  });
   if (hydrated.some((receipt) => receipt === null)) {
     throw new Error(`A canonical Record sale in transaction ${txDigest} references an unreadable Pressing`);
   }
   return hydrated as PurchaseReceipt[];
-}
+});
 
 /** Read one canonical receipt selected by its Record ID. Selection is mandatory:
  * one transaction may purchase multiple Records from the same Pressing. */
-export async function getPurchaseReceipt(
-  client: MisoClient,
+export const getPurchaseReceipt = Effect.fn("getPurchaseReceipt")(function* (
   txDigest: string,
   recordId: string,
-): Promise<PurchaseReceipt | null> {
-  const sales = await salesFromChain(client, txDigest);
+  config: MisoConfig,
+): Effect.fn.Return<PurchaseReceipt | null, ReceiptError, SuiClient | SuiGraphQL> {
+  const sales = yield* salesFromChain(txDigest, config);
   const wanted = normalizeSuiAddress(recordId);
   const sale = sales.find((candidate) => normalizeSuiAddress(candidate.recordId) === wanted);
-  return sale ? hydratePurchaseReceipt(client, sale) : null;
-}
+  return sale ? yield* hydratePurchaseReceipt(sale, config) : null;
+});

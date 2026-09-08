@@ -13,13 +13,22 @@
  */
 
 import type { BcsType } from "@mysten/sui/bcs";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type {
   Transaction,
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
+import { Effect, Schema } from "effect";
+import {
+  assertObjectType,
+  decodeBcs,
+  getOptionalObjectContent,
+  SuiClient,
+  SuiRpcError,
+  type BcsDecodeError,
+  type ObjectTypeMismatchError,
+} from "@misofm/effect";
 import * as vault from "./contracts/vault/vault.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
 import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
@@ -948,27 +957,38 @@ export function parseReleaseTrackRevenueDistributedEvent(content: Uint8Array) {
   };
 }
 
-/** Read and BCS-parse an owner-held VaultAdminCap. */
-export async function getVaultAdminCap(
-  client: ClientWithCoreApi,
+/**
+ * A caller-held handle to a shared `Vault<Cap>`: the vault's id and this cap's
+ * own id. There is no separate `Vault` BCS struct to decode — the vault
+ * itself is a UID-only shared object whose state lives entirely in dynamic
+ * fields, so `VaultAdminCap` is the addressable domain value for vault
+ * custody.
+ */
+export class VaultAdminCap extends Schema.Class<VaultAdminCap>("@misofm/platform/VaultAdminCap")({
+  id: Schema.String,
+  vaultId: Schema.String,
+}) {}
+
+function mapVaultAdminCap(id: string, parsed: ReturnType<typeof vault.VaultAdminCap.parse>): typeof VaultAdminCap.Encoded {
+  return { id, vaultId: parsed.vault_id };
+}
+
+/** Read and BCS-parse an owner-held VaultAdminCap, or `null` when no such object exists. */
+export const getVaultAdminCap = Effect.fn("getVaultAdminCap")(function* (
   vaultAdminCapId: string,
   expected: { readonly vaultPackageId: string; readonly capType: string },
-) {
-  const { object } = await client.core.getObject({
-    objectId: vaultAdminCapId,
-    include: { content: true },
-  });
-  if (!object || object instanceof Error || !object.content) return null;
-  const expectedType = normalizeStructTag(
-    `${expected.vaultPackageId}::vault::VaultAdminCap<${expected.capType}>`,
+): Effect.fn.Return<VaultAdminCap | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(vaultAdminCapId);
+  if (found._tag === "None") return null;
+  const expectedType = normalizeStructTag(`${expected.vaultPackageId}::vault::VaultAdminCap<${expected.capType}>`);
+  yield* assertObjectType(vaultAdminCapId, normalizeStructTag(found.value.type), expectedType);
+  return yield* decodeBcs(
+    { parse: (bytes) => mapVaultAdminCap(vaultAdminCapId, vault.VaultAdminCap.parse(bytes)) },
+    VaultAdminCap,
+    found.value.content,
+    { type: "VaultAdminCap", objectId: vaultAdminCapId },
   );
-  if (!object.type || normalizeStructTag(object.type) !== expectedType) {
-    throw new Error(
-      `getVaultAdminCap: expected ${expectedType}, received ${object.type ?? "unknown"}`,
-    );
-  }
-  return parseVaultAdminCap(object.content);
-}
+});
 
 /**
  * Build a `vector<Receiving<Coin<Currency>>>` for receive-and-* plugin calls.
@@ -982,18 +1002,21 @@ export interface ReceivingObjectRef {
 }
 
 /** Resolve owned coins to the exact references required by a Receiving input. */
-export async function resolveReceivingCoins(
-  client: ClientWithCoreApi,
+export const resolveReceivingCoins = Effect.fn("resolveReceivingCoins")(function* (
   coinIds: readonly string[],
-): Promise<ReceivingObjectRef[]> {
-  const { objects } = await client.core.getObjects({ objectIds: [...coinIds] });
+): Effect.fn.Return<ReceivingObjectRef[], SuiRpcError, SuiClient> {
+  const client = yield* SuiClient;
+  const { objects } = yield* Effect.tryPromise({
+    try: (signal) => client.core.getObjects({ objectIds: [...coinIds], signal }),
+    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
+  });
   return objects.map((coin, index) => {
     if (coin instanceof Error || !coin) {
       throw new Error(`resolveReceivingCoins: could not resolve ${coinIds[index]}`);
     }
     return { objectId: coin.objectId, version: coin.version, digest: coin.digest };
   });
-}
+});
 
 export function receivingCoins(
   tx: Transaction,

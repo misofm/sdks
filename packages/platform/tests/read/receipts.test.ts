@@ -4,11 +4,11 @@
 import { describe, expect, test } from "bun:test";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import {
-  MalformedRecordSoldEventError,
   findRecordSale,
   findRecordSales,
   isRecordSoldEventType,
 } from "../../src/read/receipts.ts";
+import { MalformedRecordSoldEventError } from "../../src/errors.ts";
 
 const SHOP_PACKAGE = "0xa";
 const CURRENCY = "0x2::sui::SUI";

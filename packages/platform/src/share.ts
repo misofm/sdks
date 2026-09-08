@@ -21,10 +21,10 @@
 // currency still gets a descriptive, work-specific name.
 
 import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { Signer } from "@mysten/sui/cryptography";
 import { fromBase64, fromHex, toBase64 } from "@mysten/sui/utils";
 import { update_constants } from "@mysten/move-bytecode-template";
+import { Effect } from "effect";
 import {
   execThunks,
   publishedPackageId,
@@ -33,6 +33,7 @@ import {
   allCreatedByType,
   type ExecResult,
 } from "@misofm/musicos";
+import { SuiClient, type SuiRpcError, type TransactionFailedError } from "@misofm/effect";
 
 import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
 import { SHARE_TEMPLATE } from "./share-template.ts";
@@ -107,23 +108,21 @@ export interface CreateShareCurrencyParams {
 }
 
 /** Publishes an immutable package, then initializes a fresh share currency in a second tx. */
-export async function createShareCurrency(
-  client: ClientWithCoreApi,
+export const createShareCurrency = Effect.fn("createShareCurrency")(function* (
   signer: Signer,
   params: CreateShareCurrencyParams,
-): Promise<ShareCurrency> {
+): Effect.fn.Return<ShareCurrency, TransactionFailedError | SuiRpcError, SuiClient> {
   const signerAddress = signer.toSuiAddress();
   const initializer = params.initializerAddress ?? signerAddress;
   const recipient = params.treasuryCapRecipient ?? signerAddress;
 
   // Tx 1: publish the share package with the initializer baked in.
   const patched = patchInitializer(params.template ?? SHARE_TEMPLATE, initializer);
-  const publishRes = await execThunks(client, signer, publishShareCurrency(patched));
+  const publishRes = yield* execThunks(signer, publishShareCurrency(patched));
   const packageId = publishedPackageId(publishRes);
 
   // Tx 2: initialize → creates the Currency object + transfers the TreasuryCap.
-  const initRes = await execThunks(
-    client,
+  const initRes = yield* execThunks(
     signer,
     initializeShareCurrency({
       shareCurrencyPackageId: packageId,
@@ -141,7 +140,7 @@ export async function createShareCurrency(
     treasuryCapId: createdByType(initRes, TREASURY_CAP_TYPE),
     gasUsed: publishRes.gasUsed + initRes.gasUsed,
   };
-}
+});
 
 // ── Batched (parallel) ─────────────────────────────────────────────────────
 
@@ -158,12 +157,12 @@ function chunk<T>(items: T[], size: number): T[][] {
  * consumes its UpgradeCap in the same PTB. Returns the published package ids
  * (fungible — order is not meaningful; the caller assigns them to work slots).
  */
-export async function publishShareCurrencies(
+export const publishShareCurrencies = Effect.fn("publishShareCurrencies")(function* (
   executor: ParallelTransactionExecutor,
   initializerAddress: string,
   count: number,
   template: PackageBytecode = SHARE_TEMPLATE,
-): Promise<{ packageIds: string[]; gasUsed: number }> {
+): Effect.fn.Return<{ packageIds: string[]; gasUsed: number }, SuiRpcError> {
   if (count <= 0) return { packageIds: [], gasUsed: 0 };
 
   // One patched template, reused for every publish (identical bytecode → distinct packages).
@@ -174,8 +173,10 @@ export async function publishShareCurrencies(
     batchSizes.push(Math.min(PUBLISHES_PER_PTB, remaining));
   }
 
-  const results = await Promise.all(
-    batchSizes.map((n) => executeViaExecutor(executor, ...Array.from({ length: n }, () => publishShareCurrency(patched)))),
+  const results = yield* Effect.forEach(
+    batchSizes,
+    (n) => executeViaExecutor(executor, ...Array.from({ length: n }, () => publishShareCurrency(patched))),
+    { concurrency: "unbounded" },
   );
 
   const packageIds = results.flatMap(allPublishedPackageIds);
@@ -184,7 +185,7 @@ export async function publishShareCurrencies(
     throw new Error(`Expected ${count} published share packages, got ${packageIds.length}.`);
   }
   return { packageIds, gasUsed };
-}
+});
 
 /** Re-associates one init PTB's created objects back to their packages by share type. */
 function currenciesFromResult(res: ExecResult, batchPkgs: string[]): ShareCurrency[] {
@@ -211,19 +212,22 @@ function currenciesFromResult(res: ExecResult, batchPkgs: string[]): ShareCurren
  * persist that batch immediately. If any batch fails, the succeeded ones are already
  * reported and this throws, so a resume re-initializes only the still-missing packages.
  */
-export async function initializeShareCurrencies(
+export const initializeShareCurrencies = Effect.fn("initializeShareCurrencies")(function* (
   executor: ParallelTransactionExecutor,
   signerAddress: string,
   packageIds: string[],
   metaOf: (packageId: string) => ShareCurrencyMeta,
   onBatch?: (currencies: ShareCurrency[], gasUsed: number) => void | Promise<void>,
-): Promise<{ currencies: ShareCurrency[]; gasUsed: number }> {
+): Effect.fn.Return<{ currencies: ShareCurrency[]; gasUsed: number }, never> {
   if (packageIds.length === 0) return { currencies: [], gasUsed: 0 };
 
   const batches = chunk(packageIds, INITS_PER_PTB);
-  const settled = await Promise.allSettled(
-    batches.map(async (batchPkgs) => {
-      const res = await executeViaExecutor(
+  // `Effect.either` per batch preserves `Promise.allSettled`'s partial-failure
+  // tolerance: one batch's `SuiRpcError` does not cancel the others in flight.
+  const outcomes = yield* Effect.forEach(
+    batches,
+    (batchPkgs) =>
+      executeViaExecutor(
         executor,
         ...batchPkgs.map((pkg) => {
           const meta = metaOf(pkg);
@@ -235,22 +239,25 @@ export async function initializeShareCurrencies(
             treasuryCapRecipient: signerAddress,
           });
         }),
-      );
-      const batchCurrencies = currenciesFromResult(res, batchPkgs);
-      if (onBatch) await onBatch(batchCurrencies, res.gasUsed);
-      return { batchCurrencies, gasUsed: res.gasUsed };
-    }),
+      ).pipe(
+        Effect.map((res) => ({ batchCurrencies: currenciesFromResult(res, batchPkgs), gasUsed: res.gasUsed })),
+        Effect.tap(({ batchCurrencies, gasUsed }) =>
+          onBatch ? Effect.promise(() => Promise.resolve(onBatch(batchCurrencies, gasUsed))) : Effect.void,
+        ),
+        Effect.result,
+      ),
+    { concurrency: "unbounded" },
   );
 
   const currencies: ShareCurrency[] = [];
   const errors: unknown[] = [];
   let gasUsed = 0;
-  for (const s of settled) {
-    if (s.status === "fulfilled") {
-      currencies.push(...s.value.batchCurrencies);
-      gasUsed += s.value.gasUsed;
+  for (const outcome of outcomes) {
+    if (outcome._tag === "Success") {
+      currencies.push(...outcome.success.batchCurrencies);
+      gasUsed += outcome.success.gasUsed;
     } else {
-      errors.push(s.reason);
+      errors.push(outcome.failure);
     }
   }
   if (errors.length > 0) {
@@ -258,4 +265,4 @@ export async function initializeShareCurrencies(
     throw new Error(`${errors.length}/${batches.length} initialize batch(es) failed: ${msg}`);
   }
   return { currencies, gasUsed };
-}
+});

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Shared read plumbing for the platform reads.
-
-// `isNotFound` is the protocol SDK's — the not-found taxonomy is a property of
-// the Sui transports, not of any one package's objects, so it is defined once in
-// `@misofm/musicos` and re-exported here for the platform readers.
-export { isNotFound } from "@misofm/musicos";
+//
+// Not-found is a typed `ObjectNotFoundError` (see `@misofm/effect/errors`),
+// matched with `Effect.catchTag("ObjectNotFoundError", ...)` — there is no
+// `isNotFound` predicate to re-export anymore.
+export {};

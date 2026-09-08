@@ -98,7 +98,14 @@ singletons.
 Register the client extension on any client implementing Sui's Core API
 ([SDK building guidelines](https://sdk.mystenlabs.com/sui/sdk-building)):
 
+Every method that performs I/O — a chain read, a signed execution — returns an
+`Effect.Effect<A, E>` (`R = never`: the client already provided `SuiClient`
+internally). Run a program with `Effect.runPromise` (or compose it further
+with other Effects) at your own boundary; PTB builders (`tx.*`) stay plain
+synchronous functions.
+
 ```ts
+import { Effect } from "effect";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { miso } from "@misofm/platform";
@@ -107,38 +114,56 @@ const client = new SuiGrpcClient({ network: "testnet", baseUrl }).$extend(
   miso({ deployment: verifiedDeployment }),
 );
 
-// One memoized Core API read proves this endpoint is the deployment's exact
-// ledger before any synchronous client-bound builder can be used.
-await client.miso.ready();
+const program = Effect.gen(function* () {
+  // One memoized Core API read proves this endpoint is the deployment's exact
+  // ledger before any synchronous client-bound builder can be used.
+  yield* client.miso.ready();
 
-// The permissionless object-model SDK is part of the same facade.
-const release = await client.miso.protocol.getReleaseById(releaseId);
-// Party identity comes from @misofm/partyos; platform adds the extensions.
-// client.miso.party is a PartyPlatformClient wrapping a PartyosClient (core
-// reads/builders delegate straight through) bound to this deployment's
-// `partyos` (core) and `party` (extensions) sections — also importable
-// standalone from `@misofm/platform/party`.
-const party = await client.miso.party.getPartyById(partyId);
+  // The permissionless object-model SDK is part of the same facade.
+  const release = yield* client.miso.protocol.getReleaseById(releaseId);
+  // Party identity comes from @misofm/partyos; platform adds the extensions.
+  // client.miso.party is a PartyPlatformClient wrapping a PartyosClient (core
+  // reads/builders delegate straight through) bound to this deployment's
+  // `partyos` (core) and `party` (extensions) sections — also importable
+  // standalone from `@misofm/platform/party`.
+  const party = yield* client.miso.party.getPartyById(partyId);
 
-// Read: run + one currency's offer, one round trip, no registry lookup.
-const { pressing, listing } = await client.miso.getSale({
-  releaseId,
-  edition,
-  currencyType: USD_COIN_TYPE,
+  // Read: run + one currency's offer, one round trip, no registry lookup.
+  const { pressing, listing } = yield* client.miso.getSale({
+    releaseId,
+    edition,
+    currencyType: USD_COIN_TYPE,
+  });
+
+  return { release, party, pressing, listing };
 });
 
-// Write: a thunk, so it composes with protocol calls in the same PTB.
+const { pressing, listing } = await Effect.runPromise(program);
+
+// Write: a thunk, so it composes with protocol calls in the same PTB. `tx`
+// builders never touch the network — no Effect involved.
 const tx = new Transaction();
 tx.add(
   client.miso.tx.purchaseRecord({
     releaseId,
     edition,
     currencyType: USD_COIN_TYPE,
-    paymentAmount: listing.pricing.amount,
-    expectedPricing: listing.pricing,
+    paymentAmount: listing!.pricing.amount,
+    expectedPricing: listing!.pricing,
     recipient: buyer,
   }),
 );
+```
+
+A read that can fail closed (a missing release, a mismatched chain identifier)
+fails with one of this SDK's tagged errors — see [Errors](#errors) — so
+recover with `Effect.catchTag`/`Effect.catchTags` instead of inspecting a
+thrown message:
+
+```ts
+const releaseOrNull = client.miso.protocol
+  .getReleaseById(releaseId)
+  .pipe(Effect.catchTag("ObjectNotFoundError", () => Effect.succeed(null)));
 ```
 
 The bundled Testnet deployment includes both verified immutable package IDs.
@@ -173,11 +198,16 @@ it. `PartyPlatformClient` wraps a `PartyosClient` — every core method
 standalone (the same class `client.miso.party` returns):
 
 ```ts
+import { Effect } from "effect";
 import { PartyosClient } from "@misofm/partyos";
 import { PartyPlatformClient } from "@misofm/platform/party";
 
 const core = new PartyosClient(client, verifiedDeployment.partyos);
 const party = new PartyPlatformClient(client, core, verifiedDeployment.party);
+
+// Every read method returns Effect<A, E> (R = never) — the class already
+// carries the ClientWithCoreApi it was constructed with.
+const profile = await Effect.runPromise(party.getProfile(partyId)); // Option<Profile>
 ```
 
 Every generated Move package on this side of the boundary — the Party
@@ -200,7 +230,14 @@ objects into the JSON-safe views a client actually renders. It works in browsers
 Workers, and servers. Miso's HTTP API is a thin validated and cached transport over
 this same surface, not a separate domain implementation.
 
+Every read here takes the resolved `MisoConfig` (package ids, not a transport)
+and declares `SuiClient`/`SuiGraphQL` in its Requirements — `createMisoClient`
+still bundles the transport, config, and Party client the way it always did;
+provide its `sui`/`graphqlRaw` as the Effect services once, at the boundary:
+
 ```ts
+import { Effect, Layer } from "effect";
+import { SuiClient, SuiGraphQL } from "@misofm/effect";
 import {
   createMisoClient,
   getDiscoverShelf,
@@ -209,10 +246,16 @@ import {
 } from "@misofm/platform/read";
 
 const miso = createMisoClient({ config: verifiedReadConfig });
+const layer = Layer.mergeAll(SuiClient.layer(miso.sui), SuiGraphQL.layer(miso.graphqlRaw));
 
-const discover = await getDiscoverShelf(miso);
-const release = await getReleaseDetail(miso, releaseId);
-const library = await getOwnedRecords(miso, walletAddress);
+const program = Effect.gen(function* () {
+  const discover = yield* getDiscoverShelf(miso.config);
+  const release = yield* getReleaseDetail(releaseId, miso.config);
+  const library = yield* getOwnedRecords(walletAddress, miso.config);
+  return { discover, release, library };
+});
+
+const { discover, release, library } = await Effect.runPromise(program.pipe(Effect.provide(layer)));
 ```
 
 The package root also exposes the same functions under the `read` namespace:
@@ -221,7 +264,9 @@ The package root also exposes the same functions under the `read` namespace:
 import { read } from "@misofm/platform";
 
 const miso = read.createMisoClient({ config: verifiedReadConfig });
-const artist = await read.getArtistProfile(miso, partyId);
+const artist = await Effect.runPromise(
+  read.getArtistProfile(partyId, miso.config).pipe(Effect.provide(SuiClient.layer(miso.sui))),
+);
 ```
 
 ### Authenticated platform mutations
@@ -418,6 +463,7 @@ Recording creator remainder; lower-level routed-stake builders remain
 available for the Move layer's 100% composition-cut case.
 
 ```ts
+import { Effect } from "effect";
 import {
   assertAtomicPublicationBounds,
   parseAtomicPublicationResult,
@@ -437,9 +483,8 @@ const publication = {
 // PTB exceeds the SDK's command/input safety limits or has an invalid graph.
 assertAtomicPublicationBounds(publication);
 
-const executed = await client.miso.executeViaExecutor(
-  executor,
-  publishAtomicCatalog(publication),
+const executed = await Effect.runPromise(
+  client.miso.executeViaExecutor(executor, publishAtomicCatalog(publication)),
 );
 const result = parseAtomicPublicationResult(publication, executed);
 ```
@@ -466,29 +511,30 @@ embedded as `SHARE_TEMPLATE`, initializer patched via `patchInitializer`).
 Publish and initialize are necessarily two transactions:
 
 ```ts
-// Sequential (one currency, two txs):
-const currency = await client.miso.createShareCurrency(signer, {
-  name: "Song Shares",
-  description: "…",
-});
-// → { packageId, currencyId, shareType, treasuryCapId, gasUsed }
+import { Effect } from "effect";
 
-// Batched (many currencies, via a ParallelTransactionExecutor):
-import { publishShareCurrencies, initializeShareCurrencies } from "@misofm/platform";
-const { packageIds } = await publishShareCurrencies(
-  executor,
-  initializerAddress,
-  10,
-);
-const { currencies } = await initializeShareCurrencies(
-  executor,
-  signerAddress,
-  packageIds,
-  (pkg) => ({
-    name: "…",
+// Sequential (one currency, two txs):
+const currency = await Effect.runPromise(
+  client.miso.createShareCurrency(signer, {
+    name: "Song Shares",
     description: "…",
   }),
 );
+// → { packageId, currencyId, shareType, treasuryCapId, gasUsed }
+
+// Batched (many currencies, via a ParallelTransactionExecutor). Both submit
+// exclusively through the executor (R = never), unlike `createShareCurrency`
+// above, which needs `SuiClient` for its sequential `execThunks` calls.
+import { publishShareCurrencies, initializeShareCurrencies } from "@misofm/platform";
+
+const program = Effect.gen(function* () {
+  const { packageIds } = yield* publishShareCurrencies(executor, initializerAddress, 10);
+  return yield* initializeShareCurrencies(executor, signerAddress, packageIds, (pkg) => ({
+    name: "…",
+    description: "…",
+  }));
+});
+const { currencies } = await Effect.runPromise(program);
 ```
 
 `executeViaExecutor(executor, ...thunks)` (`execute.ts`) submits a
@@ -669,6 +715,59 @@ carry an optional `RecordingRoleLevel` (`Producer`, `Vocalist`, `Engineer`,
 `Conductor`, …) — the leveled arm of `RecordingRole`. The other arms
 (`Instrumentalist`, `Custom`, and the unleveled `ArtistsAndRepertoire` /
 `Copyist`) are spelled out separately in `RecordingRole`.
+
+## Errors
+
+Every typed failure is a `Schema.TaggedError` (`@misofm/platform/errors`),
+recoverable with `Effect.catchTag`/`Effect.catchTags` instead of message
+sniffing. The foundation's Sui read/write vocabulary
+(`ObjectNotFoundError { objectId }`, `ObjectTypeMismatchError { objectId,
+expected, actual }`, `SuiRpcError { operation, cause }`, `BcsDecodeError {
+type, objectId?, cause }`, `TransactionFailedError { digest, status }`,
+`GraphQLUnavailableError {}`, `DeploymentError { message }`) is re-exported
+from `@misofm/effect/errors` so this is the only import a consumer needs:
+
+```ts
+import {
+  ObjectNotFoundError,
+  ReleaseNotFoundError,
+  RecordSalesUnavailableError,
+  OperationsUnavailableError,
+  MisoChainIdentifierMismatchError,
+  MisoClientNotReadyError,
+  MisoNetworkMismatchError,
+} from "@misofm/platform/errors";
+```
+
+Platform-specific tags:
+
+| Error | Fields | Raised by |
+| --- | --- | --- |
+| `RecordSalesUnavailableError` | `reason` | `requireRecordSalesDeployment`, every sales read/builder on a legacy or unconfigured deployment |
+| `OperationsUnavailableError` | `reason` | `requireOperationsDeployment`, `client.miso.vault`/`call.*` operations surfaces |
+| `MisoPlatformDeploymentInvalidError` | `message` | `assertMisoPlatformDeployment` / `normalizeMisoPlatformDeployment` |
+| `MisoNetworkMismatchError` | `clientNetwork`, `deploymentNetwork` | `miso()`/`misoPlatform()` registration (synchronous) |
+| `MisoChainIdentifierMismatchError` | `actual`, `expected` | `client.miso.ready()` |
+| `MisoClientNotReadyError` | `operation` | synchronous client-bound surfaces (`tx`, `ids`, `call`, `vault`, `party`, `protocol`) used before `ready()` |
+| `MalformedRecordSoldEventError` | `digest?`, `reason?` | `findRecordSales`/`getPurchaseReceipt(s)` on a malformed `RecordSoldEvent` |
+| `MisoAuthError` | `code`, `reason`, `status?`, `cause?` | `@misofm/platform/auth` (`requestAuthorizationChallenge`, `authenticatedFetch`, …) |
+| `ReleaseNotFoundError` | `releaseId` | `@misofm/platform/read` (`getReleaseResources`, `getReleaseDetail`, …) — the typed replacement for the api read service's old `isMissingRelease` message bridge |
+| `ReceiptNotFoundError` | `digest` | `getPurchaseReceipt(s)` when neither the fullnode nor the indexer has the transaction |
+| `RecordPurchaseNotFoundError` | `digest` | `getPurchaseReceipt(s)` when the transaction exists but carries no `RecordSoldEvent` |
+| `ForeignPressingError` | `pressingId`, `actualType?` | reserved for read-layer Pressing type-mismatch bridging |
+
+```ts
+import { Effect } from "effect";
+
+const release = client.miso.protocol
+  .getReleaseById(releaseId)
+  .pipe(
+    Effect.catchTags({
+      ObjectNotFoundError: () => Effect.succeed(null),
+      SuiRpcError: (e) => Effect.die(e), // transport failure: not recoverable here
+    }),
+  );
+```
 
 ## Layout
 

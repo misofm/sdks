@@ -12,7 +12,8 @@
 
 import * as platformLinkMod from "../../contracts/party_platform_link/party_platform_link.ts";
 import type { TxThunk } from "@misofm/partyos";
-import type { PlatformKey, PlatformLink } from "../types.ts";
+import { PlatformLink } from "../types.ts";
+import type { PlatformKey } from "../types.ts";
 
 /** Which payload package a platform's `Data` type + constructor live in. */
 type PayloadPkgKind = "social" | "music" | "pro";
@@ -160,7 +161,7 @@ export function platformForDataType(dataType: string): PlatformKey | null {
 
 /** Builds a public `PlatformLink` from a platform key and its stored native identifier. */
 export function buildLink(platform: PlatformKey, value: string): PlatformLink {
-  return { platform, value, url: PLATFORMS[platform].url(value) };
+  return new PlatformLink({ platform, value, url: PLATFORMS[platform].url(value) });
 }
 
 // === Bound builders (the client binds package ids, then exposes per-platform methods) ===

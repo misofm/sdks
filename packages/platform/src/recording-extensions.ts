@@ -4,10 +4,10 @@
 /** Cap-authorized builders and reads for data-only Recording metadata extensions. */
 
 import { bcs } from "@mysten/sui/bcs";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { Transaction, TransactionArgument, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveDynamicFieldID, fromHex, toHex } from "@mysten/sui/utils";
-import { isNotFound } from "@misofm/musicos";
+import { Effect, Option } from "effect";
+import { getObjectsContent, getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
 import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
@@ -271,33 +271,23 @@ export function recordingStreamingTranscodeFieldId(
 }
 
 /** Read one Recording's streaming-transcode Quilt id, or null when absent. */
-export async function getRecordingStreamingTranscode(
-  client: ClientWithCoreApi,
+export const getRecordingStreamingTranscode = Effect.fn("getRecordingStreamingTranscode")(function* (
   recordingId: string,
   recordingStreamingTranscodePackageId: string,
-): Promise<string | null> {
-  return (
-    (
-      await getRecordingStreamingTranscodesByIds(
-        client,
-        [recordingId],
-        recordingStreamingTranscodePackageId,
-      )
-    )[recordingId] ?? null
-  );
-}
+): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
+  const found = yield* getRecordingStreamingTranscodesByIds([recordingId], recordingStreamingTranscodePackageId);
+  return found[recordingId] ?? null;
+});
 
 /**
  * Read streaming-transcode Quilt ids for many Recordings in one Core request.
  * Missing and malformed fields are omitted, like master references.
  */
-export async function getRecordingStreamingTranscodesByIds(
-  client: ClientWithCoreApi,
+export function getRecordingStreamingTranscodesByIds(
   recordingIdsInput: readonly string[],
   recordingStreamingTranscodePackageId: string,
-): Promise<Partial<Record<string, string>>> {
+): Effect.Effect<Partial<Record<string, string>>, SuiRpcError, SuiClient> {
   return readSoftFields(
-    client,
     recordingIdsInput,
     (recordingId) => recordingStreamingTranscodeFieldId(recordingId, recordingStreamingTranscodePackageId),
     parseRecordingStreamingTranscodeContent,
@@ -309,30 +299,27 @@ export async function getRecordingStreamingTranscodesByIds(
  * parse each, dropping Recordings whose field is missing or malformed so one
  * stale extension cannot take a whole tracklist down.
  */
-async function readSoftFields<T>(
-  client: ClientWithCoreApi,
+const readSoftFields = Effect.fn("readSoftFields")(function* <T>(
   recordingIdsInput: readonly string[],
   fieldIdOf: (recordingId: string) => string,
   parse: (content: Uint8Array) => T,
-): Promise<Partial<Record<string, T>>> {
+): Effect.fn.Return<Partial<Record<string, T>>, SuiRpcError, SuiClient> {
   const recordingIds = [...new Set(recordingIdsInput)];
   if (recordingIds.length === 0) return {};
-  const { objects } = await client.core.getObjects({
-    objectIds: recordingIds.map(fieldIdOf),
-    include: { content: true },
-  });
+  const fieldIds = recordingIds.map(fieldIdOf);
+  const contentById = yield* getObjectsContent(fieldIds);
   const out: Partial<Record<string, T>> = {};
-  objects.forEach((object, index) => {
-    const recordingId = recordingIds[index];
-    if (!recordingId || object instanceof Error || !object.content) return;
+  recordingIds.forEach((recordingId, index) => {
+    const found = contentById.get(fieldIds[index]!);
+    if (!found) return;
     try {
-      out[recordingId] = parse(object.content);
+      out[recordingId] = parse(found.content);
     } catch {
       // Extension metadata is soft: retain valid tracks when one field is stale.
     }
   });
   return out;
-}
+});
 
 // ── Engine-session reads ─────────────────────────────────────────────────────
 
@@ -381,37 +368,25 @@ export function recordingEngineSessionFieldId(
 }
 
 /** Read one Recording's engine session, or null when none is attached. */
-export async function getRecordingEngineSession(
-  client: ClientWithCoreApi,
+export const getRecordingEngineSession = Effect.fn("getRecordingEngineSession")(function* (
   recordingId: string,
   recordingEngineSessionPackageId: string,
-): Promise<RecordingEngineSessionView | null> {
+): Effect.fn.Return<RecordingEngineSessionView | null, SuiRpcError, SuiClient> {
   const fieldId = recordingEngineSessionFieldId(recordingId, recordingEngineSessionPackageId);
-  const { objects } = await client.core.getObjects({
-    objectIds: [fieldId],
-    include: { content: true },
-  });
-  const field = objects[0];
-  if (!field) throw new Error("Recording engine-session read returned no result");
-  if (field instanceof Error) {
-    if (isNotFound(field)) return null;
-    throw field;
-  }
-  if (!field.content) throw new Error("Recording engine-session field is missing BCS content");
-  return parseRecordingEngineSessionContent(field.content);
-}
+  const found = yield* getOptionalObjectContent(fieldId);
+  if (Option.isNone(found)) return null;
+  return parseRecordingEngineSessionContent(found.value.content);
+});
 
 /**
  * Read engine sessions for many Recordings in one Core request. Missing and
  * malformed fields are omitted.
  */
-export async function getRecordingEngineSessionsByIds(
-  client: ClientWithCoreApi,
+export function getRecordingEngineSessionsByIds(
   recordingIdsInput: readonly string[],
   recordingEngineSessionPackageId: string,
-): Promise<Partial<Record<string, RecordingEngineSessionView>>> {
+): Effect.Effect<Partial<Record<string, RecordingEngineSessionView>>, SuiRpcError, SuiClient> {
   return readSoftFields(
-    client,
     recordingIdsInput,
     (recordingId) => recordingEngineSessionFieldId(recordingId, recordingEngineSessionPackageId),
     parseRecordingEngineSessionContent,
@@ -455,21 +430,13 @@ export function recordingMasterReferenceFieldId(
 }
 
 /** Read one Recording's master-reference blob id, or null when absent. */
-export async function getRecordingMasterReference(
-  client: ClientWithCoreApi,
+export const getRecordingMasterReference = Effect.fn("getRecordingMasterReference")(function* (
   recordingId: string,
   recordingMasterReferencePackageId: string,
-): Promise<string | null> {
-  return (
-    (
-      await getRecordingMasterReferencesByIds(
-        client,
-        [recordingId],
-        recordingMasterReferencePackageId,
-      )
-    )[recordingId] ?? null
-  );
-}
+): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
+  const found = yield* getRecordingMasterReferencesByIds([recordingId], recordingMasterReferencePackageId);
+  return found[recordingId] ?? null;
+});
 
 /**
  * Read master-reference blob ids for many Recordings in one Core request.
@@ -477,34 +444,13 @@ export async function getRecordingMasterReference(
  * Missing fields and malformed individual objects are omitted so one Recording
  * without a playable master cannot make the rest of an album unplayable.
  */
-export async function getRecordingMasterReferencesByIds(
-  client: ClientWithCoreApi,
+export function getRecordingMasterReferencesByIds(
   recordingIdsInput: readonly string[],
   recordingMasterReferencePackageId: string,
-): Promise<Partial<Record<string, string>>> {
-  const recordingIds = [...new Set(recordingIdsInput)];
-  const targets = recordingIds.map((recordingId) => ({
-    recordingId,
-    fieldId: recordingMasterReferenceFieldId(
-      recordingId,
-      recordingMasterReferencePackageId,
-    ),
-  }));
-  if (targets.length === 0) return {};
-
-  const { objects } = await client.core.getObjects({
-    objectIds: targets.map((target) => target.fieldId),
-    include: { content: true },
-  });
-  const out: Partial<Record<string, string>> = {};
-  objects.forEach((object, index) => {
-    const target = targets[index];
-    if (!target || object instanceof Error || !object.content) return;
-    try {
-      out[target.recordingId] = parseRecordingMasterReferenceContent(object.content);
-    } catch {
-      // Extension metadata is soft: retain valid tracks when one field is stale.
-    }
-  });
-  return out;
+): Effect.Effect<Partial<Record<string, string>>, SuiRpcError, SuiClient> {
+  return readSoftFields(
+    recordingIdsInput,
+    (recordingId) => recordingMasterReferenceFieldId(recordingId, recordingMasterReferencePackageId),
+    parseRecordingMasterReferenceContent,
+  );
 }

@@ -5,7 +5,6 @@
 // intent aggregates these concerns, but every value is written by its own
 // independently deployed extension package.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type {
@@ -13,6 +12,8 @@ import type {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
+import { Effect, Option } from "effect";
+import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
 import type { TxThunk } from "./transactions.ts";
 import * as releaseDescription from "./contracts/release_description/release_description.ts";
 import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.ts";
@@ -86,19 +87,13 @@ export function parseReleaseKindContent(content: Uint8Array): string {
 }
 
 /** Read a Release's self-declared kind, or `null` when the extension is absent. */
-export async function getReleaseKind(
-  client: ClientWithCoreApi,
+export const getReleaseKind = Effect.fn("getReleaseKind")(function* (
   releaseId: string,
   releaseKindPackageId: string,
-): Promise<string | null> {
-  const { objects } = await client.core.getObjects({
-    objectIds: [releaseKindFieldId(releaseId, releaseKindPackageId)],
-    include: { content: true },
-  });
-  const object = objects[0];
-  if (!object || object instanceof Error || !object.content) return null;
-  return parseReleaseKindContent(object.content);
-}
+): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(releaseKindFieldId(releaseId, releaseKindPackageId));
+  return Option.isNone(found) ? null : parseReleaseKindContent(found.value.content);
+});
 
 export type SetReleaseDescriptionParams = ReleaseExtensionTarget & {
   description: string;

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
+import { ObjectNotFoundError } from "@misofm/effect";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import {
   Transaction,
@@ -137,7 +139,7 @@ test("explicit verified deployment binds both finalized sales packages", async (
     value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }),
   });
   const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
   expect(client.miso.recordPackageId).toBe(RECORD);
   expect(client.miso.recordShopPackageId).toBe(SHOP);
 
@@ -196,7 +198,7 @@ test("configured client binds composable streaming-transcode attach and unset bu
     value: async () => ({ chainIdentifier: deployment.chainIdentifier }),
   });
   const client = base.$extend(miso({ deployment }));
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
 
   const target = {
     recordingId: A,
@@ -230,7 +232,7 @@ test("an available operations deployment binds all nine exact package targets", 
     value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }),
   });
   const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
   const tx = new Transaction();
   const share = `${id(301)}::share::Share`;
   const currency = "0x2::sui::SUI";
@@ -296,7 +298,7 @@ test("bundled Testnet deployment exposes the verified sales and operations ABIs"
     }),
   });
   const client = base.$extend(miso());
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
 
   expect(MISO_PLATFORM_DEPLOYMENTS.testnet.recordSales.status).toBe("available");
   expect(MISO_PLATFORM_DEPLOYMENTS.testnet.operations.status).toBe("available");
@@ -483,7 +485,7 @@ test("custom deployment registration snapshots nested targets before readiness",
   custom.objects.releaseRegistry = id(708);
   custom.legacy.releaseCoverArtPackages.push(id(709));
 
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
   expect(client.miso.deployment).not.toBe(custom);
   expect(client.miso.deployment).toEqual(expected);
   expectRecursivelyFrozen(client.miso.deployment);
@@ -555,7 +557,7 @@ test("deprecated custom config registration snapshots nested targets", async () 
   config.recordSales.recordPackageId = id(801);
   if (config.operations?.status !== "available") throw new Error("test fixture");
   config.operations.actions.partyWallet = id(802);
-  await client.misoPlatform.ready();
+  await Effect.runPromise(client.misoPlatform.ready());
 
   expect(client.misoPlatform.recordPackageId).toBe(RECORD);
   const tx = new Transaction();
@@ -646,9 +648,9 @@ test("ready memoizes exact-chain validation and gates synchronous builders", asy
   const first = client.miso.ready();
   const second = client.miso.ready();
   expect(first).toBe(second);
-  await Promise.all([first, second]);
+  await Promise.all([Effect.runPromise(first), Effect.runPromise(second)]);
   expect(calls).toBe(1);
-  expect(await client.miso.validateChainIdentifier()).toBe(
+  expect(await Effect.runPromise(client.miso.validateChainIdentifier())).toBe(
     DEPLOYMENT.chainIdentifier,
   );
   expect(calls).toBe(1);
@@ -706,7 +708,7 @@ test("protocol and nested Party surfaces cannot read or build before readiness",
   expect(objectReads).toBe(0);
   expect(chainReads).toBe(0);
 
-  await Promise.all([client.miso.ready(), client.miso.ready()]);
+  await Promise.all([Effect.runPromise(client.miso.ready()), Effect.runPromise(client.miso.ready())]);
   expect(chainReads).toBe(1);
   tx.add(
     client.miso.protocol!.call.release.releaseRegistryId({ arguments: [A] }),
@@ -723,14 +725,12 @@ test("protocol and nested Party surfaces cannot read or build before readiness",
     PARTYOS_DEPLOYMENT.partyos,
   ]);
 
-  await expect(client.miso.protocol!.getReleaseById(A)).rejects.toThrow(
-    /Release not found/,
-  );
-  await expect(client.miso.party.getPartyById(A)).rejects.toThrow(
-    /Party not found/,
-  );
+  const releaseError = await Effect.runPromise(Effect.flip(client.miso.protocol!.getReleaseById(A)));
+  expect(releaseError).toBeInstanceOf(ObjectNotFoundError);
+  const partyError = await Effect.runPromise(Effect.flip(client.miso.party.getPartyById(A)));
+  expect(partyError).toBeInstanceOf(ObjectNotFoundError);
   expect(objectReads).toBe(2);
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
   expect(chainReads).toBe(1);
 });
 
@@ -758,11 +758,11 @@ test("MisoPlatformClient.party delegates core reads to PartyosClient and exposes
     }),
   });
   const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await client.miso.ready();
+  await Effect.runPromise(client.miso.ready());
 
   // Core read: `client.miso.party` delegates straight to a `PartyosClient`.
   expect(client.miso.party.core).toBeInstanceOf(PartyosClient);
-  const party = await client.miso.party.getPartyById(A);
+  const party = await Effect.runPromise(client.miso.party.getPartyById(A));
   expect(party).toMatchObject({ id: A, kind: "individual", name: "Test Party" });
 
   // Extension builder: `tx.setProfile` is not part of the Party core.
@@ -796,7 +796,7 @@ test("deprecated misoPlatform protocol access uses the same explicit readiness g
   );
   expect(() => client.misoPlatform.protocol).toThrow(MisoClientNotReadyError);
   expect(chainReads).toBe(0);
-  await client.misoPlatform.ready();
+  await Effect.runPromise(client.misoPlatform.ready());
   expect(client.misoPlatform.protocol?.deployment.packageId).toBe(MISO);
   expect(chainReads).toBe(1);
 });
@@ -816,10 +816,12 @@ test("high-level online reads await readiness automatically", async () => {
   });
   Object.defineProperty(base.core, "getObject", {
     configurable: true,
-    value: async () => ({ object: null }),
+    value: async ({ objectId }: { objectId: string }) => {
+      throw new Error(`Object ${objectId} not found`);
+    },
   });
   const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  expect(await client.miso.getRecord(A)).toBeNull();
+  expect(await Effect.runPromise(client.miso.getRecord(A))).toBeNull();
   expect(chainReads).toBe(1);
 });
 
@@ -833,9 +835,8 @@ test("ready rejects a mismatched exact chain identifier", async () => {
     value: async () => ({ chainIdentifier: "wrong-ledger" }),
   });
   const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await expect(client.miso.ready()).rejects.toBeInstanceOf(
-    MisoChainIdentifierMismatchError,
-  );
+  const readyError = await Effect.runPromise(Effect.flip(client.miso.ready()));
+  expect(readyError).toBeInstanceOf(MisoChainIdentifierMismatchError);
   let executions = 0;
   const executor = {
     executeTransaction: async () => {
@@ -843,9 +844,10 @@ test("ready rejects a mismatched exact chain identifier", async () => {
       throw new Error("must not execute");
     },
   } as unknown as ParallelTransactionExecutor;
-  await expect(
-    client.miso.executeViaExecutor(executor, () => {}),
-  ).rejects.toBeInstanceOf(MisoChainIdentifierMismatchError);
+  const executeError = await Effect.runPromise(
+    Effect.flip(client.miso.executeViaExecutor(executor, () => {})),
+  );
+  expect(executeError).toBeInstanceOf(MisoChainIdentifierMismatchError);
   expect(executions).toBe(0);
 });
 

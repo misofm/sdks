@@ -4,6 +4,7 @@ Monorepo for the Miso platform-layer TypeScript SDKs.
 
 | Package                                          | Description                                                                                                                          |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [`packages/effect`](packages/effect/README.md) | `@misofm/effect` — the shared Effect v4 foundation: the `SuiClient` service, the tagged error vocabulary, and the object-read and execute primitives every other SDK is built on. |
 | [`packages/musicos`](packages/musicos/README.md) | `@misofm/musicos` — typed bindings, queries, event decoders, and PTB builders for the works object model (Composition, Recording, Release, Track). |
 | [`packages/partyos`](packages/partyos/README.md) | `@misofm/partyos` — typed bindings, queries, and PTB builders for the Party object model (Party, admin cap, group membership). |
 | [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — the complete client SDK for the Miso platform layer: work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins. |
@@ -32,6 +33,16 @@ hold only their object model, and `packages/platform/src/contracts/` holds
 everything else. `sui-codegen.config.ts`
 is the source of truth for exactly which Move package lands in which tree —
 see its `packages` list rather than looking for an enumeration here.
+
+## Effect
+
+Every SDK exposes [Effect](https://effect.website) v4 in its public API: reads and
+submissions return `Effect` values that require the `SuiClient` service from
+`@misofm/effect` and fail with tagged errors (`Effect.catchTag`); the client
+extensions (`miso()`, `partyos()`, `misoPlatform()`) provide that service
+themselves so their methods have no requirements; PTB builders stay synchronous.
+Each package's `./errors` subpath lists its failures. Pin `effect` to the exact
+release candidate the packages peer on.
 
 ## Development
 

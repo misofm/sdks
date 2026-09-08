@@ -6,6 +6,8 @@ import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
+import { Effect } from "effect";
+import { SuiClient } from "@misofm/effect";
 import * as releaseGenreContract from "../src/contracts/release_genre/release_genre.ts";
 import * as recordingGenreContract from "../src/contracts/recording_genre/recording_genre.ts";
 import {
@@ -340,19 +342,28 @@ test("getReleaseGenres and getRecordingGenres read through Core and default to [
   }).toBytes();
   const client = {
     core: {
-      getObjects: async (input: { objectIds: string[] }) => {
-        expect(input.objectIds).toEqual([fieldId]);
-        return { objects: [{ objectId: fieldId, content }] };
+      getObject: async (input: { objectId: string }) => {
+        expect(input.objectId).toBe(fieldId);
+        return { object: { objectId: fieldId, type: "0x2::dynamic_field::Field", version: "1", content } };
       },
     },
   } as unknown as ClientWithCoreApi;
-  await expect(getReleaseGenres(client, RELEASE, PKG)).resolves.toEqual([A, B]);
+  const result = await Effect.runPromise(
+    getReleaseGenres(RELEASE, PKG).pipe(Effect.provide(SuiClient.layer(client))),
+  );
+  expect(result).toEqual([A, B]);
 
   const emptyClient = {
     core: {
-      getObjects: async () => ({ objects: [undefined] }),
+      getObject: async () => ({ object: { content: undefined } }),
     },
   } as unknown as ClientWithCoreApi;
-  await expect(getReleaseGenres(emptyClient, RELEASE, PKG)).resolves.toEqual([]);
-  await expect(getRecordingGenres(emptyClient, RECORDING, PKG)).resolves.toEqual([]);
+  const emptyRelease = await Effect.runPromise(
+    getReleaseGenres(RELEASE, PKG).pipe(Effect.provide(SuiClient.layer(emptyClient))),
+  );
+  expect(emptyRelease).toEqual([]);
+  const emptyRecording = await Effect.runPromise(
+    getRecordingGenres(RECORDING, PKG).pipe(Effect.provide(SuiClient.layer(emptyClient))),
+  );
+  expect(emptyRecording).toEqual([]);
 });

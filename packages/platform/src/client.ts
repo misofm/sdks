@@ -90,13 +90,13 @@ import {
 } from "./pressing.ts";
 import type {
   GetSaleParams,
-  ListingView,
+  Listing,
   OpenListingParams,
   OpenPressingParams,
+  Pressing,
   PressingAdministrationParams,
-  PressingView,
+  PressingRecord,
   PurchaseRecordParams,
-  RecordView,
   SetListingPriceParams,
   SetListingStateParams,
 } from "./pressing.ts";
@@ -165,6 +165,25 @@ import {
   executeViaExecutor as executePlatformViaExecutor,
   type PlatformExecResult,
 } from "./execute.ts";
+import { Effect } from "effect";
+import {
+  SuiClient,
+  SuiRpcError,
+  type BcsDecodeError,
+  type ObjectTypeMismatchError,
+  type TransactionFailedError,
+} from "@misofm/effect";
+import {
+  MisoChainIdentifierMismatchError,
+  MisoClientNotReadyError,
+  MisoNetworkMismatchError,
+} from "./errors.ts";
+
+export {
+  MisoChainIdentifierMismatchError,
+  MisoClientNotReadyError,
+  MisoNetworkMismatchError,
+} from "./errors.ts";
 
 type BoundMoveFunction<F> = F extends (options: infer Options) => infer Result
   ? Options extends { package?: unknown }
@@ -241,39 +260,6 @@ export interface MisoOptions<Name extends string = "miso"> {
   deployment?: MisoPlatformDeployment;
   /** Required only by protocol methods that perform global type discovery. */
   graphqlClient?: SuiGraphQLClient;
-}
-
-export class MisoNetworkMismatchError extends Error {
-  override readonly name = "MisoNetworkMismatchError";
-  constructor(
-    readonly clientNetwork: string,
-    readonly deploymentNetwork: string,
-  ) {
-    super(
-      `@misofm/platform: client network "${clientNetwork}" does not match deployment network "${deploymentNetwork}"`,
-    );
-  }
-}
-
-export class MisoChainIdentifierMismatchError extends Error {
-  override readonly name = "MisoChainIdentifierMismatchError";
-  constructor(
-    readonly actual: string,
-    readonly expected: string,
-  ) {
-    super(
-      `@misofm/platform: endpoint chain identifier "${actual}" does not match deployment chain identifier "${expected}"`,
-    );
-  }
-}
-
-export class MisoClientNotReadyError extends Error {
-  override readonly name = "MisoClientNotReadyError";
-  constructor(readonly operation: string) {
-    super(
-      `@misofm/platform: ${operation} requires an exact-chain validation lifecycle; call and await client.miso.ready() first`,
-    );
-  }
 }
 
 export interface MisoPlatformConfig {
@@ -411,7 +397,10 @@ export class MisoPlatformClient {
   readonly deployment?: MisoPlatformDeployment;
   #readyState: "unvalidated" | "validating" | "ready" | "failed" =
     "unvalidated";
-  #readyPromise?: Promise<void>;
+  /** Set once in the constructor via `Effect.cached`, so every caller of
+   * `ready()` shares the same in-flight/completed chain read. */
+  readonly #readyEffect: Effect.Effect<void, MisoChainIdentifierMismatchError | SuiRpcError>;
+  readonly #layer: ReturnType<typeof SuiClient.layer>;
 
   constructor(
     client: ClientWithCoreApi,
@@ -451,6 +440,38 @@ export class MisoPlatformClient {
       : undefined;
     this.#chainIdentifier =
       deploymentSnapshot?.chainIdentifier ?? configSnapshot.chainIdentifier;
+    this.#layer = SuiClient.layer(client);
+    // Built once; `Effect.cached` shares the same in-flight/completed chain
+    // read across every caller of `ready()` — the outer `Effect.cached(...)`
+    // itself only sets up the memoization ref, so running it synchronously
+    // here does not perform the underlying Core API read.
+    this.#readyEffect = Effect.runSync(
+      Effect.cached(
+        Effect.suspend(() => {
+          this.#readyState = "validating";
+          if (!this.#chainIdentifier) {
+            return Effect.die(
+              new Error(
+                "misoPlatform: chain readiness requires a complete deployment or an explicit `chainIdentifier`.",
+              ),
+            );
+          }
+          const expected = this.#chainIdentifier;
+          return Effect.tryPromise({
+            try: (signal) => this.#client.core.getChainIdentifier({ signal }),
+            catch: (cause) => new SuiRpcError({ operation: "getChainIdentifier", cause }),
+          }).pipe(
+            Effect.flatMap(({ chainIdentifier }) =>
+              chainIdentifier === expected
+                ? Effect.void
+                : new MisoChainIdentifierMismatchError({ actual: chainIdentifier, expected }),
+            ),
+            Effect.tap(() => Effect.sync(() => { this.#readyState = "ready"; })),
+            Effect.tapError(() => Effect.sync(() => { this.#readyState = "failed"; })),
+          );
+        }),
+      ),
+    );
   }
 
   /** Permissionless protocol APIs bound to the same validated ledger. */
@@ -465,38 +486,13 @@ export class MisoPlatformClient {
    * synchronous network-label mismatch; this Core API read protects every
    * client-bound write surface from a mislabeled or custom endpoint.
    */
-  ready(): Promise<void> {
-    if (!this.#readyPromise) {
-      this.#readyState = "validating";
-      this.#readyPromise = (async () => {
-        try {
-          if (!this.#chainIdentifier) {
-            throw new Error(
-              "misoPlatform: chain readiness requires a complete deployment or an explicit `chainIdentifier`.",
-            );
-          }
-          const { chainIdentifier } =
-            await this.#client.core.getChainIdentifier();
-          if (chainIdentifier !== this.#chainIdentifier) {
-            throw new MisoChainIdentifierMismatchError(
-              chainIdentifier,
-              this.#chainIdentifier,
-            );
-          }
-          this.#readyState = "ready";
-        } catch (error) {
-          this.#readyState = "failed";
-          throw error;
-        }
-      })();
-    }
-    return this.#readyPromise;
+  ready(): Effect.Effect<void, MisoChainIdentifierMismatchError | SuiRpcError> {
+    return this.#readyEffect;
   }
 
-  /** Compatibility hook; prefer `await client.miso.ready()`. */
-  async validateChainIdentifier(): Promise<string> {
-    await this.ready();
-    return this.#chainIdentifier!;
+  /** Compatibility hook; prefer `client.miso.ready()`. */
+  validateChainIdentifier(): Effect.Effect<string, MisoChainIdentifierMismatchError | SuiRpcError> {
+    return this.ready().pipe(Effect.map(() => this.#chainIdentifier!));
   }
 
   #requireReady(operation: string): void {
@@ -523,8 +519,21 @@ export class MisoPlatformClient {
       this.#operations();
     }
     if (this.#readyState !== "ready") {
-      throw new MisoClientNotReadyError(operation);
+      throw new MisoClientNotReadyError({ operation });
     }
+  }
+
+  /**
+   * Runs the exact-ledger readiness gate, then provides `SuiClient` from this
+   * client's `ClientWithCoreApi`, so a read method's program has `R = never`.
+   */
+  #run<A, E>(
+    effect: Effect.Effect<A, E, SuiClient>,
+  ): Effect.Effect<A, E | MisoChainIdentifierMismatchError | SuiRpcError> {
+    return this.ready().pipe(
+      Effect.flatMap(() => effect),
+      Effect.provide(this.#layer),
+    );
   }
 
   /** Party identity and profile APIs, backed by the network SDK. */
@@ -611,34 +620,47 @@ export class MisoPlatformClient {
   // ── Reads ─────────────────────────────────────────────────────────────────
 
   /** The run itself, or `null` if this release has never opened one. */
-  async getPressing(pressingId: string): Promise<PressingView | null> {
-    await this.ready();
-    return getPressing(this.#client, pressingId, this.recordPackageId);
+  getPressing(
+    pressingId: string,
+  ): Effect.Effect<
+    Pressing | null,
+    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+  > {
+    return this.#run(getPressing(pressingId, this.recordPackageId));
   }
 
   /** One currency's offer, or `null` if the run does not sell in it. */
-  async getListing(listingId: string): Promise<ListingView | null> {
-    await this.ready();
-    return getListing(this.#client, listingId, this.recordShopPackageId);
+  getListing(
+    listingId: string,
+  ): Effect.Effect<
+    Listing | null,
+    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+  > {
+    return this.#run(getListing(listingId, this.recordShopPackageId));
   }
 
   /** One concrete purchased Record, including immutable purchase provenance. */
-  async getRecord(recordId: string): Promise<RecordView | null> {
-    await this.ready();
-    return getRecord(this.#client, recordId, this.recordPackageId);
+  getRecord(
+    recordId: string,
+  ): Effect.Effect<
+    PressingRecord | null,
+    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+  > {
+    return this.#run(getRecord(recordId, this.recordPackageId));
   }
 
   /** Run + one currency's offer in a single round trip, by address math. */
-  async getSale(p: Configured<GetSaleParams>): Promise<{
-    pressing: PressingView | null;
-    listing: ListingView | null;
-  }> {
-    await this.ready();
-    return getSale(this.#client, {
-      ...p,
-      recordPackageId: this.recordPackageId,
-      recordShopPackageId: this.recordShopPackageId,
-    });
+  getSale(p: Configured<GetSaleParams>): Effect.Effect<
+    { pressing: Pressing | null; listing: Listing | null },
+    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+  > {
+    return this.#run(
+      getSale({
+        ...p,
+        recordPackageId: this.recordPackageId,
+        recordShopPackageId: this.recordShopPackageId,
+      }),
+    );
   }
 
   // ── Address math ──────────────────────────────────────────────────────────
@@ -898,21 +920,19 @@ export class MisoPlatformClient {
   // ── Share currency provisioning (executes; Signer pattern) ─────────────────
 
   /** Publishes + initializes a fresh share currency (two txs). */
-  async createShareCurrency(
+  createShareCurrency(
     signer: Signer,
     params: share.CreateShareCurrencyParams,
-  ): Promise<share.ShareCurrency> {
-    await this.ready();
-    return share.createShareCurrency(this.#client, signer, params);
+  ): Effect.Effect<share.ShareCurrency, SuiRpcError | TransactionFailedError | MisoChainIdentifierMismatchError> {
+    return this.#run(share.createShareCurrency(signer, params));
   }
 
   /** Execute a composed platform PTB only after exact-ledger validation. */
-  async executeViaExecutor(
+  executeViaExecutor(
     executor: ParallelTransactionExecutor,
     ...thunks: TxThunk[]
-  ): Promise<PlatformExecResult> {
-    await this.ready();
-    return executePlatformViaExecutor(executor, ...thunks);
+  ): Effect.Effect<PlatformExecResult, SuiRpcError | MisoChainIdentifierMismatchError> {
+    return this.ready().pipe(Effect.flatMap(() => executePlatformViaExecutor(executor, ...thunks)));
   }
 
   // ── Generated layer ───────────────────────────────────────────────────────
@@ -1304,7 +1324,7 @@ export function miso<const Name extends string = "miso">(
         options.deployment ?? getMisoPlatformDeployment(client.network),
       );
       if (deployment.network !== client.network) {
-        throw new MisoNetworkMismatchError(client.network, deployment.network);
+        throw new MisoNetworkMismatchError({ clientNetwork: client.network, deploymentNetwork: deployment.network });
       }
       const protocol = protocolMiso({
         deployment: deployment.protocol,
@@ -1356,7 +1376,7 @@ export function misoPlatform(config: MisoPlatformConfig) {
     register: (client: ClientWithCoreApi) => {
       const configSnapshot = immutableSnapshot(config);
       if (configSnapshot.network && configSnapshot.network !== client.network) {
-        throw new MisoNetworkMismatchError(client.network, configSnapshot.network);
+        throw new MisoNetworkMismatchError({ clientNetwork: client.network, deploymentNetwork: configSnapshot.network });
       }
       const protocol = configSnapshot.misoPackageId
         ? protocolMiso({

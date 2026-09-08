@@ -10,9 +10,15 @@
 //
 // Browser- and server-compatible. The HTTP API is a thin cached transport over
 // this same surface; direct clients can use it without going through the API.
+// Every read returns `Effect<A, E, SuiClient | SuiGraphQL>`; `createMisoClient`
+// bundles the transport, config, and Party client — provide its `sui`/`graphqlRaw`
+// as the Effect services once, at your program's boundary:
 //
 //   const miso = createMisoClient({ network: "testnet" })
-//   const pressing = await getPressingDetail(miso, pressingId)
+//   const layer = Layer.mergeAll(SuiClient.layer(miso.sui), SuiGraphQL.layer(miso.graphqlRaw))
+//   const pressing = await Effect.runPromise(
+//     getPressingDetail(pressingId, miso.config).pipe(Effect.provide(layer)),
+//   )
 
 export { createMisoClient } from "./client.ts";
 export type { MisoClient, CreateMisoClientOptions } from "./client.ts";

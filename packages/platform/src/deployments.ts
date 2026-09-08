@@ -6,7 +6,20 @@ import { MISO_DEPLOYMENTS } from "@misofm/musicos/deployments";
 import type { PartyDeployment } from "@misofm/partyos/deployments";
 import { PARTYOS_DEPLOYMENTS } from "@misofm/partyos/deployments";
 import { normalizeSuiAddress, normalizeSuiObjectId } from "@mysten/sui/utils";
+import { Context, Effect, Layer } from "effect";
+import { DeploymentError } from "@misofm/effect/errors";
 import { immutableSnapshot } from "./internal.ts";
+import {
+  MisoPlatformDeploymentInvalidError,
+  OperationsUnavailableError,
+  RecordSalesUnavailableError,
+} from "./errors.ts";
+
+export {
+  MisoPlatformDeploymentInvalidError,
+  OperationsUnavailableError,
+  RecordSalesUnavailableError,
+} from "./errors.ts";
 
 /** Every package address a platform deployment must supply, for canonical-id
  * and pairwise-distinctness validation in {@link assertMisoPlatformDeployment}. */
@@ -66,20 +79,13 @@ export type RecordSalesDeployment =
       readonly recordShopPackageId: string;
     };
 
-export class RecordSalesUnavailableError extends Error {
-  override readonly name = "RecordSalesUnavailableError";
-  constructor(readonly reason: string) {
-    super(`@misofm/platform: Record sales are unavailable: ${reason}`);
-  }
-}
-
 export function requireRecordSalesDeployment(
   deployment: RecordSalesDeployment | undefined,
 ): Extract<RecordSalesDeployment, { status: "available" }> {
   if (!deployment || deployment.status === "unavailable") {
-    throw new RecordSalesUnavailableError(
-      deployment?.reason ?? "no Record sales deployment was configured",
-    );
+    throw new RecordSalesUnavailableError({
+      reason: deployment?.reason ?? "no Record sales deployment was configured",
+    });
   }
   const canonicalPackageId = (value: string): boolean => {
     if (!/^0x[0-9a-f]{64}$/.test(value)) return false;
@@ -93,14 +99,14 @@ export function requireRecordSalesDeployment(
     !canonicalPackageId(deployment.recordPackageId) ||
     !canonicalPackageId(deployment.recordShopPackageId)
   ) {
-    throw new RecordSalesUnavailableError(
-      "Record and Record Shop package IDs must be canonical 32-byte Sui object IDs",
-    );
+    throw new RecordSalesUnavailableError({
+      reason: "Record and Record Shop package IDs must be canonical 32-byte Sui object IDs",
+    });
   }
   if (deployment.recordPackageId === deployment.recordShopPackageId) {
-    throw new RecordSalesUnavailableError(
-      "Record and Record Shop package IDs must be distinct",
-    );
+    throw new RecordSalesUnavailableError({
+      reason: "Record and Record Shop package IDs must be distinct",
+    });
   }
   return deployment;
 }
@@ -137,13 +143,6 @@ export type OperationsDeployment =
       };
     };
 
-export class OperationsUnavailableError extends Error {
-  override readonly name = "OperationsUnavailableError";
-  constructor(readonly reason: string) {
-    super(`@misofm/platform: Vault operations are unavailable: ${reason}`);
-  }
-}
-
 export type AvailableOperationsDeployment = Extract<
   OperationsDeployment,
   { status: "available" }
@@ -172,9 +171,9 @@ export function requireOperationsDeployment(
   deployment: OperationsDeployment | undefined,
 ): AvailableOperationsDeployment {
   if (!deployment || deployment.status !== "available") {
-    throw new OperationsUnavailableError(
-      deployment?.reason ?? "no Vault operations deployment was configured",
-    );
+    throw new OperationsUnavailableError({
+      reason: deployment?.reason ?? "no Vault operations deployment was configured",
+    });
   }
 
   const candidate = deployment as Partial<AvailableOperationsDeployment>;
@@ -201,15 +200,15 @@ export function requireOperationsDeployment(
 
   for (const [field, id] of packageEntries) {
     if (!canonicalObjectId(id)) {
-      throw new OperationsUnavailableError(
-        `${field} must be a canonical 32-byte Sui package ID`,
-      );
+      throw new OperationsUnavailableError({
+        reason: `${field} must be a canonical 32-byte Sui package ID`,
+      });
     }
   }
   if (!canonicalObjectId(vault?.registryId)) {
-    throw new OperationsUnavailableError(
-      "vault.registryId must be a canonical 32-byte Sui object ID",
-    );
+    throw new OperationsUnavailableError({
+      reason: "vault.registryId must be a canonical 32-byte Sui object ID",
+    });
   }
 
   const identities = [
@@ -217,9 +216,9 @@ export function requireOperationsDeployment(
     vault.registryId,
   ];
   if (new Set(identities).size !== identities.length) {
-    throw new OperationsUnavailableError(
-      `the Vault registry object and all ${packageEntries.length} package IDs must be distinct`,
-    );
+    throw new OperationsUnavailableError({
+      reason: `the Vault registry object and all ${packageEntries.length} package IDs must be distinct`,
+    });
   }
   return deployment;
 }
@@ -316,10 +315,6 @@ export interface MisoPlatformDeployment {
   };
 }
 
-export class MisoPlatformDeploymentInvalidError extends Error {
-  override readonly name = "MisoPlatformDeploymentInvalidError";
-}
-
 /**
  * Validates the `packages` and `party` package-id sets before any Move target
  * is constructed from them: every required id must be a canonical 32-byte Sui
@@ -331,28 +326,28 @@ export function assertMisoPlatformDeployment(
   deployment: unknown,
 ): asserts deployment is MisoPlatformDeployment {
   if (!deployment || typeof deployment !== "object" || Array.isArray(deployment)) {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: deployment must be a complete MisoPlatformDeployment object.",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message: "@misofm/platform: deployment must be a complete MisoPlatformDeployment object.",
+    });
   }
   const candidate = deployment as Partial<MisoPlatformDeployment>;
   const packages = candidate.packages as Partial<MisoPlatformDeployment["packages"]> | undefined;
   const party = candidate.party as Partial<PartyExtensionsDeployment> | undefined;
   const partyos = candidate.partyos as Partial<PartyDeployment> | undefined;
   if (!packages || typeof packages !== "object") {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: deployment is missing its `packages` section.",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message: "@misofm/platform: deployment is missing its `packages` section.",
+    });
   }
   if (!party || typeof party !== "object") {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: deployment is missing its `party` section.",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message: "@misofm/platform: deployment is missing its `party` section.",
+    });
   }
   if (!partyos || typeof partyos !== "object") {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: deployment is missing its `partyos` section.",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message: "@misofm/platform: deployment is missing its `partyos` section.",
+    });
   }
 
   const seenPackageIds = new Set<string>();
@@ -363,29 +358,30 @@ export function assertMisoPlatformDeployment(
    * manifest. */
   const checkCanonical = (field: string, packageId: unknown, dedupeOk = false) => {
     if (typeof packageId !== "string") {
-      throw new MisoPlatformDeploymentInvalidError(
-        `@misofm/platform: deployment is missing package ID for "${field}".`,
-      );
+      throw new MisoPlatformDeploymentInvalidError({
+        message: `@misofm/platform: deployment is missing package ID for "${field}".`,
+      });
     }
     let normalized: string;
     try {
       normalized = normalizeSuiAddress(packageId);
     } catch {
-      throw new MisoPlatformDeploymentInvalidError(
-        `@misofm/platform: deployment package ID for "${field}" is not a valid Sui address.`,
-      );
+      throw new MisoPlatformDeploymentInvalidError({
+        message: `@misofm/platform: deployment package ID for "${field}" is not a valid Sui address.`,
+      });
     }
     if (packageId !== normalized) {
-      throw new MisoPlatformDeploymentInvalidError(
-        `@misofm/platform: deployment package ID for "${field}" must be normalized (${normalized}).`,
-      );
+      throw new MisoPlatformDeploymentInvalidError({
+        message: `@misofm/platform: deployment package ID for "${field}" must be normalized (${normalized}).`,
+      });
     }
     if (!dedupeOk) {
       if (seenPackageIds.has(packageId)) {
-        throw new MisoPlatformDeploymentInvalidError(
-          `@misofm/platform: deployment package ID for "${field}" duplicates another package. ` +
+        throw new MisoPlatformDeploymentInvalidError({
+          message:
+            `@misofm/platform: deployment package ID for "${field}" duplicates another package. ` +
             "Every package in a deployment manifest must have its own address.",
-        );
+        });
       }
       seenPackageIds.add(packageId);
     }
@@ -401,14 +397,16 @@ export function assertMisoPlatformDeployment(
     checkCanonical(`party.${key}`, party[key], key === "countryCode" || key === "languageCode");
   }
   if (party.countryCode !== packages.countryCode) {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: party.countryCode must match packages.countryCode (the same shared dependency package).",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message:
+        "@misofm/platform: party.countryCode must match packages.countryCode (the same shared dependency package).",
+    });
   }
   if (party.languageCode !== packages.languageCode) {
-    throw new MisoPlatformDeploymentInvalidError(
-      "@misofm/platform: party.languageCode must match packages.languageCode (the same shared dependency package).",
-    );
+    throw new MisoPlatformDeploymentInvalidError({
+      message:
+        "@misofm/platform: party.languageCode must match packages.languageCode (the same shared dependency package).",
+    });
   }
 }
 
@@ -571,4 +569,40 @@ export function getMisoPlatformDeployment(
     );
   }
   return deployment;
+}
+
+/** Effect-returning `assertMisoPlatformDeployment`: validation failure becomes a typed `DeploymentError`. */
+export function validateMisoPlatformDeployment(
+  deployment: unknown,
+): Effect.Effect<MisoPlatformDeployment, DeploymentError> {
+  return Effect.try({
+    try: () => normalizeMisoPlatformDeployment(deployment),
+    catch: (cause) =>
+      new DeploymentError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
+  });
+}
+
+/**
+ * The platform deployment manifest as a service, so the deployment-aware
+ * platform reads and PTB builders (notably {@link Genre.derive}, which needs
+ * the genre registry + package ids) can declare it in `R` instead of taking it
+ * as an explicit parameter. `MisoPlatformClient`/`misoPlatform()` provide this
+ * layer internally; a bare read composed from `queries.ts` functions must
+ * provide it explicitly, e.g.
+ * `program.pipe(Effect.provide(PlatformDeployment.layer(deployment)))`.
+ */
+export class PlatformDeployment extends Context.Service<PlatformDeployment, MisoPlatformDeployment>()(
+  "@misofm/platform/PlatformDeployment",
+) {
+  /** Provides a concrete, already-validated `MisoPlatformDeployment` as the service. */
+  static layer(deployment: MisoPlatformDeployment): Layer.Layer<PlatformDeployment> {
+    return Layer.succeed(PlatformDeployment, deployment);
+  }
+
+  /** Resolves a bundled deployment for `network` and provides it as the service; fails closed for unknown networks. */
+  static fromNetwork(network: string): Layer.Layer<PlatformDeployment> {
+    return PlatformDeployment.layer(getMisoPlatformDeployment(network));
+  }
 }

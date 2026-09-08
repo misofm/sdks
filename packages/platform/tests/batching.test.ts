@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
+import { Effect, Layer } from "effect";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { contracts } from "@misofm/musicos";
+import { SuiClient, SuiGraphQL } from "@misofm/effect";
 import { getTrackCreditsByRecordingIds } from "../src/catalog.ts";
 import { getReleaseCoversByIds } from "../src/cover.ts";
 import {
@@ -14,14 +16,14 @@ import {
 } from "../src/credits.ts";
 import { getListing, getPressing, getSale } from "../src/pressing.ts";
 import { getReleaseResources } from "../src/read/catalog.ts";
-import type { MisoClient } from "../src/read/client.ts";
+import type { MisoConfig } from "../src/read/config.ts";
 
 function missingClient(calls: unknown[][]): ClientWithCoreApi {
   return {
     core: {
       getObject: async ({ objectId }: { objectId: string }) => {
         calls.push([objectId]);
-        return { object: undefined };
+        throw new Error(`Object ${objectId} not found`);
       },
       getObjects: async ({ objectIds }: { objectIds: string[] }) => {
         calls.push(objectIds);
@@ -35,14 +37,14 @@ function missingClient(calls: unknown[][]): ClientWithCoreApi {
   } as unknown as ClientWithCoreApi;
 }
 
+function runWith<A, E>(client: ClientWithCoreApi, effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
+}
+
 describe("bulk Core reads", () => {
   test("covers for many releases use one request", async () => {
     const calls: unknown[][] = [];
-    const result = await getReleaseCoversByIds(
-      missingClient(calls),
-      ["0x1", "0x2"],
-      "0xa",
-    );
+    const result = await runWith(missingClient(calls), getReleaseCoversByIds(["0x1", "0x2"], "0xa"));
     expect(result).toEqual({});
     expect(calls).toHaveLength(1);
     expect(calls[0]).toHaveLength(2);
@@ -55,31 +57,32 @@ describe("bulk Core reads", () => {
       getReleaseCreditsByIds,
     ]) {
       const calls: unknown[][] = [];
-      expect(
-        await read(missingClient(calls), ["0x1", "0x2", "0x1"], "0xa"),
-      ).toEqual({});
+      expect(await runWith(missingClient(calls), read(["0x1", "0x2", "0x1"], "0xa"))).toEqual({});
       expect(calls).toHaveLength(1);
     }
   });
 
   test("pressings, listings, and a two-object sale never fan out", async () => {
     const pressingCalls: unknown[][] = [];
-    expect(await getPressing(missingClient(pressingCalls), "0x1", "0xa")).toBeNull();
+    expect(await runWith(missingClient(pressingCalls), getPressing("0x1", "0xa"))).toBeNull();
     expect(pressingCalls).toHaveLength(1);
 
     const listingCalls: unknown[][] = [];
-    expect(await getListing(missingClient(listingCalls), "0x2", "0xa")).toBeNull();
+    expect(await runWith(missingClient(listingCalls), getListing("0x2", "0xa"))).toBeNull();
     expect(listingCalls).toHaveLength(1);
 
     const saleCalls: unknown[][] = [];
     expect(
-      await getSale(missingClient(saleCalls), {
-        releaseId: "0x1",
-        edition: 1,
-        currencyType: "0x2::sui::SUI",
-        recordPackageId: "0xa",
-        recordShopPackageId: "0xb",
-      }),
+      await runWith(
+        missingClient(saleCalls),
+        getSale({
+          releaseId: "0x1",
+          edition: 1,
+          currencyType: "0x2::sui::SUI",
+          recordPackageId: "0xa",
+          recordShopPackageId: "0xb",
+        }),
+      ),
     ).toEqual({ pressing: null, listing: null });
     expect(saleCalls).toHaveLength(1);
     expect(saleCalls[0]).toHaveLength(2);
@@ -121,15 +124,12 @@ test("track credits stay at three Core batches plus one GraphQL query as track c
     },
   } as unknown as SuiGraphQLClient;
 
-  const result = await getTrackCreditsByRecordingIds(
-    client,
-    graphql,
-    recordingIds,
-    {
+  const result = await Effect.runPromise(
+    getTrackCreditsByRecordingIds(recordingIds, {
       misoPackageId: "0xa",
       compositionCreditsPackageId: "0xd",
       recordingCreditsPackageId: "0xe",
-    },
+    }).pipe(Effect.provide(Layer.mergeAll(SuiClient.layer(client), SuiGraphQL.layer(graphql)))),
   );
 
   expect(Object.keys(result)).toEqual(recordingIds);
@@ -141,41 +141,36 @@ test("release identity, cover, and credits share one Core request", async () => 
   const releaseId = "0x1";
   const calls: Array<{ objectIds: string[] }> = [];
   const client = {
-    config: {
-      protocol: {
-        releaseCoverArt: "0xa",
-        releaseCredits: "0xc",
+    core: {
+      getObjects: async (input: { objectIds: string[] }) => {
+        calls.push(input);
+        return {
+          objects: [
+            {
+              objectId: releaseId,
+              content: contracts.release.Release.serialize({
+                id: releaseId,
+                state: { Initialized: true },
+                title: "One request",
+                tracks: [],
+              }).toBytes(),
+              json: null,
+            },
+            ...input.objectIds.slice(1).map(() => new Error("field not set")),
+          ],
+        };
       },
-      walrusAggregatorUrl: "https://walrus.example",
     },
+  } as unknown as ClientWithCoreApi;
+  const config = {
     protocol: {
-      core: {
-        getObjects: async (input: { objectIds: string[] }) => {
-          calls.push(input);
-          return {
-            objects: [
-              {
-                objectId: releaseId,
-                content: contracts.release.Release.serialize({
-                  id: releaseId,
-                  state: { Initialized: true },
-                  title: "One request",
-                  tracks: [],
-                }).toBytes(),
-                json: null,
-              },
-              ...input.objectIds.slice(1).map(() => new Error("field not set")),
-            ],
-          };
-        },
-      },
+      releaseCoverArt: "0xa",
+      releaseCredits: "0xc",
     },
-  } as unknown as MisoClient;
+    walrusAggregatorUrl: "https://walrus.example",
+  } as unknown as MisoConfig;
 
-  const result = await getReleaseResources(client, releaseId, [
-    "cover",
-    "credits",
-  ]);
+  const result = await runWith(client, getReleaseResources(releaseId, config, ["cover", "credits"]));
   expect(result.release.title).toBe("One request");
   expect(result.cover).toBeNull();
   expect(result.credits).toEqual([]);

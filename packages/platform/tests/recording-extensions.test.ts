@@ -5,6 +5,8 @@ import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
+import { Effect } from "effect";
+import { SuiClient } from "@misofm/effect";
 import * as walrusData from "../src/contracts/recording_master_reference/deps/ori/data.ts";
 import * as masterReference from "../src/contracts/recording_master_reference/recording_master_reference.ts";
 import * as engineSessionContract from "../src/contracts/recording_engine_session/recording_engine_session.ts";
@@ -58,6 +60,10 @@ function moveCalls(tx: Transaction): MoveCall[] {
   return tx.getData().commands.flatMap((command) =>
     command.$kind === "MoveCall" ? [command.MoveCall as MoveCall] : []
   );
+}
+
+function run<A, E>(effect: Effect.Effect<A, E, SuiClient>, client: ClientWithCoreApi): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
 }
 
 test("builds a composable streaming-transcode attachment from a complete Quilt ID", () => {
@@ -203,13 +209,13 @@ test("reads an engine session's session blob and stems table", async () => {
   }).toBytes();
   const client = {
     core: {
-      getObjects: async (input: { objectIds: string[] }) => {
-        expect(input.objectIds).toEqual([fieldId]);
-        return { objects: [{ objectId: fieldId, content }] };
+      getObject: async (input: { objectId: string }) => {
+        expect(input.objectId).toBe(fieldId);
+        return { object: { objectId: fieldId, type: "0x2::dynamic_field::Field", version: "1", content } };
       },
     },
   } as unknown as ClientWithCoreApi;
-  await expect(getRecordingEngineSession(client, RECORDING_ONE, ENGINE_SESSION_PACKAGE)).resolves.toEqual({
+  await expect(run(getRecordingEngineSession(RECORDING_ONE, ENGINE_SESSION_PACKAGE), client)).resolves.toEqual({
     sessionBlobId: "7",
     stems: [
       { digest: "00".repeat(32), blobId: "1" },
@@ -247,7 +253,7 @@ test("reads a Recording's master-reference blob id", async () => {
   } as unknown as ClientWithCoreApi;
 
   await expect(
-    getRecordingMasterReference(client, RECORDING_ONE, PACKAGE),
+    run(getRecordingMasterReference(RECORDING_ONE, PACKAGE), client),
   ).resolves.toBe(String(BLOB_ID));
 });
 
@@ -271,11 +277,7 @@ test("batches unique master-reference fields and omits absent recordings", async
   } as unknown as ClientWithCoreApi;
 
   await expect(
-    getRecordingMasterReferencesByIds(
-      client,
-      [RECORDING_ONE, RECORDING_TWO, RECORDING_ONE],
-      PACKAGE,
-    ),
+    run(getRecordingMasterReferencesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE), client),
   ).resolves.toEqual({ [RECORDING_ONE]: String(BLOB_ID) });
   expect(calls).toEqual([
     [
@@ -353,10 +355,9 @@ function batchClient(content: (recordingId: string) => Uint8Array, calls: string
 test("getRecordingStreamingTranscodesByIds derives one field per recording and drops missing ones", async () => {
   const calls: string[][] = [];
   await expect(
-    getRecordingStreamingTranscodesByIds(
+    run(
+      getRecordingStreamingTranscodesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
       batchClient(transcodeContent, calls),
-      [RECORDING_ONE, RECORDING_TWO, RECORDING_ONE],
-      PACKAGE,
     ),
   ).resolves.toEqual({ [RECORDING_ONE]: String(QUILT_ID) });
   expect(calls).toEqual([
@@ -369,17 +370,20 @@ test("getRecordingStreamingTranscodesByIds derives one field per recording and d
 
 test("getRecordingStreamingTranscode returns null for a recording without a transcode", async () => {
   const client = batchClient(transcodeContent, []);
-  await expect(getRecordingStreamingTranscode(client, RECORDING_ONE, PACKAGE)).resolves.toBe(String(QUILT_ID));
+  await expect(run(getRecordingStreamingTranscode(RECORDING_ONE, PACKAGE), client)).resolves.toBe(String(QUILT_ID));
   const missing = {
     core: { getObjects: async () => ({ objects: [new Error("not found")] }) },
   } as unknown as ClientWithCoreApi;
-  await expect(getRecordingStreamingTranscode(missing, RECORDING_TWO, PACKAGE)).resolves.toBeNull();
+  await expect(run(getRecordingStreamingTranscode(RECORDING_TWO, PACKAGE), missing)).resolves.toBeNull();
 });
 
 test("getRecordingEngineSessionsByIds parses sessions and stems in one request", async () => {
   const calls: string[][] = [];
   await expect(
-    getRecordingEngineSessionsByIds(batchClient(sessionContent, calls), [RECORDING_ONE, RECORDING_TWO], PACKAGE),
+    run(
+      getRecordingEngineSessionsByIds([RECORDING_ONE, RECORDING_TWO], PACKAGE),
+      batchClient(sessionContent, calls),
+    ),
   ).resolves.toEqual({
     [RECORDING_ONE]: {
       sessionBlobId: String(BLOB_ID),

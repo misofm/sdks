@@ -5,7 +5,9 @@
 // object carries a screaming-snake name ("HIP_HOP"). There is no id→name table
 // anywhere off-chain, so the names are read from the objects and humanized.
 
-import type { MisoClient } from "./client.ts";
+import { Effect } from "effect";
+import { getObjectsContent, type SuiClient } from "@misofm/effect";
+import { Genre as GenreBcs } from "../contracts/genre/genre.ts";
 
 /** "HIP_HOP" → "Hip Hop". */
 function humanize(name: string): string {
@@ -18,20 +20,26 @@ function humanize(name: string): string {
 
 /**
  * Resolve `Genre` object ids to display names. Best-effort: an id that fails to
- * read is dropped rather than failing the artist page around it.
+ * read, or whose content does not parse as a `Genre`, is dropped rather than
+ * failing the artist page around it.
  */
-export async function resolveGenreNames(client: MisoClient, ids: string[]): Promise<string[]> {
+export const resolveGenreNames = Effect.fn("resolveGenreNames")(function* (
+  ids: string[],
+): Effect.fn.Return<string[], never, SuiClient> {
   if (ids.length === 0) return [];
-  try {
-    const { objects } = await client.protocol.core.getObjects({ objectIds: ids, include: { json: true } });
-    const out: string[] = [];
-    for (const o of objects) {
-      if (o instanceof Error) continue;
-      const name = (o.json as { name?: unknown } | null)?.name;
-      if (typeof name === "string" && name) out.push(humanize(name));
-    }
-    return out;
-  } catch {
-    return [];
-  }
-}
+  return yield* getObjectsContent(ids).pipe(
+    Effect.map((contentById) => {
+      const out: string[] = [];
+      for (const { content } of contentById.values()) {
+        try {
+          const name = GenreBcs.parse(content).name;
+          if (name) out.push(humanize(name));
+        } catch {
+          // Malformed content — drop this genre rather than fail the page.
+        }
+      }
+      return out;
+    }),
+    Effect.catch(() => Effect.succeed([])),
+  );
+});

@@ -10,7 +10,9 @@
 
 import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 import type { SuiClientTypes } from "@mysten/sui/client";
+import { Effect } from "effect";
 import { buildTx, toExecResult, FULL_INCLUDE, type ExecResult } from "@misofm/musicos";
+import { SuiRpcError } from "@misofm/effect/errors";
 import type { TxThunk } from "./transactions.ts";
 
 // Consumers of the platform SDK should not need a second direct dependency on
@@ -39,14 +41,16 @@ export interface PlatformExecResult extends ExecResult {
  * job (e.g. a resumable checkpoint that reconciles against on-chain state). A Move
  * abort RESOLVES as a `FailedTransaction`, so `toExecResult` surfaces it too.
  */
-export async function executeViaExecutor(
+export const executeViaExecutor = Effect.fn("executeViaExecutor")(function* (
   executor: ParallelTransactionExecutor,
   ...thunks: TxThunk[]
-): Promise<PlatformExecResult> {
-  const tx = await buildTx(...thunks);
-  const res: SuiClientTypes.TransactionResult<PlatformFullInclude> =
-    await executor.executeTransaction(tx, PLATFORM_FULL_INCLUDE);
+): Effect.fn.Return<PlatformExecResult, SuiRpcError> {
+  const tx = yield* buildTx(...thunks);
+  const res: SuiClientTypes.TransactionResult<PlatformFullInclude> = yield* Effect.tryPromise({
+    try: () => executor.executeTransaction(tx, PLATFORM_FULL_INCLUDE),
+    catch: (cause) => new SuiRpcError({ operation: "executeTransaction", cause }),
+  });
   const base = toExecResult(res);
   if (res.$kind !== "Transaction") throw new Error("unreachable: toExecResult accepted a failed transaction");
   return { ...base, events: res.Transaction.events ?? [] };
-}
+});
