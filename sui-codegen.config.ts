@@ -78,6 +78,7 @@ const config: MisoCodegenConfig = {
     { package: "@local-pkg/composition_credits", path: source("misofm/protocol-extensions/composition_credits") },
     { package: "@local-pkg/recording_advisory", path: source("misofm/protocol-extensions/recording_advisory") },
     { package: "@local-pkg/recording_credits", path: source("misofm/protocol-extensions/recording_credits") },
+    { package: "@local-pkg/recording_genre", path: source("misofm/protocol-extensions/recording_genre") },
     { package: "@local-pkg/recording_language", path: source("misofm/protocol-extensions/recording_language") },
 
     { package: "@local-pkg/recording_master_reference", path: source("misofm/protocol-extensions/recording_master_reference") },

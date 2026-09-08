@@ -45,6 +45,7 @@ export * as compositionPartyRole from "./contracts/composition_credits/compositi
 export * as recordingAdvisory from "./contracts/recording_advisory/recording_advisory.ts";
 export const recordingCredits = withoutUnsafeCalls(rawRecordingCredits, ["credits", "primaryArtistIds", "featuredArtistIds"] as const);
 export * as recordingPartyRole from "./contracts/recording_credits/recording_party_role.ts";
+export * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 export * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 export const recordingMasterReference = withoutUnsafeCalls(rawRecordingMasterReference, ["masterReference"] as const);
 export const releaseCoverArt = withoutUnsafeCalls(rawReleaseCoverArt, ["cover"] as const);

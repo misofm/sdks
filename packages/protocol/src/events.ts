@@ -11,6 +11,7 @@
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
 import * as recordingAdvisory from "./contracts/recording_advisory/recording_advisory.ts";
 import * as recordingCredits from "./contracts/recording_credits/recording_credits.ts";
+import * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 import * as recordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
@@ -60,6 +61,11 @@ export const eventParsers = {
       featuredArtistAdded: decoder(recordingCredits.FeaturedArtistAddedEvent),
       featuredArtistRemoved: decoder(recordingCredits.FeaturedArtistRemovedEvent),
     },
+    recordingGenre: {
+      genreAdded: decoder(recordingGenre.GenreAddedEvent),
+      genreRemoved: decoder(recordingGenre.GenreRemovedEvent),
+      genresCleared: decoder(recordingGenre.GenresClearedEvent),
+    },
     recordingLanguage: {
       languagesSet: decoder(recordingLanguage.LanguagesSetEvent),
       languagesUnset: decoder(recordingLanguage.LanguagesUnsetEvent),
@@ -89,11 +95,9 @@ export const eventParsers = {
       trackLinksCleared: decoder(releaseDspLink.TrackLinksClearedEvent),
     },
     releaseGenre: {
-      primarySet: decoder(releaseGenre.PrimaryGenreSetEvent),
-      secondaryAdded: decoder(releaseGenre.SecondaryGenreAddedEvent),
-      secondaryRemoved: decoder(releaseGenre.SecondaryGenreRemovedEvent),
-      trackPrimarySet: decoder(releaseGenre.TrackPrimaryGenreSetEvent),
-      trackPrimaryUnset: decoder(releaseGenre.TrackPrimaryGenreUnsetEvent),
+      genreAdded: decoder(releaseGenre.GenreAddedEvent),
+      genreRemoved: decoder(releaseGenre.GenreRemovedEvent),
+      genresCleared: decoder(releaseGenre.GenresClearedEvent),
     },
     releaseKind: {
       kindSet: decoder(releaseKind.KindSetEvent),

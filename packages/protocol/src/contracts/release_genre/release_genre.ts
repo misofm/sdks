@@ -4,74 +4,99 @@
 
 
 /**
- * Genre assignment for a Miso release: an album-level primary + secondary genres,
- * plus optional per-track primary overrides.
+ * The genre(s) a Miso `Release` is classified under, stored as a dynamic field on
+ * the release's UID and written through its cap-gated `uid_mut`.
  *
- * Genre is presentation, not objective recording data, so it is assigned on the
- * release (the consumer object), not the recording. Stored as a single
- * `ReleaseGenre` dynamic field on the release's UID, gated by the
- * `ReleaseAdminCap`.
+ * Genre is intrinsic to a recording — a fact about the master, not about any one
+ * product it appears on — so a recording's own genre lives in the sibling package
+ * `recording_genre`, on the recording itself. This package carries the different
+ * claim: what a release, as a released product, is classified as. A compilation
+ * can be "Jazz" on the shelf even when half its tracks are Blues or Funk on their
+ * own terms; that classification belongs to nobody but the release, and no amount
+ * of inspecting its recordings derives it. The intended read order for a track's
+ * genre is the recording's own (`recording_genre`), falling back to this release's
+ * primary when the recording has none — the release is the product-level default,
+ * not a per-track override, because a `Recording` carries no back-reference to any
+ * release and one recording can appear on many.
  *
- * A track's effective primary genre resolves as: its per-track override if set,
- * else the album primary.
+ * Its own package, for the same reason genre is separated from every other release
+ * fact: it is set by different people, at different times, under a vocabulary (the
+ * shared `genre` registry) that evolves on its own schedule. A consumer building a
+ * metadata profile picks this extension up or ignores it, and revising it never
+ * disturbs anything else the release carries.
  *
- * A genre is either the album primary or a secondary, never both — the two are
- * kept disjoint: setting the primary to a current secondary aborts (remove it from
- * the secondaries first), and adding the current primary as a secondary aborts.
+ * Genres are kept as one ordered list, primary first, rather than a primary field
+ * plus a separate secondary set. A release either has a primary genre or it has no
+ * genre assignment at all — there is no state where secondaries exist without a
+ * primary, or where the primary and a secondary are the same entry needing to be
+ * kept disjoint — so the two structures collapse to one without losing anything
+ * the list needs to say. Reordering — including promoting an existing entry to
+ * primary — is `clear_genres` followed by `add_genre` in the desired order,
+ * atomically within one programmable transaction block. That is preferable to a
+ * dedicated set-primary function: one fewer function to review and keep in sync
+ * with `recording_genre`, no conditional-capacity branch (insert-new-at-front vs.
+ * move-existing-to- front), and the client expresses its intended final order
+ * directly instead of encoding it as a sequence of promotions. Order beyond index
+ * 0 is the caller's, in the same convention `recording_language` uses for its
+ * language vector: first is authoritative, the rest are unranked.
+ *
+ * The stored value is a bare `vector<ID>` under the package's own key, with no
+ * wrapper struct — the same shape `party_genre` uses for its `VecSet<ID>` and
+ * `recording_language` for its `vector<LanguageCode>`. The list is non-empty by
+ * construction: `remove_genre` drops the field the moment the last entry leaves,
+ * so "the field exists" and "there is a primary" are the same fact and no reader
+ * has to handle an attached-but-empty case. Every write takes `&Genre`, so only an
+ * id that the shared vocabulary actually minted can ever enter the list; removal
+ * takes a bare `ID` because nothing about proving membership is needed to take an
+ * entry back out.
+ *
+ * This module exposes no function derivable by composing the others. This package
+ * is never upgraded — every publish is a fresh identity at a fresh address — so
+ * every public function is permanent surface: once live, it must be carried,
+ * re-published, and re-audited for as long as the package is in use. A predicate
+ * or accessor a caller can compute from `genres()` earns nothing by also living
+ * on-chain. Concretely: emptiness is `genres(release).is_empty()`, and the primary
+ * is `genres(release)[0]` (valid whenever the vector is non-empty, by the
+ * non-empty-by-construction invariant above).
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction } from '@mysten/sui/transactions';
-import * as per_track from './deps/per_track/per_track.ts';
 const $moduleName = '@local-pkg/release_genre::release_genre';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const ReleaseGenre = new MoveStruct({ name: `${$moduleName}::ReleaseGenre`, fields: {
-        primary: bcs.Address,
-        secondary: bcs.vector(bcs.Address),
-        track_primary: per_track.PerTrack(bcs.option(bcs.Address))
-    } });
-export const PrimaryGenreSetEvent = new MoveStruct({ name: `${$moduleName}::PrimaryGenreSetEvent`, fields: {
+export const GenreAddedEvent = new MoveStruct({ name: `${$moduleName}::GenreAddedEvent`, fields: {
         release_id: bcs.Address,
         genre_id: bcs.Address
     } });
-export const SecondaryGenreAddedEvent = new MoveStruct({ name: `${$moduleName}::SecondaryGenreAddedEvent`, fields: {
+export const GenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::GenreRemovedEvent`, fields: {
         release_id: bcs.Address,
         genre_id: bcs.Address
     } });
-export const SecondaryGenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::SecondaryGenreRemovedEvent`, fields: {
-        release_id: bcs.Address,
-        genre_id: bcs.Address
+export const GenresClearedEvent = new MoveStruct({ name: `${$moduleName}::GenresClearedEvent`, fields: {
+        release_id: bcs.Address
     } });
-export const TrackPrimaryGenreSetEvent = new MoveStruct({ name: `${$moduleName}::TrackPrimaryGenreSetEvent`, fields: {
-        release_id: bcs.Address,
-        track_index: bcs.u64(),
-        genre_id: bcs.Address
-    } });
-export const TrackPrimaryGenreUnsetEvent = new MoveStruct({ name: `${$moduleName}::TrackPrimaryGenreUnsetEvent`, fields: {
-        release_id: bcs.Address,
-        track_index: bcs.u64()
-    } });
-export interface SetPrimaryGenreArguments {
+export interface AddGenreArguments {
     self: RawTransactionArgument<string>;
     cap: RawTransactionArgument<string>;
     genre: RawTransactionArgument<string>;
 }
-export interface SetPrimaryGenreOptions {
+export interface AddGenreOptions {
     package?: string;
-    arguments: SetPrimaryGenreArguments | [
+    arguments: AddGenreArguments | [
         self: RawTransactionArgument<string>,
         cap: RawTransactionArgument<string>,
         genre: RawTransactionArgument<string>
     ];
 }
 /**
- * Sets (or replaces) the album primary genre. Gated by the release admin cap.
- * Aborts if the genre is currently an album secondary — remove it from the
- * secondaries first (primary and secondary are kept disjoint).
+ * Appends a genre to the release's list. Creates the field on first use, in which
+ * case that genre becomes the primary by being the only entry. Aborts
+ * `EDuplicateGenre` if the genre is already present, `EMaxGenres` if the release
+ * is already at capacity.
  */
-export function setPrimaryGenre(options: SetPrimaryGenreOptions) {
+export function addGenre(options: AddGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';
     const argumentsTypes = [
         null,
@@ -82,149 +107,88 @@ export function setPrimaryGenre(options: SetPrimaryGenreOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'release_genre',
-        function: 'set_primary_genre',
+        function: 'add_genre',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface AddSecondaryGenreArguments {
+export interface RemoveGenreArguments {
     self: RawTransactionArgument<string>;
     cap: RawTransactionArgument<string>;
-    genre: RawTransactionArgument<string>;
+    genreId: RawTransactionArgument<string>;
 }
-export interface AddSecondaryGenreOptions {
+export interface RemoveGenreOptions {
     package?: string;
-    arguments: AddSecondaryGenreArguments | [
+    arguments: RemoveGenreArguments | [
         self: RawTransactionArgument<string>,
         cap: RawTransactionArgument<string>,
-        genre: RawTransactionArgument<string>
+        genreId: RawTransactionArgument<string>
     ];
 }
 /**
- * Adds an album secondary genre. Requires the album primary first. Rejects a
- * secondary equal to the primary, duplicates, and counts at/above the maximum.
+ * Removes a genre from the release by id. If it was the primary, the next entry
+ * (if any) becomes primary by virtue of now sitting at index 0. Removing the last
+ * genre drops the field entirely and additionally emits `GenresClearedEvent`.
+ * Aborts `EGenreNotPresent` if the genre is not currently assigned, including when
+ * the release has no genres at all.
  */
-export function addSecondaryGenre(options: AddSecondaryGenreOptions) {
+export function removeGenre(options: RemoveGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';
     const argumentsTypes = [
         null,
         null,
-        null
+        '0x2::object::ID'
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "cap", "genre"];
+    const parameterNames = ["self", "cap", "genreId"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'release_genre',
-        function: 'add_secondary_genre',
+        function: 'remove_genre',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface RemoveSecondaryGenreArguments {
+export interface ClearGenresArguments {
     self: RawTransactionArgument<string>;
     cap: RawTransactionArgument<string>;
-    genre: RawTransactionArgument<string>;
 }
-export interface RemoveSecondaryGenreOptions {
+export interface ClearGenresOptions {
     package?: string;
-    arguments: RemoveSecondaryGenreArguments | [
+    arguments: ClearGenresArguments | [
         self: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<string>,
-        genre: RawTransactionArgument<string>
-    ];
-}
-/** Removes an album secondary genre. */
-export function removeSecondaryGenre(options: RemoveSecondaryGenreOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_genre';
-    const argumentsTypes = [
-        null,
-        null,
-        null
-    ] satisfies (string | null)[];
-    const parameterNames = ["self", "cap", "genre"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_genre',
-        function: 'remove_secondary_genre',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-    });
-}
-export interface SetTrackPrimaryGenreArguments {
-    self: RawTransactionArgument<string>;
-    cap: RawTransactionArgument<string>;
-    trackIndex: RawTransactionArgument<number | bigint>;
-    genre: RawTransactionArgument<string>;
-}
-export interface SetTrackPrimaryGenreOptions {
-    package?: string;
-    arguments: SetTrackPrimaryGenreArguments | [
-        self: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<string>,
-        trackIndex: RawTransactionArgument<number | bigint>,
-        genre: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
 }
 /**
- * Sets (or replaces) a track's primary-genre override (by tracklist index).
- * Requires the album primary first. Aborts if the index is out of range.
+ * Removes the release's entire genre list. A no-op when nothing is attached. Emits
+ * `GenresClearedEvent` only when a list was actually removed.
  */
-export function setTrackPrimaryGenre(options: SetTrackPrimaryGenreOptions) {
+export function clearGenres(options: ClearGenresOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';
     const argumentsTypes = [
         null,
-        null,
-        'u64',
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "cap", "trackIndex", "genre"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'release_genre',
-        function: 'set_track_primary_genre',
+        function: 'clear_genres',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface UnsetTrackPrimaryGenreArguments {
-    self: RawTransactionArgument<string>;
-    cap: RawTransactionArgument<string>;
-    trackIndex: RawTransactionArgument<number | bigint>;
-}
-export interface UnsetTrackPrimaryGenreOptions {
-    package?: string;
-    arguments: UnsetTrackPrimaryGenreArguments | [
-        self: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<string>,
-        trackIndex: RawTransactionArgument<number | bigint>
-    ];
-}
-/**
- * Removes a track's primary-genre override — the track falls back to the album
- * primary. Aborts if the index is out of range.
- */
-export function unsetTrackPrimaryGenre(options: UnsetTrackPrimaryGenreOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_genre';
-    const argumentsTypes = [
-        null,
-        null,
-        'u64'
-    ] satisfies (string | null)[];
-    const parameterNames = ["self", "cap", "trackIndex"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_genre',
-        function: 'unset_track_primary_genre',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-    });
-}
-export interface HasGenreArguments {
+export interface GenresArguments {
     self: RawTransactionArgument<string>;
 }
-export interface HasGenreOptions {
+export interface GenresOptions {
     package?: string;
-    arguments: HasGenreArguments | [
+    arguments: GenresArguments | [
         self: RawTransactionArgument<string>
     ];
 }
-/** Returns whether the release has a genre assignment. */
-export function hasGenre(options: HasGenreOptions) {
+/**
+ * The release's genre ids, in order, primary first. Empty when nothing is
+ * attached.
+ */
+export function genres(options: GenresOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';
     const argumentsTypes = [
         null
@@ -233,83 +197,7 @@ export function hasGenre(options: HasGenreOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'release_genre',
-        function: 'has_genre',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-    });
-}
-export interface PrimaryGenreArguments {
-    self: RawTransactionArgument<string>;
-}
-export interface PrimaryGenreOptions {
-    package?: string;
-    arguments: PrimaryGenreArguments | [
-        self: RawTransactionArgument<string>
-    ];
-}
-/** Returns the album primary genre id, if set. */
-export function primaryGenre(options: PrimaryGenreOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_genre';
-    const argumentsTypes = [
-        null
-    ] satisfies (string | null)[];
-    const parameterNames = ["self"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_genre',
-        function: 'primary_genre',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-    });
-}
-export interface SecondaryGenresArguments {
-    self: RawTransactionArgument<string>;
-}
-export interface SecondaryGenresOptions {
-    package?: string;
-    arguments: SecondaryGenresArguments | [
-        self: RawTransactionArgument<string>
-    ];
-}
-/** Returns the album secondary genre ids (empty if none). */
-export function secondaryGenres(options: SecondaryGenresOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_genre';
-    const argumentsTypes = [
-        null
-    ] satisfies (string | null)[];
-    const parameterNames = ["self"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_genre',
-        function: 'secondary_genres',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-    });
-}
-export interface TrackPrimaryGenreArguments {
-    self: RawTransactionArgument<string>;
-    trackIndex: RawTransactionArgument<number | bigint>;
-}
-export interface TrackPrimaryGenreOptions {
-    package?: string;
-    arguments: TrackPrimaryGenreArguments | [
-        self: RawTransactionArgument<string>,
-        trackIndex: RawTransactionArgument<number | bigint>
-    ];
-}
-/**
- * Returns a track's effective primary genre: its override if set, else the album
- * primary. None if no genre is assigned to the release. Aborts if the track index
- * is out of range (when an assignment exists).
- */
-export function trackPrimaryGenre(options: TrackPrimaryGenreOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_genre';
-    const argumentsTypes = [
-        null,
-        'u64'
-    ] satisfies (string | null)[];
-    const parameterNames = ["self", "trackIndex"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_genre',
-        function: 'track_primary_genre',
+        function: 'genres',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }

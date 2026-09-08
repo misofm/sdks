@@ -7,17 +7,15 @@
 
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { bcs } from "@mysten/sui/bcs";
-import { deriveDynamicFieldID, deriveObjectID } from "@mysten/sui/utils";
+import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type {
   Transaction,
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import type { TxThunk } from "./transactions.ts";
-import * as genre from "@misofm/protocol/contracts/genre/genre";
 import * as releaseDescription from "@misofm/protocol/contracts/release_description/release_description";
 import * as releaseDspLink from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
-import * as releaseGenre from "@misofm/protocol/contracts/release_genre/release_genre";
 import * as releaseKind from "@misofm/protocol/contracts/release_kind/release_kind";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 
@@ -124,75 +122,6 @@ export function setReleaseDescription(p: SetReleaseDescriptionParams): TxThunk {
       arguments: [object(tx, p.releaseId), tx.pure.string(p.description)],
       adminCapIndex: 1,
     });
-  };
-}
-
-const GENRE_NAME_RE = /^[A-Z]+(?:_[A-Z]+)*$/;
-
-/** Validate the canonical on-chain genre vocabulary spelling. */
-export function assertCanonicalGenreName(name: string): void {
-  const bytes = new TextEncoder().encode(name).length;
-  if (bytes === 0 || bytes > 64 || !GENRE_NAME_RE.test(name)) {
-    throw new Error(
-      `Genre name must be 1-64 bytes of uppercase A-Z and underscores; got ${JSON.stringify(name)}`,
-    );
-  }
-}
-
-/** Derive the immutable Genre object address for a canonical vocabulary name.
- * `genrePackageId` must be the genre package's defining (original publish)
- * address — the on-chain derivation hashes type names with defining IDs. */
-export function deriveGenreAddress(
-  genreRegistryId: string,
-  genrePackageId: string,
-  canonicalName: string,
-): string {
-  assertCanonicalGenreName(canonicalName);
-  return deriveObjectID(
-    genreRegistryId,
-    `${genrePackageId}::genre::GenreKey`,
-    genre.GenreKey.serialize([canonicalName]).toBytes(),
-  );
-}
-
-export interface TrackGenreAssignment {
-  trackIndex: U64Input;
-  genreId: string;
-}
-
-export type SetReleaseGenresParams = ReleaseExtensionTarget & {
-  primaryGenreId: string;
-  secondaryGenreIds?: readonly string[];
-  trackPrimaryGenres?: readonly TrackGenreAssignment[];
-  releaseGenrePackageId: string;
-};
-
-/** Attach primary/secondary release genres and optional per-track overrides. */
-export function setReleaseGenres(p: SetReleaseGenresParams): TxThunk {
-  return (tx) => {
-    invokeWithAdminCap(tx, authority(p), {
-      target: `${p.releaseGenrePackageId}::release_genre::set_primary_genre`,
-      arguments: [object(tx, p.releaseId), tx.object(p.primaryGenreId)],
-      adminCapIndex: 1,
-    });
-    for (const genreId of p.secondaryGenreIds ?? []) {
-      invokeWithAdminCap(tx, authority(p), {
-        target: `${p.releaseGenrePackageId}::release_genre::add_secondary_genre`,
-        arguments: [object(tx, p.releaseId), tx.object(genreId)],
-        adminCapIndex: 1,
-      });
-    }
-    for (const assignment of p.trackPrimaryGenres ?? []) {
-      invokeWithAdminCap(tx, authority(p), {
-        target: `${p.releaseGenrePackageId}::release_genre::set_track_primary_genre`,
-        arguments: [
-          object(tx, p.releaseId),
-          tx.pure.u64(asU64("trackIndex", assignment.trackIndex)),
-          tx.object(assignment.genreId),
-        ],
-        adminCapIndex: 1,
-      });
-    }
   };
 }
 

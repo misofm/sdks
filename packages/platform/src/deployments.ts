@@ -205,14 +205,19 @@ export interface MisoPlatformDeployment {
     /** Cover-art value type used by the release cover extension. */
     readonly coverArt: string;
     readonly releaseCoverArt: string;
-    /** Curated Genre vocabulary package used by release_genre. */
+    /** Curated Genre vocabulary package used by release_genre and recording_genre. */
     readonly genre: string;
     readonly releaseDescription: string;
     readonly releaseDspLink: string;
+    // Predates the ordered-list (`vector<ID>`, add/set-primary/remove) redesign —
+    // this id has no `add_genre` and must be replaced by the republished package
+    // before use. See the no-upgrades policy: misofm never upgrades in place.
     readonly releaseGenre: string;
     readonly releaseKind: string;
     readonly recordingAdvisory: string;
     readonly recordingLanguage: string;
+    /** Ordered recording genre list (primary first). Optional until first published. */
+    readonly recordingGenre?: string;
     readonly recordingMasterReference: string;
     /** Complete Walrus Quilt containing the Recording's streaming transcodes. */
     readonly recordingStreamingTranscode?: string;
@@ -311,6 +316,9 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0x60a8bc11b7d41d594a2c54c8dee4534dcf94d3be20054100c7774026a543ec6f",
       releaseDspLink:
         "0xbeffd79f656ce89d3595c9fb36dac42a169b72a5e7090504c48ba6c2425961a6",
+      // Predates the ordered-list (`vector<ID>`, add/set-primary/remove) redesign
+      // of release_genre — this id has no `add_genre` and must be replaced by
+      // the republished package before use.
       releaseGenre:
         "0x111dd8bff35a1779067d7c75f8a514691342f91f67d2fcdae392768ba6db26f2",
       releaseKind:

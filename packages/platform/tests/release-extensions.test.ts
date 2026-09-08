@@ -4,12 +4,11 @@
 import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";
 import {
-  deriveGenreAddress,
   setReleaseDescription,
   setReleaseDspLinks,
-  setReleaseGenres,
   setReleaseKind,
 } from "../src/release-extensions.ts";
+import { setReleaseGenres } from "../src/genre.ts";
 import { setReleaseTrackCover } from "../src/cover.ts";
 
 const PKG = "0x" + "cd".repeat(32);
@@ -49,9 +48,7 @@ test("release metadata builders cover every attach-at-publish extension", () => 
   setReleaseGenres({
     releaseId: A,
     releaseAdminCapId: A,
-    primaryGenreId: A,
-    secondaryGenreIds: [B],
-    trackPrimaryGenres: [{ trackIndex: 0, genreId: C }],
+    genreIds: [A, B, C],
     releaseGenrePackageId: PKG,
   })(tx);
   setReleaseDspLinks({
@@ -84,9 +81,9 @@ test("release metadata builders cover every attach-at-publish extension", () => 
   const labels = calls(tx).map((call) => `${call.module}::${call.function}`);
   expect(labels).toContain("release_kind::set_kind");
   expect(labels).toContain("release_description::set_description");
-  expect(labels).toContain("release_genre::set_primary_genre");
-  expect(labels).toContain("release_genre::add_secondary_genre");
-  expect(labels).toContain("release_genre::set_track_primary_genre");
+  expect(labels.filter((label) => label === "release_genre::add_genre")).toHaveLength(3);
+  expect(labels.filter((label) => label === "release_genre::clear_genres")).toHaveLength(1);
+  expect(labels.filter((label) => label.startsWith("release_genre::"))).toHaveLength(4);
   expect(labels).toContain("release_dsp_link::set_release_link");
   expect(labels).toContain("release_dsp_link::set_track_link");
   expect(labels).toContain("release_cover_art::set_track_cover");
@@ -133,28 +130,4 @@ test("release kind and description mirror Move byte limits", () => {
       releaseDescriptionPackageId: PKG,
     }),
   ).toThrow(/8192 UTF-8 bytes/);
-});
-
-test("genre ids are deterministic and canonical names fail closed", () => {
-  expect(deriveGenreAddress(A, PKG, "ELECTRONIC")).toMatch(/^0x[0-9a-f]{64}$/);
-  expect(deriveGenreAddress(A, PKG, "ELECTRONIC")).toBe(
-    deriveGenreAddress(A, PKG, "ELECTRONIC"),
-  );
-  expect(() => deriveGenreAddress(A, PKG, "Electronic")).toThrow(
-    /uppercase A-Z and underscores/,
-  );
-});
-
-// Pinned against the on-chain derivation (sui::derived_object::derive_address
-// via df::hash_type_and_key with the DerivedObjectKey wrapper), computed by a
-// genre unit test on sui 1.77.2: registry 0x3440…, package 0xcbbc…, name
-// "ELECTRONIC" → 0xc381…. Guards the off-chain formula byte-for-byte.
-test("genre address derivation matches the on-chain test vector", () => {
-  expect(
-    deriveGenreAddress(
-      "0x34401905bebdf8c04f3cd5f04f442a39372c8dc321c29edfb4f9cb30b23ab96",
-      "0xcbbce10e8b0781d458e88ce99d08e0c85f1e674c5b7ec975383d74f87a1d76b1",
-      "ELECTRONIC",
-    ),
-  ).toBe("0xc381b7c03d87719d0e1b7b33a08ba8193bfa0af612b05705c4b62a54b18f5ddb");
 });

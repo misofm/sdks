@@ -58,6 +58,7 @@ function params(): AtomicPublicationParams {
         ...getMisoPlatformDeployment("testnet").packages,
         recordingStreamingTranscode: id(110),
         recordingEngineSession: id(111),
+        recordingGenre: id(112),
       },
       recordSales: {
         status: "available",
@@ -117,6 +118,7 @@ function params(): AtomicPublicationParams {
         royaltyPool: { currencyType: "0x2::sui::SUI" },
         routedStake: true,
         advisory: "Explicit",
+        genres: [A],
         languages: { kind: "languages", codes: ["en"] },
         masterReferenceBlobId: 1n,
         streamingTranscodeQuiltId: 2n,
@@ -131,7 +133,7 @@ function params(): AtomicPublicationParams {
       credits: [{ party: "artist", displayName: "Artist", role: "Primary" }],
       kind: "EP",
       description: "Description",
-      genres: { primaryGenreId: A },
+      genres: [A],
       cover: { stillBlobId: 3n },
       revenueDistribution: true,
     },
@@ -189,7 +191,10 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("release_credits::add_credit")).toBe(1);
   expect(count("release_kind::set_kind")).toBe(1);
   expect(count("release_description::set_description")).toBe(1);
-  expect(count("release_genre::set_primary_genre")).toBe(1);
+  expect(count("release_genre::clear_genres")).toBe(1);
+  expect(count("release_genre::add_genre")).toBe(1);
+  expect(count("recording_genre::clear_genres")).toBe(1);
+  expect(count("recording_genre::add_genre")).toBe(1);
   expect(count("release_cover_art::set_cover")).toBe(1);
   expect(count("composition_royalty_pool_plugin::install")).toBe(1);
   expect(count("composition_royalty_pool::new_pool")).toBe(1);
@@ -287,6 +292,24 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
     command.$kind === "MoveCall" && command.MoveCall.module === "routed_stake" && command.MoveCall.function === "share"
   )!.MoveCall;
   expect(share.arguments).toEqual([{ Result: routedIndex, $kind: "Result" }]);
+});
+
+test("recording genres require deployment.packages.recordingGenre", () => {
+  const input = params();
+  const withoutRecordingGenre: AtomicPublicationParams = {
+    ...input,
+    deployment: {
+      ...input.deployment,
+      packages: {
+        ...input.deployment.packages,
+        recordingGenre: undefined,
+      },
+    },
+  };
+  const tx = new Transaction();
+  expect(() => publishAtomicCatalog(withoutRecordingGenre)(tx)).toThrow(
+    /require deployment\.packages\.recordingGenre/,
+  );
 });
 
 test("atomic publication is exactly assembled and checked before execution", () => {

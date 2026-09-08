@@ -63,6 +63,7 @@ export * as read from "./read/index.ts";
 export * from "./credits.ts";
 export * from "./cover.ts";
 export * from "./release-extensions.ts";
+export * from "./genre.ts";
 export * from "./recording-extensions.ts";
 export * from "./vault.ts";
 

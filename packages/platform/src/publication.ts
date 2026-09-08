@@ -58,10 +58,10 @@ import { unencryptedWalrusBlob } from "./internal.ts";
 import {
   setReleaseDescription,
   setReleaseDspLinks,
-  setReleaseGenres,
   setReleaseKind,
   type DspLink,
 } from "./release-extensions.ts";
+import { setReleaseGenres, setRecordingGenres } from "./genre.ts";
 import { setReleaseCover, setReleaseTrackCover } from "./cover.ts";
 import {
   custodyNewAdminCap,
@@ -183,6 +183,8 @@ export type PublicationRecording = PublicationRecordingParent & {
   /** Route the exact parent Composition royalty cut through this Recording's pool. */
   readonly routedStake?: true;
   readonly advisory?: "Explicit" | "NotExplicit" | "Cleaned";
+  /** Ordered genre object ids, primary first (1-6). */
+  readonly genres?: string[];
   readonly languages?: PublicationRecordingLanguages;
   readonly masterReferenceBlobId?: bigint | string;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
@@ -214,11 +216,8 @@ export interface PublicationRelease {
   readonly credits?: PublicationReleaseCredit[];
   readonly kind?: string;
   readonly description?: string;
-  readonly genres?: {
-    readonly primaryGenreId: string;
-    readonly secondaryGenreIds?: string[];
-    readonly tracks?: { readonly trackIndex: number; readonly genreId: string }[];
-  };
+  /** Ordered genre object ids, primary first (1-6). */
+  readonly genres?: string[];
   readonly dspLinks?: {
     readonly release?: DspLink[];
     readonly tracks?: { readonly trackIndex: number; readonly link: DspLink }[];
@@ -863,6 +862,21 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
         recordingAdvisoryPackageId: p.deployment.packages.recordingAdvisory,
         rating: node.advisory,
       })(tx);
+      if (node.genres) {
+        const recordingGenrePackageId = p.deployment.packages.recordingGenre;
+        if (!recordingGenrePackageId) {
+          throw new Error(
+            "publishAtomicCatalog: recording genres require deployment.packages.recordingGenre",
+          );
+        }
+        setRecordingGenres({
+          recordingId: parts.work, authority,
+          recordingShareType: node.shareType,
+          compositionShareType: node.compositionShareType,
+          recordingGenrePackageId,
+          genreIds: node.genres,
+        })(tx);
+      }
       if (node.languages?.kind === "instrumental") setRecordingInstrumental({
         recordingId: parts.work, authority,
         recordingShareType: node.shareType,
@@ -922,9 +936,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
       })(tx);
       if (p.release.genres) setReleaseGenres({
         releaseId: releaseObject, authority,
-        primaryGenreId: p.release.genres.primaryGenreId,
-        secondaryGenreIds: p.release.genres.secondaryGenreIds ?? [],
-        trackPrimaryGenres: p.release.genres.tracks ?? [],
+        genreIds: p.release.genres,
         releaseGenrePackageId: p.deployment.packages.releaseGenre,
       })(tx);
       if (p.release.dspLinks) setReleaseDspLinks({

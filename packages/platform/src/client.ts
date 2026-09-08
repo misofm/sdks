@@ -64,6 +64,7 @@ import * as recordingAdvisoryContract from "@misofm/protocol/contracts/recording
 import * as recordingLanguageContract from "@misofm/protocol/contracts/recording_language/recording_language";
 import * as recordingMasterReferenceContract from "@misofm/protocol/contracts/recording_master_reference/recording_master_reference";
 import * as recordingStreamingTranscodeContract from "@misofm/protocol/contracts/recording_streaming_transcode/recording_streaming_transcode";
+import * as recordingGenreContract from "@misofm/protocol/contracts/recording_genre/recording_genre";
 import * as vaultActions from "./vault.ts";
 import * as coverArtContract from "@misofm/protocol/contracts/cover_art/cover_art";
 import * as releaseCoverArtContract from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
@@ -128,16 +129,24 @@ import {
 } from "./deployments.ts";
 import { immutableSnapshot } from "./internal.ts";
 import {
-  deriveGenreAddress,
   setReleaseDescription,
   setReleaseDspLinks,
-  setReleaseGenres,
   setReleaseKind,
   type SetReleaseDescriptionParams,
   type SetReleaseDspLinksParams,
-  type SetReleaseGenresParams,
   type SetReleaseKindParams,
 } from "./release-extensions.ts";
+import {
+  deriveGenreAddress,
+  setReleaseGenres,
+  setRecordingGenres,
+  clearReleaseGenres,
+  clearRecordingGenres,
+  type SetReleaseGenresParams,
+  type SetRecordingGenresParams,
+  type ClearReleaseGenresParams,
+  type ClearRecordingGenresParams,
+} from "./genre.ts";
 import {
   setRecordingStreamingTranscode,
   unsetRecordingStreamingTranscode,
@@ -296,6 +305,7 @@ export interface MisoPlatformConfig {
   releaseDspLinkPackageId?: string;
   recordingAdvisoryPackageId?: string;
   recordingLanguagePackageId?: string;
+  recordingGenrePackageId?: string;
   recordingMasterReferencePackageId?: string;
   recordingStreamingTranscodePackageId?: string;
   /** Structurally complete Vault/Action/plugin identity set. */
@@ -346,6 +356,18 @@ type ConfiguredReleaseDescription = DistributiveOmit<
 type ConfiguredReleaseGenres = DistributiveOmit<
   SetReleaseGenresParams,
   "releaseGenrePackageId"
+>;
+type ConfiguredRecordingGenres = DistributiveOmit<
+  SetRecordingGenresParams,
+  "recordingGenrePackageId"
+>;
+type ConfiguredClearReleaseGenres = DistributiveOmit<
+  ClearReleaseGenresParams,
+  "releaseGenrePackageId"
+>;
+type ConfiguredClearRecordingGenres = DistributiveOmit<
+  ClearRecordingGenresParams,
+  "recordingGenrePackageId"
 >;
 type ConfiguredReleaseDspLinks = DistributiveOmit<
   SetReleaseDspLinksParams,
@@ -751,6 +773,14 @@ export class MisoPlatformClient {
           "setReleaseGenres",
         ),
       }),
+    clearReleaseGenres: (p: ConfiguredClearReleaseGenres): TxThunk =>
+      clearReleaseGenres({
+        ...p,
+        releaseGenrePackageId: this.#requiredConfig(
+          "releaseGenrePackageId",
+          "clearReleaseGenres",
+        ),
+      }),
     setReleaseDspLinks: (p: ConfiguredReleaseDspLinks): TxThunk =>
       setReleaseDspLinks({
         ...p,
@@ -822,6 +852,22 @@ export class MisoPlatformClient {
         recordingStreamingTranscodePackageId: this.#requiredConfig(
           "recordingStreamingTranscodePackageId",
           "unsetRecordingStreamingTranscode",
+        ),
+      }),
+    setRecordingGenres: (p: ConfiguredRecordingGenres): TxThunk =>
+      setRecordingGenres({
+        ...p,
+        recordingGenrePackageId: this.#requiredConfig(
+          "recordingGenrePackageId",
+          "setRecordingGenres",
+        ),
+      }),
+    clearRecordingGenres: (p: ConfiguredClearRecordingGenres): TxThunk =>
+      clearRecordingGenres({
+        ...p,
+        recordingGenrePackageId: this.#requiredConfig(
+          "recordingGenrePackageId",
+          "clearRecordingGenres",
         ),
       }),
   }, (operation) => this.#requireReady(operation), "tx");
@@ -966,14 +1012,7 @@ export class MisoPlatformClient {
         ? bindModulePackage(
             releaseGenreContract,
             this.#config.releaseGenrePackageId,
-            [
-              "setPrimaryGenre",
-              "addSecondaryGenre",
-              "removeSecondaryGenre",
-              "setTrackPrimaryGenre",
-              "unsetTrackPrimaryGenre",
-              "hasGenre",
-            ] as const,
+            ["addGenre", "removeGenre", "clearGenres"] as const,
           )
         : undefined,
       releaseKind: this.#config.releaseKindPackageId
@@ -1161,6 +1200,13 @@ export class MisoPlatformClient {
             ] as const,
           )
         : undefined,
+      recordingGenre: this.#config.recordingGenrePackageId
+        ? bindModulePackage(
+            recordingGenreContract,
+            this.#config.recordingGenrePackageId,
+            ["addGenre", "removeGenre", "clearGenres"] as const,
+          )
+        : undefined,
       coverArt: this.#config.coverArtPackageId
         ? bindModulePackage(
             coverArtContract,
@@ -1265,6 +1311,7 @@ export function miso<const Name extends string = "miso">(
           releaseDspLinkPackageId: deployment.packages.releaseDspLink,
           recordingAdvisoryPackageId: deployment.packages.recordingAdvisory,
           recordingLanguagePackageId: deployment.packages.recordingLanguage,
+          recordingGenrePackageId: deployment.packages.recordingGenre,
           recordingMasterReferencePackageId:
             deployment.packages.recordingMasterReference,
           recordingStreamingTranscodePackageId:

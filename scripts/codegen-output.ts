@@ -35,6 +35,7 @@ export const GENERATED_CONTRACT_DIRECTORIES = new Set([
   "release_description",
   "release_dsp_link",
   "release_genre",
+  "recording_genre",
   "release_kind",
   "royalty_pool",
   "routed_stake",

@@ -104,6 +104,7 @@ export const MISO_DEPLOYMENTS = Object.freeze({
     releaseCredits: "0x3a05d0c863ca0b5210f90f69cf87da59791b127c9eaaa10633961aee229a3ed5",
     releaseDescription: "0x60a8bc11b7d41d594a2c54c8dee4534dcf94d3be20054100c7774026a543ec6f",
     releaseDspLink: "0xbeffd79f656ce89d3595c9fb36dac42a169b72a5e7090504c48ba6c2425961a6",
+    // Predates the ordered-list (`vector<ID>`, add/set-primary/remove) redesign — this id has no `add_genre` and must be replaced by the republished package before use.
     releaseGenre: "0x111dd8bff35a1779067d7c75f8a514691342f91f67d2fcdae392768ba6db26f2",
     releaseKind: "0x90bf2633b45699d424da616869ecb3d824a88d78d8f8d2ccf5b711b18a734bf1",
     royaltyPool: "0xa49e297e4ed8c29ea9bd5941b3ac7d41327f97c85fc35e11bda466f09fce1943",
