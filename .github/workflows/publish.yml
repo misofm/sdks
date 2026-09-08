@@ -1,13 +1,13 @@
 name: Publish to npm
 
-# Publishes on a per-package version tag (musicos-v0.1.0, partyos-v0.1.0, platform-v0.25.0,
-# streaming-v0.1.0, transcoding-v0.3.0, …), so a release is a deliberate act rather
-# than a side effect of merging, and releasing one workspace package never
+# Publishes on a per-package version tag (effect-v0.1.0, musicos-v0.1.0, partyos-v0.1.0,
+# platform-v0.25.0, streaming-v0.1.0, transcoding-v0.3.0, …), so a release is a deliberate act
+# rather than a side effect of merging, and releasing one workspace package never
 # implies another. Failed tag jobs
 # can be re-run from Actions without permitting a branch to publish a package.
 on:
   push:
-    tags: ["musicos-v*", "partyos-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
+    tags: ["effect-v*", "musicos-v*", "partyos-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -53,6 +53,10 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           case "$TAG" in
+            effect-v*)
+              DIR="packages/effect"
+              VERSION="${TAG#effect-v}"
+              ;;
             musicos-v*)
               DIR="packages/musicos"
               VERSION="${TAG#musicos-v}"
@@ -74,7 +78,7 @@ jobs:
               VERSION="${TAG#transcoding-v}"
               ;;
             *)
-              echo "::error::Tag '$TAG' does not match musicos-v*, partyos-v*, platform-v*, streaming-v*, or transcoding-v*"
+              echo "::error::Tag '$TAG' does not match effect-v*, musicos-v*, partyos-v*, platform-v*, streaming-v*, or transcoding-v*"
               exit 1
               ;;
           esac

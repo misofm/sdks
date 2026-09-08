@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import {
   AUTHORIZATION_MAX_AGE_MS,
   MISO_AUTH_HEADERS,
@@ -44,7 +45,7 @@ describe("auth contract", () => {
 
   test("validates the challenge before signing and returns all required headers", async () => {
     let signed = "";
-    const result = await createAuthorizationHeaders({
+    const result = await Effect.runPromise(createAuthorizationHeaders({
       apiUrl: "https://api.testnet.miso.fm/platform/usernames/alice",
       token: "oidc-token",
       address: ADDRESS,
@@ -64,7 +65,7 @@ describe("auth contract", () => {
         expect(new Headers(init?.headers).get("authorization")).toBe("Bearer oidc-token");
         return Response.json(challenge());
       },
-    });
+    }));
 
     expect(signed).toBe(challenge().payload);
     expect(result.headers.get("authorization")).toBe("Bearer oidc-token");
@@ -75,29 +76,32 @@ describe("auth contract", () => {
 
   test("does not sign a challenge for another path", async () => {
     let signCalls = 0;
-    await expect(createAuthorizationHeaders({
-      apiUrl: "https://api.testnet.miso.fm/platform/usernames/alice",
-      token: "oidc-token",
-      address: ADDRESS,
-      method: "PUT",
-      path: "/platform/usernames/alice",
-      network: "testnet",
-      nowMs: NOW,
-      signer: {
-        async signPersonalMessage() {
-          signCalls += 1;
-          return { signature: "must-not-run" };
+    const error = await Effect.runPromise(
+      createAuthorizationHeaders({
+        apiUrl: "https://api.testnet.miso.fm/platform/usernames/alice",
+        token: "oidc-token",
+        address: ADDRESS,
+        method: "PUT",
+        path: "/platform/usernames/alice",
+        network: "testnet",
+        nowMs: NOW,
+        signer: {
+          async signPersonalMessage() {
+            signCalls += 1;
+            return { signature: "must-not-run" };
+          },
         },
-      },
-      fetch: async () => Response.json(challenge("PUT", "/platform/usernames/bob")),
-    })).rejects.toMatchObject({ code: "invalid_challenge" });
+        fetch: async () => Response.json(challenge("PUT", "/platform/usernames/bob")),
+      }).pipe(Effect.flip),
+    );
+    expect(error).toMatchObject({ code: "invalid_challenge" });
     expect(signCalls).toBe(0);
   });
 
   test("performs the mutation only after signing", async () => {
     const calls: string[] = [];
     const nowMs = Date.now();
-    const response = await authenticatedFetch(
+    const response = await Effect.runPromise(authenticatedFetch(
       "https://api.testnet.miso.fm/platform/usernames/alice",
       {
         method: "PUT",
@@ -127,15 +131,15 @@ describe("auth contract", () => {
           return Response.json({ ok: true });
         },
       },
-    );
+    ));
     expect(response.ok).toBe(true);
     expect(calls).toEqual(["challenge", "sign", "mutation"]);
   });
 
   test("surfaces a rejected challenge without invoking the signer", async () => {
     let signed = false;
-    try {
-      await createAuthorizationHeaders({
+    const error = await Effect.runPromise(
+      createAuthorizationHeaders({
         apiUrl: "https://api.testnet.miso.fm/platform/usernames/alice",
         token: "expired-token",
         address: ADDRESS,
@@ -151,12 +155,10 @@ describe("auth contract", () => {
           { error: { message: "Sign in again." } },
           { status: 401 },
         ),
-      });
-      throw new Error("expected rejection");
-    } catch (error) {
-      expect(error).toBeInstanceOf(MisoAuthError);
-      expect(error).toMatchObject({ code: "challenge_rejected", status: 401, message: "Sign in again." });
-    }
+      }).pipe(Effect.flip),
+    );
+    expect(error).toBeInstanceOf(MisoAuthError);
+    expect(error).toMatchObject({ code: "challenge_rejected", status: 401, message: "Sign in again." });
     expect(signed).toBe(false);
   });
 });

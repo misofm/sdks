@@ -34,6 +34,9 @@ This is a Bun workspace of publishable packages under `packages/*`:
   group membership).
 - `packages/platform` — `@misofm/platform`, everything Miso builds on top of the object
   models (work and Party extensions, royalty primitives, Vault, Actions, product workflows).
+- `packages/effect` — `@misofm/effect`, the shared Effect v4 foundation (one `SuiClient`
+  service, the tagged error vocabulary, read/execute primitives). Every other package
+  depends on it.
 - `packages/streaming`, `packages/transcoding` — the streaming transcode contract and
   transcoder.
 
@@ -63,9 +66,21 @@ intrinsic to a Party (identity, admin cap, membership), it belongs in `partyos`;
 opinion Miso's product adds on top — including every `party_*` extension — it belongs in
 `platform`.
 
+## Effect conventions
+
+- Effect v4 release candidate, pinned exactly (see any package's `peerDependencies`). Read
+  `node_modules/effect/AGENTS.md` and `ai-docs/` before writing Effect code; v4 is not v3.
+- I/O returns `Effect` with `SuiClient` (from `@misofm/effect`) in the requirements; client
+  extension classes provide the layer internally. PTB builders stay synchronous.
+- Failures are `Schema.TaggedError` classes in each package's `src/errors.ts` (`./errors`
+  subpath); never throw strings or plain `Error` from public reads.
+- Domain types are `Schema.Class`; generated BCS shapes under `src/contracts/` never appear
+  in a public signature.
+
 ## Project Rules
 
 - Use `@mysten/sui` v2 APIs and gRPC/Core client patterns; do not add JSON-RPC.
 - Do not hand-edit generated files under any `packages/*/src/contracts/`.
 - Keep PTB helpers composable: accept a `Transaction`, return results when useful, and do not execute.
-- Run `bun run typecheck`, `bun test`, `bun run build`, and `bun run codegen:check` before handoff.
+- Run `bun run typecheck`, `bun test`, `bun run build`, `bun run codegen:check`, and
+  `bun run test:consumer` before handoff.

@@ -2,16 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient } from "@misofm/effect";
 import { deriveSaleIds } from "../../src/pressing.ts";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import * as pressing from "../../src/contracts/record/pressing.ts";
 import {
   getListingView,
   getPressingView,
-  toTracks,
 } from "../../src/read/catalog.ts";
-import type { MisoClient } from "../../src/read/client.ts";
+import type { MisoConfig } from "../../src/read/config.ts";
 
 const RELEASE = `0x${"33".repeat(32)}`;
 const CURRENCY = "0x2::sui::SUI";
@@ -42,40 +43,47 @@ const listingBytes = listing.Listing.serialize({
   state: { Enabled: true },
 }).toBytes();
 
-function fixtureClient(): MisoClient {
-  const protocol = {
+function fixtureClient(): ClientWithCoreApi {
+  return {
     core: {
       getObject: async ({ objectId }: { objectId: string }) => ({
         object:
           objectId === PRESSING
             ? {
+                objectId,
                 content: pressingBytes,
                 type: `${RECORD_PACKAGE}::pressing::Pressing`,
+                version: "1",
               }
             : objectId === LISTING
               ? {
+                  objectId,
                   content: listingBytes,
                   type: `${SHOP_PACKAGE}::listing::Listing<${CURRENCY}>`,
+                  version: "1",
                 }
-              : undefined,
+              : (() => {
+                  throw new Error(`Object ${objectId} not found`);
+                })(),
       }),
     },
   } as unknown as ClientWithCoreApi;
+}
 
-  return {
-    config: {
-      recordSales: {
-        status: "available",
-        recordPackageId: RECORD_PACKAGE,
-        recordShopPackageId: SHOP_PACKAGE,
-      },
-    },
-    protocol,
-  } as unknown as MisoClient;
+const config = {
+  recordSales: {
+    status: "available",
+    recordPackageId: RECORD_PACKAGE,
+    recordShopPackageId: SHOP_PACKAGE,
+  },
+} as unknown as MisoConfig;
+
+function run<A, E>(effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(fixtureClient()))));
 }
 
 test("projects an atomic pressing to JSON-safe values", async () => {
-  const view = await getPressingView(fixtureClient(), PRESSING);
+  const view = await run(getPressingView(PRESSING, config));
   expect(view).toMatchObject({
     id: PRESSING,
     releaseId: RELEASE,
@@ -87,7 +95,7 @@ test("projects an atomic pressing to JSON-safe values", async () => {
 });
 
 test("projects a derived listing to JSON-safe values", async () => {
-  const view = await getListingView(fixtureClient(), PRESSING, CURRENCY);
+  const view = await run(getListingView(PRESSING, CURRENCY, config));
   expect(view).toMatchObject({
     id: LISTING,
     pressingId: PRESSING,

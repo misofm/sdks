@@ -1,11 +1,21 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ConflictingWorkKindError } from "./errors.ts";
 import type {
   ClientWithCoreApi,
   SuiClientRegistration,
 } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { Effect } from "effect";
+import {
+  GraphQLUnavailableError,
+  SuiClient,
+  SuiGraphQL,
+  type BcsDecodeError,
+  type ObjectNotFoundError,
+  type SuiRpcError,
+} from "@misofm/effect";
 import {
   getMisoDeployment,
   normalizeMisoDeployment,
@@ -26,6 +36,7 @@ import type {
   RecordingAdminCap,
   Release,
   ReleaseAdminCap,
+  ReleaseRegistry,
 } from "./types.ts";
 
 // Generated call modules (type-safe Move calls) and BCS structs.
@@ -66,7 +77,7 @@ function isFullDeployment(
  * ```ts
  * const client = new SuiGrpcClient({ network: 'testnet' })
  *   .$extend(miso());
- * const composition = await client.miso.getCompositionById('0x...');
+ * const composition = await Effect.runPromise(client.miso.getCompositionById('0x...'));
  * ```
  */
 export function miso<const Name extends string = "miso">(
@@ -143,92 +154,77 @@ export class MisoProtocolClient {
     return this.#deployment.packageId;
   }
 
+  /** Provides `SuiClient` from this client's `ClientWithCoreApi`, so a method's program has `R = never`. */
+  #run<A, E>(effect: Effect.Effect<A, E, SuiClient>): Effect.Effect<A, E> {
+    return effect.pipe(Effect.provide(SuiClient.layer(this.#client)));
+  }
+
   // === Composition ===
 
-  async getCompositionById(compositionId: string): Promise<Composition> {
-    return queries.getCompositionById(this.#client, compositionId);
+  getCompositionById(compositionId: string): Effect.Effect<Composition, ObjectNotFoundError | SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getCompositionById(compositionId));
   }
-  async getCompositionsByIds(
-    ids: string[],
-  ): Promise<Record<string, Composition>> {
-    return queries.getCompositionsByIds(this.#client, ids);
+  getCompositionsByIds(ids: string[]): Effect.Effect<Record<string, Composition>, SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getCompositionsByIds(ids));
   }
-  async getWorksByIds(ids: queries.WorkIds): Promise<queries.WorksById> {
-    return queries.getWorksByIds(this.#client, ids);
+  getWorksByIds(ids: queries.WorkIds): Effect.Effect<queries.WorksById, ConflictingWorkKindError | SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getWorksByIds(ids));
   }
-  async getWorkAddressesByShareTypes(
+  getWorkAddressesByShareTypes(
     shareTypes: queries.WorkShareTypes,
-  ): Promise<queries.WorkAddressesByShareType> {
-    return queries.getWorkAddressesByShareTypes(
-      this.#requireGraphQL(),
-      shareTypes,
-      this.#misoPackageId,
+  ): Effect.Effect<queries.WorkAddressesByShareType, SuiRpcError | GraphQLUnavailableError> {
+    if (!this.#graphqlClient) return Effect.fail(new GraphQLUnavailableError());
+    return queries
+      .getWorkAddressesByShareTypes(shareTypes, this.#misoPackageId)
+      .pipe(Effect.provide(SuiGraphQL.layer(this.#graphqlClient)));
+  }
+  getCompositionShareType(compositionId: string): Effect.Effect<string, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getCompositionShareType(compositionId));
+  }
+  getCompositionByShareType(
+    shareType: string,
+  ): Effect.Effect<Composition, ObjectNotFoundError | SuiRpcError | BcsDecodeError | GraphQLUnavailableError> {
+    if (!this.#graphqlClient) return Effect.fail(new GraphQLUnavailableError());
+    return queries.getCompositionByShareType(shareType, this.#misoPackageId).pipe(
+      Effect.provide(SuiGraphQL.layer(this.#graphqlClient)),
+      Effect.provide(SuiClient.layer(this.#client)),
     );
   }
-  async getCompositionShareType(compositionId: string): Promise<string> {
-    return queries.getCompositionShareType(this.#client, compositionId);
+  getCompositionAdminCapById(adminCapId: string): Effect.Effect<CompositionAdminCap, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getCompositionAdminCapById(adminCapId));
   }
-  async getCompositionByShareType(shareType: string): Promise<Composition> {
-    return queries.getCompositionByShareType(
-      this.#client,
-      this.#requireGraphQL(),
-      shareType,
-      this.#misoPackageId,
-    );
-  }
-  async getCompositionAdminCapById(
-    adminCapId: string,
-  ): Promise<CompositionAdminCap> {
-    return queries.getCompositionAdminCapById(this.#client, adminCapId);
-  }
-  async getOwnedCompositionAdminCaps(
-    owner: string,
-  ): Promise<CompositionAdminCap[]> {
-    return queries.getOwnedCompositionAdminCaps(
-      this.#client,
-      owner,
-      this.#misoPackageId,
-    );
+  getOwnedCompositionAdminCaps(owner: string): Effect.Effect<CompositionAdminCap[], SuiRpcError> {
+    return this.#run(queries.getOwnedCompositionAdminCaps(owner, this.#misoPackageId));
   }
   deriveCompositionAdminCapId(compositionId: string): string {
-    return queries.deriveCompositionAdminCapId(
-      compositionId,
-      this.#misoPackageId,
-    );
+    return queries.deriveCompositionAdminCapId(compositionId, this.#misoPackageId);
   }
 
   // === Recording ===
 
-  async getRecordingById(recordingId: string): Promise<Recording> {
-    return queries.getRecordingById(this.#client, recordingId);
+  getRecordingById(recordingId: string): Effect.Effect<Recording, ObjectNotFoundError | SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getRecordingById(recordingId));
   }
-  async getRecordingsByIds(ids: string[]): Promise<Record<string, Recording>> {
-    return queries.getRecordingsByIds(this.#client, ids);
+  getRecordingsByIds(ids: string[]): Effect.Effect<Record<string, Recording>, SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getRecordingsByIds(ids));
   }
-  async getRecordingShareType(recordingId: string): Promise<string> {
-    return queries.getRecordingShareType(this.#client, recordingId);
+  getRecordingShareType(recordingId: string): Effect.Effect<string, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getRecordingShareType(recordingId));
   }
-  async getRecordingByShareType(shareType: string): Promise<Recording> {
-    return queries.getRecordingByShareType(
-      this.#client,
-      this.#requireGraphQL(),
-      shareType,
-      this.#misoPackageId,
+  getRecordingByShareType(
+    shareType: string,
+  ): Effect.Effect<Recording, ObjectNotFoundError | SuiRpcError | BcsDecodeError | GraphQLUnavailableError> {
+    if (!this.#graphqlClient) return Effect.fail(new GraphQLUnavailableError());
+    return queries.getRecordingByShareType(shareType, this.#misoPackageId).pipe(
+      Effect.provide(SuiGraphQL.layer(this.#graphqlClient)),
+      Effect.provide(SuiClient.layer(this.#client)),
     );
   }
-  async getRecordingAdminCapById(
-    adminCapId: string,
-  ): Promise<RecordingAdminCap> {
-    return queries.getRecordingAdminCapById(this.#client, adminCapId);
+  getRecordingAdminCapById(adminCapId: string): Effect.Effect<RecordingAdminCap, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getRecordingAdminCapById(adminCapId));
   }
-  async getOwnedRecordingAdminCaps(
-    owner: string,
-  ): Promise<RecordingAdminCap[]> {
-    return queries.getOwnedRecordingAdminCaps(
-      this.#client,
-      owner,
-      this.#misoPackageId,
-    );
+  getOwnedRecordingAdminCaps(owner: string): Effect.Effect<RecordingAdminCap[], SuiRpcError> {
+    return this.#run(queries.getOwnedRecordingAdminCaps(owner, this.#misoPackageId));
   }
   deriveRecordingAdminCapId(recordingId: string): string {
     return queries.deriveRecordingAdminCapId(recordingId, this.#misoPackageId);
@@ -236,54 +232,47 @@ export class MisoProtocolClient {
 
   // === Release ===
 
-  async getReleaseById(releaseId: string): Promise<Release> {
-    return queries.getReleaseById(this.#client, releaseId);
+  getReleaseById(releaseId: string): Effect.Effect<Release, ObjectNotFoundError | SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getReleaseById(releaseId));
   }
   /** Read the shared canonical core `miso::release::ReleaseRegistry`. */
-  async getReleaseRegistryById(registryId: string) {
-    return queries.getReleaseRegistryById(this.#client, registryId);
+  getReleaseRegistryById(registryId: string): Effect.Effect<ReleaseRegistry, ObjectNotFoundError | SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getReleaseRegistryById(registryId));
   }
-  async getReleasesByIds(ids: string[]): Promise<Record<string, Release>> {
-    return queries.getReleasesByIds(this.#client, ids);
+  getReleasesByIds(ids: string[]): Effect.Effect<Record<string, Release>, SuiRpcError | BcsDecodeError> {
+    return this.#run(queries.getReleasesByIds(ids));
   }
-  async getReleaseAdminCapById(adminCapId: string): Promise<ReleaseAdminCap> {
-    return queries.getReleaseAdminCapById(this.#client, adminCapId);
+  getReleaseAdminCapById(adminCapId: string): Effect.Effect<ReleaseAdminCap, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getReleaseAdminCapById(adminCapId));
   }
   deriveReleaseAdminCapId(releaseId: string): string {
     return queries.deriveReleaseAdminCapId(releaseId, this.#misoPackageId);
   }
-  async getOwnedReleaseAdminCaps(owner: string): Promise<ReleaseAdminCap[]> {
-    return queries.getOwnedReleaseAdminCaps(
-      this.#client,
-      owner,
-      this.#misoPackageId,
-    );
+  getOwnedReleaseAdminCaps(owner: string): Effect.Effect<ReleaseAdminCap[], SuiRpcError> {
+    return this.#run(queries.getOwnedReleaseAdminCaps(owner, this.#misoPackageId));
   }
+
   // === Share Currency ===
 
-  async getShareCurrencyType(shareCurrencyId: string): Promise<string> {
-    return queries.getShareCurrencyType(this.#client, shareCurrencyId);
+  getShareCurrencyType(shareCurrencyId: string): Effect.Effect<string, ObjectNotFoundError | SuiRpcError> {
+    return this.#run(queries.getShareCurrencyType(shareCurrencyId));
   }
   /**
    * The `TreasuryCap<shareType>` owned by `owner`. Takes the share TYPE — if you
    * hold only the `Currency` object id, resolve it first with
    * {@link getShareCurrencyType}.
    */
-  async getShareCurrencyTreasuryCap(
-    shareType: string,
-    owner: string,
-  ): Promise<string> {
-    return queries.getShareCurrencyTreasuryCap(this.#client, shareType, owner);
+  getShareCurrencyTreasuryCap(shareType: string, owner: string): Effect.Effect<string, SuiRpcError> {
+    return this.#run(queries.getShareCurrencyTreasuryCap(shareType, owner));
   }
 
   // === Simulate-based reads (view) ===
 
   get view() {
-    const client = this.#client;
     const misoPackageId = this.#misoPackageId;
     return {
       deriveTargetReleaseId: (params: view.DeriveTargetReleaseIdParams) =>
-        view.deriveTargetReleaseId(client, misoPackageId, params),
+        this.#run(view.deriveTargetReleaseId(misoPackageId, params)),
     };
   }
 
@@ -325,15 +314,6 @@ export class MisoProtocolClient {
       releaseRegistryCreatedEvent: parsers.parseReleaseRegistryCreatedEvent,
       events: eventParsers,
     };
-  }
-
-  #requireGraphQL(): SuiGraphQLClient {
-    if (!this.#graphqlClient) {
-      throw new Error(
-        "GraphQL client required. Pass graphqlClient to miso() options.",
-      );
-    }
-    return this.#graphqlClient;
   }
 }
 

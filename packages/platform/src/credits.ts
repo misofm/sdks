@@ -28,9 +28,10 @@
 // about any of it — it only provides the cap-gated `uid_mut` hook these attach
 // through.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { Effect, Option } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
+import { getObjectsContent, SuiClient, type SuiRpcError } from "@misofm/effect";
 import type {
   Transaction,
   TransactionArgument,
@@ -632,23 +633,18 @@ interface CreditFieldTarget {
 }
 
 /** Fetch many derived credit fields through one Core bulk request. */
-async function fetchCreditFields(
-  client: ClientWithCoreApi,
+const fetchCreditFields = Effect.fn("fetchCreditFields")(function* (
   targets: readonly CreditFieldTarget[],
-): Promise<Map<string, Uint8Array>> {
+): Effect.fn.Return<Map<string, Uint8Array>, SuiRpcError, SuiClient> {
   if (targets.length === 0) return new Map();
-  const { objects } = await client.core.getObjects({
-    objectIds: targets.map((target) => target.fieldId),
-    include: { content: true },
-  });
+  const objects = yield* getObjectsContent(targets.map((target) => target.fieldId));
   const contents = new Map<string, Uint8Array>();
-  objects.forEach((object, index) => {
-    if (object instanceof Error || !object.content) return;
-    const target = targets[index];
-    if (target) contents.set(target.fieldId, object.content);
-  });
+  for (const target of targets) {
+    const object = objects.get(target.fieldId);
+    if (object) contents.set(target.fieldId, object.content);
+  }
   return contents;
-}
+});
 
 function compositionCreditTargets(
   compositionIds: readonly string[],
@@ -783,34 +779,23 @@ function recordingRoleLabel(role: ParsedEnum): string {
  * Reads a composition's writing credits (the `composition_credits` extension), or
  * `null` if no credits field is attached.
  */
-export async function getCompositionCredits(
-  client: ClientWithCoreApi,
+/** Reads a composition's writing credits (the `composition_credits` extension). */
+export const getCompositionCredits = Effect.fn("getCompositionCredits")(function* (
   compositionId: string,
   compositionCreditsPackageId: string,
-): Promise<CreditView[] | null> {
-  return (
-    (
-      await getCompositionCreditsByIds(
-        client,
-        [compositionId],
-        compositionCreditsPackageId,
-      )
-    )[compositionId] ?? null
-  );
-}
+): Effect.fn.Return<Option.Option<CreditView[]>, SuiRpcError, SuiClient> {
+  const byId = yield* getCompositionCreditsByIds([compositionId], compositionCreditsPackageId);
+  return Option.fromNullishOr(byId[compositionId]);
+});
 
 /** Composition credits for many works in one Core bulk request. */
-export async function getCompositionCreditsByIds(
-  client: ClientWithCoreApi,
+export const getCompositionCreditsByIds = Effect.fn("getCompositionCreditsByIds")(function* (
   compositionIdsInput: readonly string[],
   compositionCreditsPackageId: string,
-): Promise<Partial<Record<string, CreditView[]>>> {
+): Effect.fn.Return<Partial<Record<string, CreditView[]>>, SuiRpcError, SuiClient> {
   const compositionIds = [...new Set(compositionIdsInput)];
-  const targets = compositionCreditTargets(
-    compositionIds,
-    compositionCreditsPackageId,
-  );
-  const contents = await fetchCreditFields(client, targets);
+  const targets = compositionCreditTargets(compositionIds, compositionCreditsPackageId);
+  const contents = yield* fetchCreditFields(targets);
   const out: Partial<Record<string, CreditView[]>> = {};
   for (const target of targets) {
     const content = contents.get(target.fieldId);
@@ -822,40 +807,28 @@ export async function getCompositionCreditsByIds(
     }
   }
   return out;
-}
+});
 
 /**
  * Reads a recording's credits plus its primary/featured artist party ids (the
- * `recording_credits` extension), or `null` if no credits field is attached.
+ * `recording_credits` extension).
  */
-export async function getRecordingCredits(
-  client: ClientWithCoreApi,
+export const getRecordingCredits = Effect.fn("getRecordingCredits")(function* (
   recordingId: string,
   recordingCreditsPackageId: string,
-): Promise<RecordingCreditsView | null> {
-  return (
-    (
-      await getRecordingCreditsByIds(
-        client,
-        [recordingId],
-        recordingCreditsPackageId,
-      )
-    )[recordingId] ?? null
-  );
-}
+): Effect.fn.Return<Option.Option<RecordingCreditsView>, SuiRpcError, SuiClient> {
+  const byId = yield* getRecordingCreditsByIds([recordingId], recordingCreditsPackageId);
+  return Option.fromNullishOr(byId[recordingId]);
+});
 
 /** Recording credits for many works in one Core bulk request. */
-export async function getRecordingCreditsByIds(
-  client: ClientWithCoreApi,
+export const getRecordingCreditsByIds = Effect.fn("getRecordingCreditsByIds")(function* (
   recordingIdsInput: readonly string[],
   recordingCreditsPackageId: string,
-): Promise<Partial<Record<string, RecordingCreditsView>>> {
+): Effect.fn.Return<Partial<Record<string, RecordingCreditsView>>, SuiRpcError, SuiClient> {
   const recordingIds = [...new Set(recordingIdsInput)];
-  const targets = recordingCreditTargets(
-    recordingIds,
-    recordingCreditsPackageId,
-  );
-  const contents = await fetchCreditFields(client, targets);
+  const targets = recordingCreditTargets(recordingIds, recordingCreditsPackageId);
+  const contents = yield* fetchCreditFields(targets);
   const out: Partial<Record<string, RecordingCreditsView>> = {};
   for (const target of targets) {
     const content = contents.get(target.fieldId);
@@ -868,33 +841,28 @@ export async function getRecordingCreditsByIds(
     };
   }
   return out;
-}
+});
 
 /**
- * Reads a release's top-line billing credits (the `release_credits` extension), or
- * `null` if no credits field is attached. Each credit has exactly one role.
+ * Reads a release's top-line billing credits (the `release_credits` extension).
+ * Each credit has exactly one role.
  */
-export async function getReleaseCredits(
-  client: ClientWithCoreApi,
+export const getReleaseCredits = Effect.fn("getReleaseCredits")(function* (
   releaseId: string,
   releaseCreditsPackageId: string,
-): Promise<CreditView[] | null> {
-  return (
-    (
-      await getReleaseCreditsByIds(client, [releaseId], releaseCreditsPackageId)
-    )[releaseId] ?? null
-  );
-}
+): Effect.fn.Return<Option.Option<CreditView[]>, SuiRpcError, SuiClient> {
+  const byId = yield* getReleaseCreditsByIds([releaseId], releaseCreditsPackageId);
+  return Option.fromNullishOr(byId[releaseId]);
+});
 
 /** Release billing credits for many releases in one Core bulk request. */
-export async function getReleaseCreditsByIds(
-  client: ClientWithCoreApi,
+export const getReleaseCreditsByIds = Effect.fn("getReleaseCreditsByIds")(function* (
   releaseIdsInput: readonly string[],
   releaseCreditsPackageId: string,
-): Promise<Partial<Record<string, CreditView[]>>> {
+): Effect.fn.Return<Partial<Record<string, CreditView[]>>, SuiRpcError, SuiClient> {
   const releaseIds = [...new Set(releaseIdsInput)];
   const targets = releaseCreditTargets(releaseIds, releaseCreditsPackageId);
-  const contents = await fetchCreditFields(client, targets);
+  const contents = yield* fetchCreditFields(targets);
   const out: Partial<Record<string, CreditView[]>> = {};
   for (const target of targets) {
     const content = contents.get(target.fieldId);
@@ -903,4 +871,4 @@ export async function getReleaseCreditsByIds(
     }
   }
   return out;
-}
+});

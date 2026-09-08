@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect, Fiber } from "effect";
 import { MAX_SEGMENTS_PER_RENDITION, quiltItemUrl } from "../src/index.ts";
 import { warmTrack } from "../src/warm.ts";
 
@@ -28,7 +29,7 @@ test("warmTrack fetches the master playlist, rendition playlist, init, and N seg
     });
   }) as typeof fetch;
 
-  const promise = warmTrack(BASE, QUILT, { segments: 2, rendition: "aac-256", fetch: fetchImpl });
+  const promise = Effect.runPromise(warmTrack(BASE, QUILT, { segments: 2, rendition: "aac-256", fetch: fetchImpl }));
   // All five fetches (master, playlist, init, 2 segments) must have been
   // issued synchronously, before any resolves.
   expect(calls).toHaveLength(5);
@@ -61,7 +62,7 @@ test("warmTrack requests cors/omit mode and drains every body", async () => {
     return fetchImpl(url, init);
   }) as typeof fetch;
 
-  await warmTrack(BASE, QUILT, { segments: 1, fetch: wrapped });
+  await Effect.runPromise(warmTrack(BASE, QUILT, { segments: 1, fetch: wrapped }));
 
   expect(drained).toBe(4); // master playlist + rendition playlist + init + 1 segment
   for (const init of seenInit) {
@@ -70,9 +71,9 @@ test("warmTrack requests cors/omit mode and drains every body", async () => {
   }
 });
 
-test("warmTrack tolerates a non-2xx response instead of throwing", async () => {
+test("warmTrack tolerates a non-2xx response instead of failing", async () => {
   const fetchImpl = (async () => fakeResponse(false)) as unknown as typeof fetch;
-  await expect(warmTrack(BASE, QUILT, { segments: 0, fetch: fetchImpl })).resolves.toBeUndefined();
+  await expect(Effect.runPromise(warmTrack(BASE, QUILT, { segments: 0, fetch: fetchImpl }))).resolves.toBeUndefined();
 });
 
 test("warmTrack tolerates one item's network error while draining the others", async () => {
@@ -90,7 +91,9 @@ test("warmTrack tolerates one item's network error while draining the others", a
     } as unknown as Response);
   }) as unknown as typeof fetch;
 
-  await expect(warmTrack(BASE, QUILT, { segments: 1, fetch: fetchImpl })).resolves.toBeUndefined();
+  await expect(
+    Effect.runPromise(warmTrack(BASE, QUILT, { segments: 1, fetch: fetchImpl })),
+  ).resolves.toBeUndefined();
   expect(drained).toEqual([
     quiltItemUrl(BASE, QUILT, "master.m3u8"),
     quiltItemUrl(BASE, QUILT, "aac-256-init.mp4"),
@@ -98,25 +101,35 @@ test("warmTrack tolerates one item's network error while draining the others", a
   ]);
 });
 
-test("warmTrack rejects with the AbortError when its signal is aborted", async () => {
-  const controller = new AbortController();
-  const fetchImpl = ((_url: string, init: RequestInit) => {
+test("warmTrack aborts every in-flight fetch when its fiber is interrupted", async () => {
+  const abortedUrls: string[] = [];
+  const started: string[] = [];
+  const fetchImpl = ((url: string, init: RequestInit) => {
+    started.push(url);
     return new Promise<Response>((_resolve, reject) => {
       init.signal?.addEventListener("abort", () => {
+        abortedUrls.push(url);
         reject(new DOMException("aborted", "AbortError"));
       });
     });
   }) as unknown as typeof fetch;
 
-  const promise = warmTrack(BASE, QUILT, { fetch: fetchImpl, signal: controller.signal });
-  controller.abort();
-  await expect(promise).rejects.toThrow(/aborted/i);
+  const fiber = Effect.runFork(warmTrack(BASE, QUILT, { segments: 1, fetch: fetchImpl }));
+  // Let the fetches start before interrupting.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(started).toHaveLength(4);
+
+  await Effect.runPromise(Fiber.interrupt(fiber));
+
+  expect(abortedUrls.sort()).toEqual([...started].sort());
 });
 
 test("warmTrack validates segments", async () => {
-  await expect(warmTrack(BASE, QUILT, { segments: -1 })).rejects.toThrow(RangeError);
-  await expect(warmTrack(BASE, QUILT, { segments: 1.5 })).rejects.toThrow(RangeError);
-  await expect(warmTrack(BASE, QUILT, { segments: MAX_SEGMENTS_PER_RENDITION + 1 })).rejects.toThrow(RangeError);
+  await expect(Effect.runPromise(warmTrack(BASE, QUILT, { segments: -1 }))).rejects.toThrow(RangeError);
+  await expect(Effect.runPromise(warmTrack(BASE, QUILT, { segments: 1.5 }))).rejects.toThrow(RangeError);
+  await expect(
+    Effect.runPromise(warmTrack(BASE, QUILT, { segments: MAX_SEGMENTS_PER_RENDITION + 1 })),
+  ).rejects.toThrow(RangeError);
 });
 
 test("warmTrack with segments: 0 still fetches the playlists and init", async () => {
@@ -125,7 +138,7 @@ test("warmTrack with segments: 0 still fetches the playlists and init", async ()
     calls.push(url);
     return Promise.resolve(fakeResponse());
   }) as unknown as typeof fetch;
-  await warmTrack(BASE, QUILT, { segments: 0, fetch: fetchImpl });
+  await Effect.runPromise(warmTrack(BASE, QUILT, { segments: 0, fetch: fetchImpl }));
   expect(calls).toEqual([
     quiltItemUrl(BASE, QUILT, "master.m3u8"),
     quiltItemUrl(BASE, QUILT, "aac-256.m3u8"),

@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui — high-level reads, pressings, listings, records, work publishing, Party extensions, and the first-party extensions built on top of the @misofm/musicos object model and the @misofm/partyos Party identity model.",
   "license": "Apache-2.0",
@@ -130,6 +130,10 @@
       "types": "./dist/contracts/*.d.ts",
       "default": "./dist/contracts/*.js"
     },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -147,20 +151,23 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "dependencies": {
-    "@misofm/streaming": "0.2.1",
+    "@misofm/effect": "0.1.0",
+    "@misofm/streaming": "0.3.0",
     "@mysten/bcs": "^2.1.1",
-    "@misofm/musicos": "0.2.0",
-    "@misofm/partyos": "0.2.0"
+    "@misofm/musicos": "0.3.0",
+    "@misofm/partyos": "0.3.0"
   },
   "devDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.3.14",
+    "effect": "4.0.0-rc.112",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
+    "effect": "4.0.0-rc.112",
     "typescript": "^5.7 || ^6 || ^7"
   },
   "main": "./dist/index.js"

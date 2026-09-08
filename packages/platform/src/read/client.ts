@@ -16,6 +16,7 @@
 // Party now shares the same network SDK registration and deployment as protocol
 // core, so every read hangs off one `sui.miso` namespace.
 
+import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { miso, type MisoProtocolClient } from "@misofm/musicos/client";
@@ -28,25 +29,25 @@ function definedOverrides<T extends object>(value: T): Partial<T> {
 }
 
 /**
- * The structural slice of a Sui client the protocol SDK's read helpers want. They
- * declare `ClientWithCoreApi` against their own @mysten/sui; this alias names the
- * same shape from our side so the one cast in `createMisoClient` is explicit
- * rather than an `any` smeared across the codebase.
+ * The transport slice every `@misofm/platform/read` function needs to run its
+ * `Effect`: `Effect.provide(SuiClient.layer(client.protocol))`. `sui` (below)
+ * satisfies this structurally, since it is a real `ClientWithCoreApi`.
  */
-export type ProtocolClient = Parameters<typeof import("@misofm/musicos").getReleaseById>[0];
+export type ProtocolClient = ClientWithCoreApi;
 
-/** A GraphQL client in the shape the protocol SDK's type-discovery queries want. */
+/** A GraphQL client in the shape `@misofm/effect`'s `SuiGraphQL` service wants. */
 export type ProtocolGraphQLClient = SuiGraphQLClient;
 
 export interface MisoClient {
   config: MisoConfig;
   /** gRPC data plane (object-model core only; Party is `client.party`). */
   sui: SuiGrpcClient & { miso: MisoProtocolClient };
-  /** The same client, typed for the protocol SDK's read helpers. */
+  /** The same client, for `Effect.provide(SuiClient.layer(client.protocol))`. */
   protocol: ProtocolClient;
-  /** GraphQL RPC, typed for the protocol SDK's type-discovery queries. */
+  /** GraphQL RPC, for `Effect.provide(SuiGraphQL.layer(client.graphql))`. */
   graphql: ProtocolGraphQLClient;
-  /** The raw GraphQL client, for this SDK's own queries (the pruned-transaction read). */
+  /** The raw GraphQL client — identical to `graphql`; both names are kept for
+   * source compatibility with callers migrating from the pre-Effect client. */
   graphqlRaw: SuiGraphQLClient;
   /** Party identity and profile reads/builders, bound to `config.partyos`/`config.party`. */
   party: PartyPlatformClient;
@@ -85,8 +86,8 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
   return {
     config,
     sui,
-    protocol: sui as unknown as ProtocolClient,
-    graphql: graphqlRaw as unknown as ProtocolGraphQLClient,
+    protocol: sui,
+    graphql: graphqlRaw,
     graphqlRaw,
     party,
   };

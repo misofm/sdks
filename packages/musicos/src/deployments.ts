@@ -1,7 +1,9 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Effect } from "effect";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
+import { DeploymentError } from "@misofm/effect/errors";
 
 /** Sui networks for which this SDK may bundle a verified deployment. */
 export type MisoNetwork = "mainnet" | "testnet";
@@ -163,4 +165,17 @@ export function normalizeMisoDeployment(deployment: unknown): MisoDeployment {
   return Object.freeze(
     Object.fromEntries(CANONICAL_MISO_PACKAGE_NAMES.map((name) => [name, deployment[name]])),
   ) as MisoDeployment;
+}
+
+/**
+ * Effect-returning form of {@link assertMisoDeployment} + {@link normalizeMisoDeployment}, for
+ * configuration boundaries that are already composing `Effect` programs (e.g. loading a
+ * deployment manifest from a config service). Synchronous and pure — validation is not I/O — so
+ * both this and the throwing form are fine; use whichever fits the call site.
+ */
+export function validateMisoDeployment(deployment: unknown): Effect.Effect<MisoDeployment, DeploymentError> {
+  return Effect.try({
+    try: () => normalizeMisoDeployment(deployment),
+    catch: (cause) => new DeploymentError({ message: cause instanceof Error ? cause.message : String(cause) }),
+  });
 }

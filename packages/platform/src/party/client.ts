@@ -3,9 +3,14 @@
 
 // Party EXTENSIONS bound to one `PartyExtensionsDeployment`, wrapping a
 // `PartyosClient` for the Party core. Consumers reach this through
-// `client.miso.party`.
+// `client.miso.party`. Every read returns `Effect<A, E>` (`R = never`) — the
+// `SuiClient` service is provided once by `PartyosClient`/`MisoPlatformClient`
+// and threaded through here, never re-provided per method.
 
+import { Effect } from "effect";
+import type { Option } from "effect";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient, type BcsDecodeError, type ObjectNotFoundError, type ObjectTypeMismatchError, type SuiRpcError } from "@misofm/effect";
 import type { Party, PartyosClient } from "@misofm/partyos";
 import type { PartyExtensionsDeployment } from "../deployments.ts";
 import * as queries from "./queries.ts";
@@ -61,8 +66,8 @@ function bindModulePackage<M extends object, K extends readonly (keyof M)[]>(
  * CTAs, platform links) this package owns.
  */
 export class PartyPlatformClient {
-  #client: ClientWithCoreApi;
   #core: PartyosClient;
+  #layer: ReturnType<typeof SuiClient.layer>;
   #profilePkg: string;
   #countryCodePkg: string;
   #languageCodePkg: string;
@@ -77,8 +82,8 @@ export class PartyPlatformClient {
   #proLinkPkg: string;
 
   constructor(client: ClientWithCoreApi, core: PartyosClient, extensions: PartyExtensionsDeployment) {
-    this.#client = client;
     this.#core = core;
+    this.#layer = SuiClient.layer(client);
     this.#profilePkg = extensions.partyProfile;
     this.#countryCodePkg = extensions.countryCode;
     this.#languageCodePkg = extensions.languageCode;
@@ -98,61 +103,68 @@ export class PartyPlatformClient {
     return this.#core;
   }
 
+  /** Provides the bound `SuiClient` layer, dropping `R` to `never`. */
+  #provide<A, E>(effect: Effect.Effect<A, E, SuiClient>): Effect.Effect<A, E> {
+    return effect.pipe(Effect.provide(this.#layer));
+  }
+
   // === Core (delegated to `PartyosClient`) ===
 
-  async getPartyById(partyId: string): Promise<Party> {
+  getPartyById(partyId: string): Effect.Effect<Party, ObjectNotFoundError | ObjectTypeMismatchError | BcsDecodeError | SuiRpcError> {
     return this.#core.getPartyById(partyId);
   }
-  async getPartiesByIds(partyIds: readonly string[]): Promise<Partial<Record<string, Party>>> {
+  getPartiesByIds(
+    partyIds: readonly string[],
+  ): Effect.Effect<Partial<Record<string, Party>>, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError> {
     return this.#core.getPartiesByIds(partyIds);
   }
   derivePartyAdminCapId(partyId: string): string {
     return this.#core.derivePartyAdminCapId(partyId);
   }
   /** Group ids a party belongs to (member-side membership records). */
-  async getMemberships(partyId: string): Promise<string[]> {
+  getMemberships(partyId: string): Effect.Effect<string[], SuiRpcError> {
     return this.#core.getMemberships(partyId);
   }
   /** Member ids invited to a group but not yet accepted. */
-  async getPendingInvites(groupId: string): Promise<string[]> {
+  getPendingInvites(groupId: string): Effect.Effect<string[], SuiRpcError> {
     return this.#core.getPendingInvites(groupId);
   }
   /** Group ids that have invited this party but are awaiting its response. */
-  async getPendingMemberships(partyId: string): Promise<string[]> {
+  getPendingMemberships(partyId: string): Effect.Effect<string[], SuiRpcError> {
     return this.#core.getPendingMemberships(partyId);
   }
   /** Whether a party is a member of a group. */
-  async isMember(memberId: string, groupId: string): Promise<boolean> {
+  isMember(memberId: string, groupId: string): Effect.Effect<boolean, SuiRpcError> {
     return this.#core.isMember(memberId, groupId);
   }
 
   // === Extension queries ===
 
-  async getProfile(partyId: string): Promise<Profile | null> {
-    return queries.getProfile(this.#client, partyId, this.#profilePkg);
+  getProfile(partyId: string): Effect.Effect<Option.Option<Profile>, BcsDecodeError | SuiRpcError> {
+    return this.#provide(queries.getProfile(partyId, this.#profilePkg));
   }
-  async getMedia(partyId: string): Promise<Media | null> {
-    return queries.getMedia(this.#client, partyId, this.#mediaPkg);
+  getMedia(partyId: string): Effect.Effect<Option.Option<Media>, BcsDecodeError | SuiRpcError> {
+    return this.#provide(queries.getMedia(partyId, this.#mediaPkg));
   }
   /** The party's artist-type roles (display names). */
-  async getRoles(partyId: string): Promise<string[]> {
-    return queries.getRoles(this.#client, partyId, this.#rolesPkg);
+  getRoles(partyId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getRoles(partyId, this.#rolesPkg));
   }
   /** The party's free-form tags. */
-  async getTags(partyId: string): Promise<string[]> {
-    return queries.getTags(this.#client, partyId, this.#tagsPkg);
+  getTags(partyId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getTags(partyId, this.#tagsPkg));
   }
   /** The party's genre object ids. */
-  async getGenres(partyId: string): Promise<string[]> {
-    return queries.getGenres(this.#client, partyId, this.#partyGenrePkg);
+  getGenres(partyId: string): Effect.Effect<string[], SuiRpcError> {
+    return this.#provide(queries.getGenres(partyId, this.#partyGenrePkg));
   }
   /** The party's ordered CTA list (position is priority). */
-  async getCtas(partyId: string): Promise<Cta[]> {
-    return queries.getCtas(this.#client, partyId, this.#ctaPkg);
+  getCtas(partyId: string): Effect.Effect<Cta[], SuiRpcError> {
+    return this.#provide(queries.getCtas(partyId, this.#ctaPkg));
   }
   /** All external-platform links attached to the party (social, music, professional). */
-  async getLinks(partyId: string): Promise<PlatformLink[]> {
-    return queries.getLinks(this.#client, partyId);
+  getLinks(partyId: string): Effect.Effect<PlatformLink[], SuiRpcError> {
+    return this.#provide(queries.getLinks(partyId));
   }
 
   // === Transaction builders (thunks; package ids bound from the client) ===

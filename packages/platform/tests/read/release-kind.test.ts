@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient } from "@misofm/effect";
 import * as releaseKind from "../../src/contracts/release_kind/release_kind.ts";
 import {
   getReleaseKind,
@@ -27,21 +29,22 @@ const content = Field.serialize({
 function client(value: Uint8Array | null): ClientWithCoreApi {
   return {
     core: {
-      getObjects: async () => ({
-        objects: value
-          ? [{ objectId: FIELD, content: value, type: "0x2::dynamic_field::Field" }]
-          : [new Error("not found")],
-      }),
+      getObject: async ({ objectId }: { objectId: string }) => {
+        if (!value || objectId !== FIELD) throw new Error(`Object ${objectId} not found`);
+        return { object: { objectId, content: value, type: "0x2::dynamic_field::Field", version: "1" } };
+      },
     },
   } as unknown as ClientWithCoreApi;
 }
 
+function run<A, E>(effect: Effect.Effect<A, E, SuiClient>, fake: ClientWithCoreApi): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(fake))));
+}
+
 test("reads the release_kind dynamic field", async () => {
-  await expect(getReleaseKind(client(content), RELEASE, PACKAGE)).resolves.toBe(
-    "EP",
-  );
+  await expect(run(getReleaseKind(RELEASE, PACKAGE), client(content))).resolves.toBe("EP");
 });
 
 test("an absent release_kind is null", async () => {
-  await expect(getReleaseKind(client(null), RELEASE, PACKAGE)).resolves.toBeNull();
+  await expect(run(getReleaseKind(RELEASE, PACKAGE), client(null))).resolves.toBeNull();
 });

@@ -1,13 +1,18 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
+import * as effectRoot from "@misofm/effect";
+import * as effectErrors from "@misofm/effect/errors";
+
 import * as musicosRoot from "@misofm/musicos";
 import * as musicosClient from "@misofm/musicos/client";
 import * as musicosQueries from "@misofm/musicos/queries";
 import * as musicosContracts from "@misofm/musicos/contracts";
+import * as musicosErrors from "@misofm/musicos/errors";
 
 import * as partyosRoot from "@misofm/partyos";
 import * as partyosContracts from "@misofm/partyos/contracts";
+import * as partyosErrors from "@misofm/partyos/errors";
 
 import * as platformRoot from "@misofm/platform";
 import * as platformClient from "@misofm/platform/client";
@@ -16,11 +21,14 @@ import * as platformVault from "@misofm/platform/vault";
 import * as platformRead from "@misofm/platform/read";
 import * as platformCredits from "@misofm/platform/credits";
 import * as platformParty from "@misofm/platform/party";
+import * as platformErrors from "@misofm/platform/errors";
 import * as recordModule from "@misofm/platform/contracts/record/record";
 import * as languageCodeModule from "@misofm/platform/contracts/recording_language/deps/language_code/language_code";
 
 import * as streamingRoot from "@misofm/streaming";
+import * as streamingErrors from "@misofm/streaming/errors";
 import * as transcodingRoot from "@misofm/transcoding";
+import * as transcodingErrors from "@misofm/transcoding/errors";
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);
@@ -32,6 +40,13 @@ function hasExport(namespace, name) {
 
 // --- module load + expected-export checks -------------------------------
 
+invariant(Object.keys(effectRoot).length > 0, "@misofm/effect root export did not load");
+invariant(hasExport(effectRoot, "SuiClient"), "@misofm/effect root missing SuiClient");
+
+invariant(Object.keys(effectErrors).length > 0, "@misofm/effect/errors export did not load");
+invariant(hasExport(effectErrors, "SuiRpcError"), "@misofm/effect/errors missing SuiRpcError");
+invariant(hasExport(effectErrors, "ObjectNotFoundError"), "@misofm/effect/errors missing ObjectNotFoundError");
+
 invariant(Object.keys(musicosRoot).length > 0, "@misofm/musicos root export did not load");
 invariant(hasExport(musicosRoot, "MisoClient"), "@misofm/musicos root missing MisoClient");
 invariant(hasExport(musicosRoot, "contracts"), "@misofm/musicos root missing contracts namespace");
@@ -40,8 +55,9 @@ invariant(Object.keys(musicosClient).length > 0, "@misofm/musicos/client export 
 invariant(hasExport(musicosClient, "MisoProtocolClient"), "@misofm/musicos/client missing MisoProtocolClient");
 
 invariant(Object.keys(musicosQueries).length > 0, "@misofm/musicos/queries export did not load");
-invariant(hasExport(musicosQueries, "isNotFound"), "@misofm/musicos/queries missing isNotFound");
-invariant(musicosQueries.isNotFound(new Error("not found")) === false, "isNotFound behaved unexpectedly");
+
+invariant(Object.keys(musicosErrors).length > 0, "@misofm/musicos/errors export did not load");
+invariant(hasExport(musicosErrors, "ObjectNotFoundError"), "@misofm/musicos/errors missing ObjectNotFoundError");
 
 invariant(Object.keys(musicosContracts).length > 0, "@misofm/musicos/contracts export did not load");
 invariant(hasExport(musicosContracts, "composition"), "@misofm/musicos/contracts (curated) missing composition");
@@ -58,6 +74,9 @@ invariant(Object.keys(partyosRoot).length > 0, "@misofm/partyos root export did 
 invariant(hasExport(partyosRoot, "PartyosClient"), "@misofm/partyos root missing PartyosClient");
 invariant(hasExport(partyosContracts, "party"), "@misofm/partyos/contracts missing party");
 invariant(!("uid" in partyosContracts.party), "@misofm/partyos/contracts leaked the raw `uid` accessor");
+
+invariant(Object.keys(partyosErrors).length > 0, "@misofm/partyos/errors export did not load");
+invariant(hasExport(partyosErrors, "PartyNotFoundError"), "@misofm/partyos/errors missing PartyNotFoundError");
 
 invariant(Object.keys(platformRoot).length > 0, "@misofm/platform root export did not load");
 invariant(hasExport(platformRoot, "MisoClient"), "@misofm/platform root missing MisoClient");
@@ -81,6 +100,9 @@ invariant(hasExport(platformCredits, "attachCompositionCredit"), "@misofm/platfo
 invariant(Object.keys(platformParty).length > 0, "@misofm/platform/party export did not load");
 invariant(hasExport(platformParty, "PartyPlatformClient"), "@misofm/platform/party missing PartyPlatformClient");
 
+invariant(Object.keys(platformErrors).length > 0, "@misofm/platform/errors export did not load");
+invariant(hasExport(platformErrors, "RecordSalesUnavailableError"), "@misofm/platform/errors missing RecordSalesUnavailableError");
+
 // Raw wildcard subpath: a deep module and a nested `deps/*` module that are
 // NOT reachable through the curated `./contracts` barrel.
 invariant(Object.keys(recordModule).length > 0, "@misofm/platform/contracts/record/record did not load");
@@ -97,11 +119,17 @@ invariant(typeof languageCodeModule.LanguageCode.parse === "function", "Language
 invariant(Object.keys(streamingRoot).length > 0, "@misofm/streaming root export did not load");
 invariant(hasExport(streamingRoot, "HLS_CONTRACT"), "@misofm/streaming root missing HLS_CONTRACT");
 
+invariant(Object.keys(streamingErrors).length > 0, "@misofm/streaming/errors export did not load");
+invariant(hasExport(streamingErrors, "WarmError"), "@misofm/streaming/errors missing WarmError");
+
 invariant(Object.keys(transcodingRoot).length > 0, "@misofm/transcoding root export did not load");
 invariant(
   hasExport(transcodingRoot, "chooseSegmentTargetMs"),
   "@misofm/transcoding root missing chooseSegmentTargetMs",
 );
+
+invariant(Object.keys(transcodingErrors).length > 0, "@misofm/transcoding/errors export did not load");
+invariant(hasExport(transcodingErrors, "ProcessExitError"), "@misofm/transcoding/errors missing ProcessExitError");
 
 // --- dependency identity: package manager agnostic -----------------------
 //
@@ -158,6 +186,13 @@ function assertSingleInstance(packageName) {
 }
 
 assertSingleInstance("@mysten/sui");
+
+// Every `@misofm/*` package peers on exactly one `effect`; two copies would
+// give the shared `SuiClient`/`SuiGraphQL` Context.Service tags (and every
+// Schema.TaggedError class) distinct identities across package boundaries,
+// silently breaking `Effect.provide`/`Effect.catchTag` for a consumer that
+// composes programs from more than one `@misofm/*` package.
+assertSingleInstance("effect");
 
 // A consumer that ends up resolving two copies of the same `@misofm/*`
 // package (e.g. because one package pins another at a version distinct from

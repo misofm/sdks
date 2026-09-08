@@ -1,23 +1,30 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Schema } from "effect";
+
 // ============================================================================
 // Common
 // ============================================================================
 
 /** Basis points value (0-10000, where 10000 = 100%). */
-export interface BPS {
-  value: number;
-}
+export class BPS extends Schema.Class<BPS>("@misofm/musicos/BPS")({
+  value: Schema.Number,
+}) {}
+
+/** Shared lifecycle-state shape for Composition, Recording, and Release: Initialized -> Published(timestampMs). */
+const WorkState = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("Initialized") }),
+  Schema.Struct({ type: Schema.Literal("Published"), timestampMs: Schema.Number }),
+]);
 
 // ============================================================================
 // Composition
 // ============================================================================
 
 /** Lifecycle state of a composition. */
-export type CompositionState =
-  | { type: "Initialized" }
-  | { type: "Published"; timestampMs: number };
+export const CompositionState = WorkState;
+export type CompositionState = typeof WorkState.Type;
 
 /**
  * A musical composition representing the underlying written work.
@@ -28,19 +35,19 @@ export type CompositionState =
  *
  * State machine: Initialized -> Published (immutable after publish)
  */
-export interface Composition {
+export class Composition extends Schema.Class<Composition>("@misofm/musicos/Composition")({
   /** Unique identifier for this composition. */
-  id: string;
+  id: Schema.String,
   /** Current lifecycle state. */
-  state: CompositionState;
+  state: CompositionState,
   /** Primary title of the composition. */
-  title: string;
+  title: Schema.String,
   /**
    * Royalty rate this composition earns from each recording's revenue (basis
    * points, 0-10000). Immutable for the composition's lifetime.
    */
-  royaltyRate: BPS;
-}
+  royaltyRate: BPS,
+}) {}
 
 /**
  * Emitted once when a composition is published. A pure pointer carrying only the
@@ -57,21 +64,20 @@ export interface CompositionPublishedEvent {
  * The share type parameter T is extracted from the on-chain type
  * `CompositionAdminCap<T>` where T is the composition's share token type.
  */
-export interface CompositionAdminCap {
+export class CompositionAdminCap extends Schema.Class<CompositionAdminCap>("@misofm/musicos/CompositionAdminCap")({
   /** The object ID of the admin cap. */
-  id: string;
+  id: Schema.String,
   /** The share type parameter T from CompositionAdminCap<T>. */
-  shareType: string;
-}
+  shareType: Schema.String,
+}) {}
 
 // ============================================================================
 // Recording
 // ============================================================================
 
 /** Lifecycle state of a recording. */
-export type RecordingState =
-  | { type: "Initialized" }
-  | { type: "Published"; timestampMs: number };
+export const RecordingState = WorkState;
+export type RecordingState = typeof WorkState.Type;
 
 /**
  * An audio recording of a composition.
@@ -86,18 +92,18 @@ export type RecordingState =
  *
  * State machine: Initialized -> Published (immutable after publish)
  */
-export interface Recording {
+export class Recording extends Schema.Class<Recording>("@misofm/musicos/Recording")({
   /** Unique identifier for this recording. */
-  id: string;
+  id: Schema.String,
   /** Current lifecycle state. */
-  state: RecordingState;
+  state: RecordingState,
   /**
    * Object ID of the parent composition. An identity/membership handle — not a
    * revenue routing target: the composition is paid via its recording-share
    * ownership, settled at recording creation. Immutable.
    */
-  compositionId: string;
-}
+  compositionId: Schema.String,
+}) {}
 
 /**
  * Emitted once when a recording is published. A pure pointer carrying only the
@@ -128,18 +134,19 @@ export interface CompositionSharesGrantedEvent {
  * The share type parameter T is extracted from the on-chain type
  * `RecordingAdminCap<T>` where T is the recording's share token type.
  */
-export interface RecordingAdminCap {
+export class RecordingAdminCap extends Schema.Class<RecordingAdminCap>("@misofm/musicos/RecordingAdminCap")({
   /** The object ID of the admin cap. */
-  id: string;
+  id: Schema.String,
   /** The share type parameter T from RecordingAdminCap<T>. */
-  shareType: string;
-}
+  shareType: Schema.String,
+}) {}
 
 // Track
 // ============================================================================
 
 /** Lifecycle state of a track on a release. */
-export type TrackState = "Unassigned" | "Assigned";
+export const TrackState = Schema.Literals(["Unassigned", "Assigned"]);
+export type TrackState = typeof TrackState.Type;
 
 /**
  * A track on a release, linking a recording to its position in the tracklist.
@@ -147,30 +154,29 @@ export type TrackState = "Unassigned" | "Assigned";
  * composition lineage, and — via the composition — the display title) is
  * reached.
  */
-export interface Track {
+export class Track extends Schema.Class<Track>("@misofm/musicos/Track")({
   /** Current state of the track (Unassigned until the release claims it, then Assigned). */
-  state: TrackState;
+  state: TrackState,
   /**
    * ID of the composition underlying this track's recording. An identity/
    * membership handle — not a revenue routing target: the composition is paid
    * via its recording-share ownership, and a track routes its full split to the
    * recording.
    */
-  compositionId: string;
+  compositionId: Schema.String,
   /** ID of the recording on this track. */
-  recordingId: string;
+  recordingId: Schema.String,
   /** Revenue split for this track within the release (in basis points). */
-  splitBps: BPS;
-}
+  splitBps: BPS,
+}) {}
 
 // ============================================================================
 // Release
 // ============================================================================
 
 /** Lifecycle state of a release. */
-export type ReleaseState =
-  | { type: "Initialized" }
-  | { type: "Published"; timestampMs: number };
+export const ReleaseState = WorkState;
+export type ReleaseState = typeof WorkState.Type;
 
 /**
  * A music release (album, EP, or single).
@@ -182,16 +188,16 @@ export type ReleaseState =
  *
  * State machine: Initialized -> Published (immutable after publish)
  */
-export interface Release {
+export class Release extends Schema.Class<Release>("@misofm/musicos/Release")({
   /** Unique identifier for this release. */
-  id: string;
+  id: Schema.String,
   /** Current lifecycle state. */
-  state: ReleaseState;
+  state: ReleaseState,
   /** Title of the release. */
-  title: string;
+  title: Schema.String,
   /** The ordered tracklist. */
-  tracks: Track[];
-}
+  tracks: Schema.Array(Track),
+}) {}
 
 /**
  * Emitted once when a release is published. A pure pointer carrying only the
@@ -208,15 +214,20 @@ export interface ReleaseRegistryCreatedEvent {
   createdBy: string;
 }
 
+/** The shared canonical core `miso::release::ReleaseRegistry`. */
+export class ReleaseRegistry extends Schema.Class<ReleaseRegistry>("@misofm/musicos/ReleaseRegistry")({
+  id: Schema.String,
+}) {}
+
 /**
  * Admin cap for a Release, derived deterministically from the Release object ID.
  *
  * Unlike Composition and Recording admin caps, ReleaseAdminCap is not generic
  * (Release has no share type parameter) and stores a reference to its Release.
  */
-export interface ReleaseAdminCap {
+export class ReleaseAdminCap extends Schema.Class<ReleaseAdminCap>("@misofm/musicos/ReleaseAdminCap")({
   /** The object ID of the admin cap. */
-  id: string;
+  id: Schema.String,
   /** The object ID of the Release this cap administers. */
-  releaseId: string;
-}
+  releaseId: Schema.String,
+}) {}

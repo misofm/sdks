@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient } from "@misofm/effect";
 import { deriveTargetReleaseId } from "../src/view.ts";
 
 const PKG = "0x" + "cd".repeat(32);
@@ -24,15 +26,16 @@ test("deriveTargetReleaseId sends the core registry as the first Move argument",
     },
   } as unknown as ClientWithCoreApi;
 
-  await expect(
-    deriveTargetReleaseId(client, PKG, {
+  const releaseId = await Effect.runPromise(
+    deriveTargetReleaseId(PKG, {
       sender: REGISTRY,
       releaseRegistryId: REGISTRY,
       recordingIds: [RECORDING],
       splitBps: [10_000],
       nonce: "42",
-    }),
-  ).resolves.toBe(RECORDING);
+    }).pipe(Effect.provide(SuiClient.layer(client))),
+  );
+  expect(releaseId).toBe(RECORDING);
 
   const data = transaction!.getData() as {
     inputs: { $kind: string; UnresolvedObject?: { objectId: string } }[];
@@ -56,13 +59,20 @@ test("deriveTargetReleaseId rejects unsafe JavaScript integer inputs before simu
       },
     },
   } as unknown as ClientWithCoreApi;
-  await expect(
-    deriveTargetReleaseId(client, PKG, {
-      sender: REGISTRY,
-      recordingIds: [RECORDING],
-      splitBps: [Number.MAX_SAFE_INTEGER + 2],
-      nonce: "1",
-      releaseRegistryId: REGISTRY,
-    }),
-  ).rejects.toThrow("safe integer");
+
+  let thrown: unknown;
+  try {
+    await Effect.runPromise(
+      deriveTargetReleaseId(PKG, {
+        sender: REGISTRY,
+        recordingIds: [RECORDING],
+        splitBps: [Number.MAX_SAFE_INTEGER + 2],
+        nonce: "1",
+        releaseRegistryId: REGISTRY,
+      }).pipe(Effect.provide(SuiClient.layer(client))),
+    );
+  } catch (error) {
+    thrown = error;
+  }
+  expect(String(thrown)).toMatch(/safe integer/);
 });

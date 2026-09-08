@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
+import { SuiClient } from "@misofm/effect";
 import {
   authorizeRecordShop,
   deriveListingId,
@@ -130,62 +132,69 @@ test("matches the fixed independent edition, cap, listing, and record derivation
   );
 });
 
+function run<A, E>(client: ClientWithCoreApi, effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
+}
+
+function flip<A, E>(client: ClientWithCoreApi, effect: Effect.Effect<A, E, SuiClient>): Promise<E> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client)), Effect.flip));
+}
+
 test("reads exact Pressing, Listing, and concrete Record provenance", async () => {
   const client = fixtureClient();
-  await expect(
-    getPressing(client, PRESSING, RECORD_PACKAGE),
-  ).resolves.toMatchObject({
+  await expect(run(client, getPressing(PRESSING, RECORD_PACKAGE))).resolves.toMatchObject({
     edition: EDITION,
     supply: 7,
     maxSupply: 100,
   });
-  await expect(
-    getListing(client, LISTING, SHOP_PACKAGE),
-  ).resolves.toMatchObject({
+  await expect(run(client, getListing(LISTING, SHOP_PACKAGE))).resolves.toMatchObject({
     pricing: { kind: "floor", amount: "2500" },
     state: "enabled",
   });
-  await expect(
-    getRecord(client, RECORD, RECORD_PACKAGE),
-  ).resolves.toMatchObject({
+  await expect(run(client, getRecord(RECORD, RECORD_PACKAGE))).resolves.toMatchObject({
     pressingId: PRESSING,
     edition: EDITION,
     number: 7,
     purchasePrice: "3000",
     purchasedTimestampMs: "1234",
   });
-  const sale = await getSale(client, {
-    releaseId: RELEASE,
-    edition: EDITION,
-    currencyType: CURRENCY,
-    recordPackageId: RECORD_PACKAGE,
-    recordShopPackageId: SHOP_PACKAGE,
-  });
+  const sale = await run(
+    client,
+    getSale({
+      releaseId: RELEASE,
+      edition: EDITION,
+      currencyType: CURRENCY,
+      recordPackageId: RECORD_PACKAGE,
+      recordShopPackageId: SHOP_PACKAGE,
+    }),
+  );
   expect(sale.pressing?.supply).toBe(7);
   expect(sale.listing?.pricing.kind).toBe("floor");
 });
 
 test("exact readers reject the wrong package and Listing currency", async () => {
   const client = fixtureClient();
-  await expect(getPressing(client, PRESSING, "0xc")).rejects.toThrow(
-    /expected/,
-  );
-  await expect(getListing(client, LISTING, "0xc")).rejects.toThrow(
-    /configured/,
-  );
+  const pressingError = await flip(client, getPressing(PRESSING, "0xc"));
+  expect(pressingError._tag).toBe("ObjectTypeMismatchError");
+
+  const listingError = await flip(client, getListing(LISTING, "0xc"));
+  expect(listingError._tag).toBe("ObjectTypeMismatchError");
+
   const wrongCurrency = {
     core: {
       getObject: async () => ({
         object: {
+          objectId: LISTING,
           content: listingBytes,
           type: `${SHOP_PACKAGE}::listing::Listing<0x2::other::OTHER>`,
+          version: "1",
         },
       }),
     },
   } as unknown as ClientWithCoreApi;
-  await expect(
-    getListing(wrongCurrency, LISTING, SHOP_PACKAGE),
-  ).rejects.toThrow(/derived id/);
+  const decodeError = await flip(wrongCurrency, getListing(LISTING, SHOP_PACKAGE));
+  expect(decodeError._tag).toBe("BcsDecodeError");
+  expect(String((decodeError as { cause?: unknown }).cause)).toMatch(/derived id/);
 });
 
 function calls(

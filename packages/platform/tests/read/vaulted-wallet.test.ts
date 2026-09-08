@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { contracts } from "@misofm/musicos";
+import { SuiClient } from "@misofm/effect";
 import * as vaultContract from "../../src/contracts/vault/vault.ts";
-import type { MisoClient } from "../../src/read/client.ts";
+import type { MisoConfig } from "../../src/read/config.ts";
 import {
   classifyVaultedWorkAdminCapType,
   getOwnedWorks,
@@ -51,7 +54,7 @@ function vaultCapBytes(): Uint8Array {
   return vaultContract.VaultAdminCap.serialize({ id: VAULT_CAP, vault_id: VAULT }).toBytes();
 }
 
-function fakeClient(): MisoClient {
+function fakeClient(): ClientWithCoreApi {
   const core = {
     listOwnedObjects: async ({ type }: { type?: string }) => ({
       objects:
@@ -76,6 +79,7 @@ function fakeClient(): MisoClient {
             type: VAULT_CAP_TYPE,
             content: vaultCapBytes(),
             json: { vault_id: VAULT },
+            version: "1",
           },
         };
       }
@@ -85,20 +89,23 @@ function fakeClient(): MisoClient {
             objectId,
             type: `${MISO}::release::Release`,
             content: releaseBytes(),
+            version: "1",
           },
         };
       }
       throw new Error(`Unexpected object ${objectId}`);
     },
   };
-  return {
-    config: {
-      deployment: { musicos: MISO },
-      protocol: { vault: VAULT_PACKAGE },
-    },
-    protocol: { core },
-    graphql: {},
-  } as unknown as MisoClient;
+  return { core } as unknown as ClientWithCoreApi;
+}
+
+const config = {
+  deployment: { musicos: MISO },
+  protocol: { vault: VAULT_PACKAGE },
+} as unknown as MisoConfig;
+
+function run<A, E>(effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(fakeClient()))));
 }
 
 describe("vaulted work cap classification", () => {
@@ -140,7 +147,7 @@ describe("vaulted work cap classification", () => {
 });
 
 test("getOwnedWorks lists a release through its owner-held VaultAdminCap", async () => {
-  await expect(getOwnedWorks(fakeClient(), `0x${"bb".repeat(32)}`)).resolves.toEqual([
+  await expect(run(getOwnedWorks(`0x${"bb".repeat(32)}`, config))).resolves.toEqual([
     {
       capId: VAULT_CAP,
       kind: "release",
@@ -152,7 +159,7 @@ test("getOwnedWorks lists a release through its owner-held VaultAdminCap", async
 });
 
 test("getWorkByCap resolves a VaultAdminCap detail route through its shared vault", async () => {
-  await expect(getWorkByCap(fakeClient(), VAULT_CAP)).resolves.toEqual({
+  await expect(run(getWorkByCap(VAULT_CAP, config))).resolves.toEqual({
     capId: VAULT_CAP,
     kind: "release",
     workId: RELEASE,

@@ -4,15 +4,23 @@
 // Primary Record sales. `record` owns concrete Records and edition-scoped
 // Pressings; immutable `record_shop` owns per-currency Listings and payment.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import {
   deriveObjectID,
   normalizeStructTag,
   normalizeSuiAddress,
   parseStructTag,
 } from "@mysten/sui/utils";
+import { Effect, Schema } from "effect";
+import {
+  assertObjectType,
+  decodeBcs,
+  getObjectsContent,
+  getOptionalObjectContent,
+  ObjectTypeMismatchError,
+  type SuiClient,
+} from "@misofm/effect";
+import type { BcsDecodeError, SuiRpcError } from "@misofm/effect";
 import type { TxThunk } from "./transactions.ts";
-import { isNotFound } from "./queries.ts";
 import { asU64, type U64Input } from "./vault.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";
 import * as recordContract from "./contracts/record/record.ts";
@@ -406,54 +414,45 @@ export function purchaseRecord(p: PurchaseRecordParams): TxThunk {
   };
 }
 
-export interface PressingView {
-  id: string;
-  releaseId: string;
-  edition: number;
-  supply: number;
-  maxSupply: number | null;
-  distributors: string[];
-}
+/** One permanent record-production run derived from a release. */
+export class Pressing extends Schema.Class<Pressing>("@misofm/platform/Pressing")({
+  id: Schema.String,
+  releaseId: Schema.String,
+  edition: Schema.Number,
+  supply: Schema.Number,
+  maxSupply: Schema.NullOr(Schema.Number),
+  distributors: Schema.Array(Schema.String),
+}) {}
 
-export interface ListingView {
-  id: string;
-  releaseId: string;
-  pressingId: string;
-  pricing: { kind: "fixed" | "floor"; amount: string };
-  state: ListingSwitch;
-  currencyType: string;
-}
+/** One permanent currency offer derived from a Pressing. */
+export class Listing extends Schema.Class<Listing>("@misofm/platform/Listing")({
+  id: Schema.String,
+  releaseId: Schema.String,
+  pressingId: Schema.String,
+  pricing: Schema.Struct({
+    kind: Schema.Literals(["fixed", "floor"]),
+    amount: Schema.String,
+  }),
+  state: Schema.Literals(["enabled", "disabled"]),
+  currencyType: Schema.String,
+}) {}
 
-export interface RecordView {
-  id: string;
-  releaseId: string;
-  pressingId: string;
-  edition: number;
-  number: number;
-  purchaseCurrency: string;
-  purchasePrice: string;
-  purchasedBy: string;
-  purchasedTimestampMs: string;
-}
-
-async function fetch(
-  client: ClientWithCoreApi,
-  objectId: string,
-): Promise<{ content: Uint8Array; type: string } | null> {
-  try {
-    const { object } = await client.core.getObject({
-      objectId,
-      include: { content: true },
-    });
-    if (!object) return null;
-    if (!object.content || !object.type)
-      throw new Error(`object ${objectId} has no BCS content or full type`);
-    return { content: object.content, type: object.type };
-  } catch (error) {
-    if (isNotFound(error)) return null;
-    throw error;
-  }
-}
+/**
+ * One purchased copy of a Pressing. Named `PressingRecord`, not `Record` — the
+ * Move type is `record::Record`, but `Record` collides with TypeScript's
+ * built-in `Record<K, V>` utility type, which this codebase uses constantly.
+ */
+export class PressingRecord extends Schema.Class<PressingRecord>("@misofm/platform/PressingRecord")({
+  id: Schema.String,
+  releaseId: Schema.String,
+  pressingId: Schema.String,
+  edition: Schema.Number,
+  number: Schema.Number,
+  purchaseCurrency: Schema.String,
+  purchasePrice: Schema.String,
+  purchasedBy: Schema.String,
+  purchasedTimestampMs: Schema.String,
+}) {}
 
 function sameId(a: string, b: string): boolean {
   return normalizeSuiAddress(a) === normalizeSuiAddress(b);
@@ -462,15 +461,6 @@ function sameId(a: string, b: string): boolean {
 function requireId(label: string, actual: string, expected: string): void {
   if (!sameId(actual, expected))
     throw new Error(`${label} ${actual} does not match expected ${expected}`);
-}
-
-function requireExactType(type: string, expected: string, label: string): void {
-  const actual = normalizeStructTag(type);
-  const normalizedExpected = normalizeStructTag(expected);
-  if (actual !== normalizedExpected)
-    throw new Error(
-      `${label} has type ${actual}, expected ${normalizedExpected}`,
-    );
 }
 
 function requireListingCurrency(
@@ -500,7 +490,7 @@ function enumKind(
   throw new Error(`unknown enum variant; expected ${names.join(" or ")}`);
 }
 
-function parsePricing(value: unknown): ListingView["pricing"] {
+function parsePricing(value: unknown): { kind: "fixed" | "floor"; amount: string } {
   if (!value || typeof value !== "object")
     throw new Error("Listing has malformed pricing");
   const v = value as { $kind?: string; Fixed?: string; Floor?: string };
@@ -511,13 +501,8 @@ function parsePricing(value: unknown): ListingView["pricing"] {
   return { kind: kind === "Fixed" ? "fixed" : "floor", amount };
 }
 
-function parsePressing(
-  pressingId: string,
-  content: Uint8Array,
-  type: string,
-  recordPackageId: string,
-): PressingView {
-  requireExactType(type, `${recordPackageId}::pressing::Pressing`, "Pressing");
+/** Raw BCS-parse -> camelCase mapper; `Schema.decodeUnknownEffect` (via `decodeBcs`) validates and constructs `Pressing`. */
+function mapPressing(pressingId: string, recordPackageId: string, content: Uint8Array): typeof Pressing.Encoded {
   const parsed = pressingContract.Pressing.parse(content);
   requireId("Pressing UID", parsed.id, pressingId);
   requireId(
@@ -531,19 +516,16 @@ function parsePressing(
     edition: parsed.edition,
     supply: parsed.supply,
     maxSupply: parsed.max_supply,
-    distributors: parsed.distributors.contents.map((item) =>
-      normalizeStructTag(item.name),
-    ),
+    distributors: parsed.distributors.contents.map((item) => normalizeStructTag(item.name)),
   };
 }
 
-function parseListing(
+function mapListing(
   listingId: string,
-  content: Uint8Array,
-  type: string,
   recordShopPackageId: string,
-): ListingView {
-  const currencyType = requireListingCurrency(type, recordShopPackageId);
+  currencyType: string,
+  content: Uint8Array,
+): typeof Listing.Encoded {
   const parsed = listingContract.Listing.parse(content);
   requireId("Listing UID", parsed.id, listingId);
   requireId(
@@ -562,13 +544,7 @@ function parseListing(
   };
 }
 
-function parseRecord(
-  recordId: string,
-  content: Uint8Array,
-  type: string,
-  recordPackageId: string,
-): RecordView {
-  requireExactType(type, `${recordPackageId}::record::Record`, "Record");
+function mapRecord(recordId: string, recordPackageId: string, content: Uint8Array): typeof PressingRecord.Encoded {
   const parsed = recordContract.Record.parse(content);
   requireId("Record UID", parsed.id, recordId);
   requireId(
@@ -589,38 +565,77 @@ function parseRecord(
   };
 }
 
-export async function getPressing(
-  client: ClientWithCoreApi,
+/** Fails with `ObjectTypeMismatchError` unless `type` is `recordShopPackageId`'s `listing::Listing<Currency>`; returns the currency type argument. */
+function assertListingType(
+  objectId: string,
+  type: string,
+  recordShopPackageId: string,
+): Effect.Effect<string, ObjectTypeMismatchError> {
+  return Effect.try({
+    try: () => requireListingCurrency(type, recordShopPackageId),
+    catch: () =>
+      new ObjectTypeMismatchError({
+        objectId,
+        expected: `${normalizeSuiAddress(recordShopPackageId)}::listing::Listing<Currency>`,
+        actual: normalizeStructTag(type),
+      }),
+  });
+}
+
+/** One permanent pressing by id, or `null` when no such Pressing exists. */
+export const getPressing = Effect.fn("getPressing")(function* (
   pressingId: string,
   recordPackageId: string,
-): Promise<PressingView | null> {
-  const got = await fetch(client, pressingId);
-  return got
-    ? parsePressing(pressingId, got.content, got.type, recordPackageId)
-    : null;
-}
+): Effect.fn.Return<Pressing | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(pressingId);
+  if (found._tag === "None") return null;
+  const { content, type } = found.value;
+  yield* assertObjectType(
+    pressingId,
+    normalizeStructTag(type),
+    normalizeStructTag(`${recordPackageId}::pressing::Pressing`),
+  );
+  return yield* decodeBcs(
+    { parse: (bytes) => mapPressing(pressingId, recordPackageId, bytes) },
+    Pressing,
+    content,
+    { type: "Pressing", objectId: pressingId },
+  );
+});
 
-export async function getListing(
-  client: ClientWithCoreApi,
+/** One currency-specific listing by id, or `null` when no such Listing exists. */
+export const getListing = Effect.fn("getListing")(function* (
   listingId: string,
   recordShopPackageId: string,
-): Promise<ListingView | null> {
-  const got = await fetch(client, listingId);
-  return got
-    ? parseListing(listingId, got.content, got.type, recordShopPackageId)
-    : null;
-}
+): Effect.fn.Return<Listing | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(listingId);
+  if (found._tag === "None") return null;
+  const { content, type } = found.value;
+  const currencyType = yield* assertListingType(listingId, type, recordShopPackageId);
+  return yield* decodeBcs(
+    { parse: (bytes) => mapListing(listingId, recordShopPackageId, currencyType, bytes) },
+    Listing,
+    content,
+    { type: "Listing", objectId: listingId },
+  );
+});
 
-export async function getRecord(
-  client: ClientWithCoreApi,
+/** One purchased copy by id, or `null` when no such Record exists. */
+export const getRecord = Effect.fn("getRecord")(function* (
   recordId: string,
   recordPackageId: string,
-): Promise<RecordView | null> {
-  const got = await fetch(client, recordId);
-  return got
-    ? parseRecord(recordId, got.content, got.type, recordPackageId)
-    : null;
-}
+): Effect.fn.Return<PressingRecord | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(recordId);
+  if (found._tag === "None") return null;
+  const { content, type } = found.value;
+  yield* assertObjectType(recordId, normalizeStructTag(type), normalizeStructTag(`${recordPackageId}::record::Record`));
+  return yield* decodeBcs(
+    { parse: (bytes) => mapRecord(recordId, recordPackageId, bytes) },
+    PressingRecord,
+    content,
+    { type: "Record", objectId: recordId },
+  );
+});
 
 export interface GetSaleParams {
   releaseId: string;
@@ -630,10 +645,14 @@ export interface GetSaleParams {
   recordShopPackageId: string;
 }
 
-export async function getSale(
-  client: ClientWithCoreApi,
+/** A Pressing and its currency-specific Listing, read in one Core batch. Either half may be `null`. */
+export const getSale = Effect.fn("getSale")(function* (
   p: GetSaleParams,
-): Promise<{ pressing: PressingView | null; listing: ListingView | null }> {
+): Effect.fn.Return<
+  { pressing: Pressing | null; listing: Listing | null },
+  ObjectTypeMismatchError | BcsDecodeError | SuiRpcError,
+  SuiClient
+> {
   const { pressingId, listingId } = deriveSaleIds(
     p.releaseId,
     p.edition,
@@ -641,36 +660,35 @@ export async function getSale(
     p.recordPackageId,
     p.recordShopPackageId,
   );
-  const { objects } = await client.core.getObjects({
-    objectIds: [pressingId, listingId],
-    include: { content: true },
-  });
-  const [pressingObject, listingObject] = objects;
-  if (pressingObject instanceof Error && !isNotFound(pressingObject))
-    throw pressingObject;
-  if (listingObject instanceof Error && !isNotFound(listingObject))
-    throw listingObject;
-  const pressing =
-    !pressingObject || pressingObject instanceof Error
-      ? null
-      : parseBatchPressing(
-          pressingId,
-          pressingObject.content,
-          pressingObject.type,
-          p.recordPackageId,
-        );
-  const listing =
-    !listingObject || listingObject instanceof Error
-      ? null
-      : parseBatchListing(
-          listingId,
-          listingObject.content,
-          listingObject.type,
-          p.recordShopPackageId,
-        );
-  if (pressing)
+  const contentById = yield* getObjectsContent([pressingId, listingId]);
+
+  const pressingFound = contentById.get(pressingId);
+  let pressing: Pressing | null = null;
+  if (pressingFound) {
+    yield* assertObjectType(
+      pressingId,
+      normalizeStructTag(pressingFound.type),
+      normalizeStructTag(`${p.recordPackageId}::pressing::Pressing`),
+    );
+    pressing = yield* decodeBcs(
+      { parse: (bytes) => mapPressing(pressingId, p.recordPackageId, bytes) },
+      Pressing,
+      pressingFound.content,
+      { type: "Pressing", objectId: pressingId },
+    );
     requireId("Sale pressing release", pressing.releaseId, p.releaseId);
-  if (listing) {
+  }
+
+  const listingFound = contentById.get(listingId);
+  let listing: Listing | null = null;
+  if (listingFound) {
+    const currencyType = yield* assertListingType(listingId, listingFound.type, p.recordShopPackageId);
+    listing = yield* decodeBcs(
+      { parse: (bytes) => mapListing(listingId, p.recordShopPackageId, currencyType, bytes) },
+      Listing,
+      listingFound.content,
+      { type: "Listing", objectId: listingId },
+    );
     requireId("Sale listing release", listing.releaseId, p.releaseId);
     requireId("Sale listing pressing", listing.pressingId, pressingId);
     if (listing.currencyType !== normalizeStructTag(p.currencyType)) {
@@ -679,27 +697,6 @@ export async function getSale(
       );
     }
   }
+
   return { pressing, listing };
-}
-
-function parseBatchPressing(
-  id: string,
-  content: Uint8Array | undefined,
-  type: string | undefined,
-  packageId: string,
-): PressingView {
-  if (!content || !type)
-    throw new Error(`Pressing ${id} has no BCS content or full type`);
-  return parsePressing(id, content, type, packageId);
-}
-
-function parseBatchListing(
-  id: string,
-  content: Uint8Array | undefined,
-  type: string | undefined,
-  packageId: string,
-): ListingView {
-  if (!content || !type)
-    throw new Error(`Listing ${id} has no BCS content or full type`);
-  return parseListing(id, content, type, packageId);
-}
+});

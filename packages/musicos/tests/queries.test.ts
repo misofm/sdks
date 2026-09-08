@@ -1,11 +1,15 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The exported query helpers that are pure (no network): type-param extraction
-// and missing-object detection.
+// The exported query helpers that are pure (no network): type-param extraction.
+// Effect-requiring reads are exercised against a fake `ClientWithCoreApi`,
+// providing `SuiClient.layer(...)` at the boundary.
 
 import { test, expect } from "bun:test";
+import { Effect, Option } from "effect";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { SuiClient, SuiGraphQL } from "@misofm/effect";
 import {
   getExtensionField,
   getReleaseDspLink,
@@ -15,13 +19,20 @@ import {
   extractTypeParams2,
   getCompositionAddressByShareType,
   getRecordingByShareType,
-  isNotFound,
 } from "../src/queries.ts";
 import { CompositionPublishedEvent } from "../src/contracts/musicos/composition.ts";
-import { ReleaseRegistry } from "../src/contracts/musicos/release.ts";
 import { Recording } from "../src/contracts/musicos/recording.ts";
+import { ReleaseRegistry as ReleaseRegistryBcs } from "../src/contracts/musicos/release.ts";
 
 const PKG = "0x" + "cd".repeat(32);
+
+function fakeCoreClient(core: Record<string, unknown>): ClientWithCoreApi {
+  return { core } as unknown as ClientWithCoreApi;
+}
+
+function runWithCore<A, E>(effect: Effect.Effect<A, E, SuiClient>, client: ClientWithCoreApi): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
+}
 
 // ── extractTypeParam / extractTypeParams2 ─────────────────────────────────────
 
@@ -45,33 +56,6 @@ test("extractTypeParams2 splits two top-level parameters, respecting nesting", (
   );
 });
 
-// ── isNotFound ────────────────────────────────────────────────────────────────
-
-test("isNotFound matches structured ObjectError codes from the JSON-RPC/GraphQL clients", () => {
-  const withCode = (code: string) => Object.assign(new Error("boom"), { code });
-  expect(isNotFound(withCode("notExists"))).toBe(true);
-  expect(isNotFound(withCode("deleted"))).toBe(true);
-  expect(isNotFound(withCode("dynamicFieldNotFound"))).toBe(true);
-  expect(isNotFound(withCode("notFound"))).toBe(true);
-  expect(isNotFound(withCode("displayError"))).toBe(false);
-});
-
-test("isNotFound matches the missing-object message shapes of each transport", () => {
-  expect(isNotFound(new Error(`Object ${PKG} does not exist`))).toBe(true); // JSON-RPC
-  expect(isNotFound(new Error(`Object ${PKG} not found`))).toBe(true); // GraphQL / gRPC
-  expect(isNotFound(new Error(`Object ${PKG} has been deleted`))).toBe(true); // JSON-RPC
-  expect(isNotFound(new Error(`Dynamic field not found for object ${PKG}`))).toBe(true); // JSON-RPC
-  expect(isNotFound(new Error(`No object found for id ${PKG}`))).toBe(true); // codegen MoveStruct.get
-});
-
-test("isNotFound does NOT match transport/protocol errors", () => {
-  expect(isNotFound(new Error("Method not found"))).toBe(false); // JSON-RPC -32601
-  expect(isNotFound(new Error("peer not found"))).toBe(false);
-  expect(isNotFound(new Error("route not found"))).toBe(false);
-  expect(isNotFound(new Error("fetch failed"))).toBe(false);
-  expect(isNotFound("not found")).toBe(false); // bare phrase, no object context
-});
-
 // ── GraphQL discovery ────────────────────────────────────────────────────────
 
 test("getCompositionAddressByShareType queries the fully-qualified composition type", async () => {
@@ -83,9 +67,13 @@ test("getCompositionAddressByShareType queries the fully-qualified composition t
     },
   } as unknown as SuiGraphQLClient;
 
-  const address = await getCompositionAddressByShareType(graphqlClient, `${PKG}::share::CompositionShare`, PKG);
+  const address = await Effect.runPromise(
+    getCompositionAddressByShareType(`${PKG}::share::CompositionShare`, PKG).pipe(
+      Effect.provide(SuiGraphQL.layer(graphqlClient)),
+    ),
+  );
 
-  expect(address).toBe("0xcomposition");
+  expect(Option.getOrNull(address)).toBe("0xcomposition");
   expect(calls).toHaveLength(1);
   expect(calls[0]).toMatchObject({
     variables: {
@@ -94,12 +82,15 @@ test("getCompositionAddressByShareType queries the fully-qualified composition t
   });
 });
 
-test("getCompositionAddressByShareType returns null when no composition matches", async () => {
+test("getCompositionAddressByShareType resolves to None when no composition matches", async () => {
   const graphqlClient = {
     query: async () => ({ data: { objects: { nodes: [] } } }),
   } as unknown as SuiGraphQLClient;
 
-  await expect(getCompositionAddressByShareType(graphqlClient, `${PKG}::share::Missing`, PKG)).resolves.toBeNull();
+  const address = await Effect.runPromise(
+    getCompositionAddressByShareType(`${PKG}::share::Missing`, PKG).pipe(Effect.provide(SuiGraphQL.layer(graphqlClient))),
+  );
+  expect(Option.isNone(address)).toBe(true);
 });
 
 test("getRecordingByShareType follows GraphQL pages before loading the matching object", async () => {
@@ -137,75 +128,76 @@ test("getRecordingByShareType follows GraphQL pages before loading the matching 
       };
     },
   } as unknown as SuiGraphQLClient;
-  const coreClient = {
-    core: {
-      getObject: async ({ objectId }: { objectId: string }) => ({
-        object: {
-          content: Recording.serialize({
-            id: objectId,
-            state: { Initialized: true },
-            composition_id: PKG,
-          }).toBytes(),
-        },
-      }),
-    },
-  } as unknown as ClientWithCoreApi;
-
-  await expect(getRecordingByShareType(coreClient, graphqlClient, targetShare, PKG)).resolves.toMatchObject({
-    id: matchingId,
-    compositionId: PKG,
+  const coreClient = fakeCoreClient({
+    getObject: async ({ objectId }: { objectId: string }) => ({
+      object: {
+        content: Recording.serialize({
+          id: objectId,
+          state: { Initialized: true },
+          composition_id: PKG,
+        }).toBytes(),
+      },
+    }),
   });
+
+  const recording = await Effect.runPromise(
+    getRecordingByShareType(targetShare, PKG).pipe(
+      Effect.provide(SuiGraphQL.layer(graphqlClient)),
+      Effect.provide(SuiClient.layer(coreClient)),
+    ),
+  );
+
+  expect(recording).toMatchObject({ id: matchingId, compositionId: PKG });
   expect(calls).toHaveLength(2);
   expect(calls[1]).toMatchObject({ variables: { cursor: "page-2" } });
 });
 
-test("getExtensionField reads a fieldless ExtensionKey and returns null only for absence", async () => {
+test("getExtensionField reads a fieldless ExtensionKey and resolves to None only for absence", async () => {
   const calls: unknown[] = [];
   const value = CompositionPublishedEvent.serialize({
     composition_id: PKG,
   }).toBytes();
-  const client = {
-    core: {
-      getDynamicField: async (request: unknown) => {
-        calls.push(request);
-        return { dynamicField: { value: { bcs: value } } };
-      },
+  const client = fakeCoreClient({
+    getDynamicField: async (request: unknown) => {
+      calls.push(request);
+      return { dynamicField: { value: { bcs: value } } };
     },
-  } as unknown as ClientWithCoreApi;
+  });
 
-  await expect(
-    getExtensionField(client, PKG, {
+  const result = await runWithCore(
+    getExtensionField(PKG, {
       packageId: PKG,
       module: "some_extension",
       codec: CompositionPublishedEvent,
     }),
-  ).resolves.toEqual({ composition_id: PKG });
-  expect(calls).toEqual([
-    {
-      parentId: PKG,
-      name: {
-        type: `${PKG}::some_extension::ExtensionKey`,
-        bcs: new Uint8Array([0]),
-      },
+    client,
+  );
+  expect(Option.getOrThrow(result)).toEqual({ composition_id: PKG });
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({
+    parentId: PKG,
+    name: {
+      type: `${PKG}::some_extension::ExtensionKey`,
+      bcs: new Uint8Array([0]),
     },
-  ]);
+  });
 
-  const missing = {
-    core: {
-      getDynamicField: async () => {
-        throw Object.assign(new Error("Dynamic field not found for object"), {
-          code: "dynamicFieldNotFound",
-        });
-      },
+  const missing = fakeCoreClient({
+    getDynamicField: async () => {
+      throw Object.assign(new Error("Dynamic field not found for object"), {
+        code: "dynamicFieldNotFound",
+      });
     },
-  } as unknown as ClientWithCoreApi;
-  await expect(
-    getExtensionField(missing, PKG, {
+  });
+  const missingResult = await runWithCore(
+    getExtensionField(PKG, {
       packageId: PKG,
       module: "some_extension",
       codec: CompositionPublishedEvent,
     }),
-  ).resolves.toBeNull();
+    missing,
+  );
+  expect(Option.isNone(missingResult)).toBe(true);
 });
 
 test("DSP fields use their platform-keyed dynamic-field names", async () => {
@@ -213,58 +205,68 @@ test("DSP fields use their platform-keyed dynamic-field names", async () => {
   const value = CompositionPublishedEvent.serialize({
     composition_id: PKG,
   }).toBytes();
-  const client = {
-    core: {
-      getDynamicField: async (request: unknown) => {
-        calls.push(request);
-        return { dynamicField: { value: { bcs: value } } };
-      },
+  const client = fakeCoreClient({
+    getDynamicField: async (request: unknown) => {
+      calls.push(request);
+      return { dynamicField: { value: { bcs: value } } };
     },
-  } as unknown as ClientWithCoreApi;
-
-  await getReleaseDspLink(client, PKG, {
-    packageId: PKG,
-    platform: 7,
-    codec: CompositionPublishedEvent,
-  });
-  await getTrackDspLinks(client, PKG, {
-    packageId: PKG,
-    platform: 7,
-    codec: CompositionPublishedEvent,
   });
 
-  expect(calls).toEqual([
-    {
-      parentId: PKG,
-      name: {
-        type: `${PKG}::release_dsp_link::ReleaseLinkKey`,
-        bcs: new Uint8Array([7]),
-      },
-    },
-    {
-      parentId: PKG,
-      name: {
-        type: `${PKG}::release_dsp_link::TrackLinksKey`,
-        bcs: new Uint8Array([7]),
-      },
-    },
-  ]);
-  await expect(
-    getReleaseDspLink(client, PKG, {
+  await runWithCore(
+    getReleaseDspLink(PKG, {
       packageId: PKG,
-      platform: 256,
+      platform: 7,
       codec: CompositionPublishedEvent,
     }),
-  ).rejects.toThrow(/u8/);
+    client,
+  );
+  await runWithCore(
+    getTrackDspLinks(PKG, {
+      packageId: PKG,
+      platform: 7,
+      codec: CompositionPublishedEvent,
+    }),
+    client,
+  );
+
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toMatchObject({
+    parentId: PKG,
+    name: {
+      type: `${PKG}::release_dsp_link::ReleaseLinkKey`,
+      bcs: new Uint8Array([7]),
+    },
+  });
+  expect(calls[1]).toMatchObject({
+    parentId: PKG,
+    name: {
+      type: `${PKG}::release_dsp_link::TrackLinksKey`,
+      bcs: new Uint8Array([7]),
+    },
+  });
+
+  let thrown: unknown;
+  try {
+    await runWithCore(
+      getReleaseDspLink(PKG, {
+        packageId: PKG,
+        platform: 256,
+        codec: CompositionPublishedEvent,
+      }),
+      client,
+    );
+  } catch (error) {
+    thrown = error;
+  }
+  expect(String(thrown)).toMatch(/u8/);
 });
 
 test("core registry parsing is deterministic", async () => {
-  const client = {
-    core: {
-      getObject: async () => ({
-        object: { content: ReleaseRegistry.serialize({ id: PKG }).toBytes() },
-      }),
-    },
-  } as unknown as ClientWithCoreApi;
-  await expect(getReleaseRegistryById(client, PKG)).resolves.toEqual({ id: PKG });
+  const client = fakeCoreClient({
+    getObject: async () => ({
+      object: { content: ReleaseRegistryBcs.serialize({ id: PKG }).toBytes() },
+    }),
+  });
+  const registry = await runWithCore(getReleaseRegistryById(PKG), client);
+  expect(registry).toEqual({ id: PKG });
 });

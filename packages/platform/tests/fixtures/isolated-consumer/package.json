@@ -6,11 +6,13 @@
     "check": "tsc --noEmit && node verify.mjs"
   },
   "dependencies": {
+    "@misofm/effect": "file:../misofm-effect.tgz",
     "@misofm/musicos": "file:../misofm-musicos.tgz",
     "@misofm/partyos": "file:../misofm-partyos.tgz",
     "@misofm/platform": "file:../misofm-platform.tgz",
     "@misofm/streaming": "file:../misofm-streaming.tgz",
     "@misofm/transcoding": "file:../misofm-transcoding.tgz",
+    "effect": "4.0.0-rc.112",
     "typescript": "5.9.3"
   }
 }

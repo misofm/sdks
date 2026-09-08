@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { isValidSuiAddress, normalizeSuiAddress } from "@mysten/sui/utils";
+import { Effect } from "effect";
+import { MisoAuthError, type MisoAuthErrorCode } from "./errors.ts";
+
+export type { MisoAuthErrorCode };
+export { MisoAuthError };
 
 export type AuthNetwork = "testnet" | "mainnet";
 
@@ -30,24 +35,6 @@ export const MISO_AUTH_HEADERS = {
   signature: "X-Sui-Signature",
   issuedAt: "X-Sui-Issued-At",
 } as const;
-
-export type MisoAuthErrorCode =
-  | "invalid_target"
-  | "challenge_rejected"
-  | "invalid_challenge"
-  | "signing_failed";
-
-export class MisoAuthError extends Error {
-  readonly code: MisoAuthErrorCode;
-  readonly status?: number;
-
-  constructor(code: MisoAuthErrorCode, message: string, options: { status?: number; cause?: unknown } = {}) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
-    this.name = "MisoAuthError";
-    this.code = code;
-    this.status = options.status;
-  }
-}
 
 /** The byte-exact Sui personal message required for an authenticated API mutation. */
 export function buildApiAuthorizationPayload(fields: ApiAuthorizationFields): string {
@@ -86,20 +73,29 @@ export function parseFreshAuthorizationIssuedAt(input: unknown, nowMs: number = 
   return input === canonical ? canonical : null;
 }
 
-function target(method: string, path: string): { method: string; path: string } {
+const target = Effect.fn("target")(function* (
+  method: string,
+  path: string,
+): Effect.fn.Return<{ method: string; path: string }, MisoAuthError> {
   const normalized = { method: method.toUpperCase(), path };
   if (!isValidAuthorizationTarget(normalized.method, normalized.path)) {
-    throw new MisoAuthError("invalid_target", "Authenticated requests require a mutation under /platform/.");
+    return yield* new MisoAuthError({
+      code: "invalid_target",
+      reason: "Authenticated requests require a mutation under /platform/.",
+    });
   }
   return normalized;
-}
+});
 
-function parseChallenge(
+const parseChallenge = Effect.fn("parseChallenge")(function* (
   input: unknown,
   expected: { method: string; path: string; address: string; network?: AuthNetwork; nowMs?: number },
-): AuthorizationChallenge {
+): Effect.fn.Return<AuthorizationChallenge, MisoAuthError> {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
-    throw new MisoAuthError("invalid_challenge", "The API returned an invalid authorization challenge.");
+    return yield* new MisoAuthError({
+      code: "invalid_challenge",
+      reason: "The API returned an invalid authorization challenge.",
+    });
   }
   const body = input as Partial<Record<keyof AuthorizationChallenge, unknown>>;
   if (
@@ -113,7 +109,10 @@ function parseChallenge(
     !isValidSuiAddress(body.address) ||
     (body.network !== "testnet" && body.network !== "mainnet")
   ) {
-    throw new MisoAuthError("invalid_challenge", "The API returned an invalid authorization challenge.");
+    return yield* new MisoAuthError({
+      code: "invalid_challenge",
+      reason: "The API returned an invalid authorization challenge.",
+    });
   }
 
   const nowMs = expected.nowMs ?? Date.now();
@@ -143,20 +142,25 @@ function parseChallenge(
     expiresAtMs > Date.parse(issuedAt) + AUTHORIZATION_MAX_AGE_MS ||
     body.payload !== buildApiAuthorizationPayload(challenge)
   ) {
-    throw new MisoAuthError("invalid_challenge", "The authorization challenge did not match this request.");
+    return yield* new MisoAuthError({
+      code: "invalid_challenge",
+      reason: "The authorization challenge did not match this request.",
+    });
   }
   return challenge;
-}
+});
 
-async function responseMessage(response: Response): Promise<string> {
-  const body = await response.clone().json().catch(() => null) as {
-    error?: { message?: unknown } | string;
-    message?: unknown;
-  } | null;
-  if (typeof body?.error === "object" && typeof body.error.message === "string") return body.error.message;
-  if (typeof body?.error === "string") return body.error;
-  if (typeof body?.message === "string") return body.message;
-  return `Authorization challenge failed (${response.status}).`;
+function responseMessage(response: Response): Effect.Effect<string> {
+  return Effect.tryPromise(() => response.clone().json()).pipe(
+    Effect.map((body) => body as { error?: { message?: unknown } | string; message?: unknown } | null),
+    Effect.orElseSucceed(() => null),
+    Effect.map((body) => {
+      if (typeof body?.error === "object" && typeof body.error.message === "string") return body.error.message;
+      if (typeof body?.error === "string") return body.error;
+      if (typeof body?.message === "string") return body.message;
+      return `Authorization challenge failed (${response.status}).`;
+    }),
+  );
 }
 
 export interface RequestAuthorizationChallengeOptions {
@@ -172,57 +176,66 @@ export interface RequestAuthorizationChallengeOptions {
 }
 
 /** Ask Miso to verify the Enoki account and issue the exact message to sign. */
-export async function requestAuthorizationChallenge(
+export const requestAuthorizationChallenge = Effect.fn("requestAuthorizationChallenge")(function* (
   options: RequestAuthorizationChallengeOptions,
-): Promise<AuthorizationChallenge> {
-  const expected = target(options.method, options.path);
+): Effect.fn.Return<AuthorizationChallenge, MisoAuthError> {
+  const expected = yield* target(options.method, options.path);
   if (!options.token || !isValidSuiAddress(options.address)) {
-    throw new MisoAuthError("challenge_rejected", "A valid Enoki token and Sui address are required.");
+    return yield* new MisoAuthError({
+      code: "challenge_rejected",
+      reason: "A valid Enoki token and Sui address are required.",
+    });
   }
   const apiUrl = new URL(options.apiUrl);
   const challengeUrl = options.challengeUrl === undefined
     ? new URL("/platform/auth/challenge", apiUrl.origin)
     : new URL(options.challengeUrl, apiUrl);
   const fetcher = options.fetch ?? globalThis.fetch;
-  const response = await fetcher(challengeUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${options.token}`,
-      [MISO_AUTH_HEADERS.address]: normalizeSuiAddress(options.address),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(expected),
+  const response = yield* Effect.tryPromise({
+    try: (signal) =>
+      fetcher(challengeUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.token}`,
+          [MISO_AUTH_HEADERS.address]: normalizeSuiAddress(options.address),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(expected),
+        signal,
+      }),
+    catch: (cause) => new MisoAuthError({ code: "challenge_rejected", reason: "The authorization challenge request failed.", cause }),
   });
   if (!response.ok) {
-    throw new MisoAuthError("challenge_rejected", await responseMessage(response), { status: response.status });
+    const reason = yield* responseMessage(response);
+    return yield* new MisoAuthError({ code: "challenge_rejected", reason, status: response.status });
   }
-  const body = await response.json().catch(() => null);
-  return parseChallenge(body, {
+  const body = yield* Effect.tryPromise(() => response.json()).pipe(Effect.orElseSucceed(() => null));
+  return yield* parseChallenge(body, {
     ...expected,
     address: options.address,
     network: options.network,
     nowMs: options.nowMs,
   });
-}
+});
 
 export interface CreateAuthorizationHeadersOptions extends RequestAuthorizationChallengeOptions {
   signer: PersonalMessageSigner;
 }
 
 /** Verify the challenge locally, sign it as a Sui personal message, and produce API headers. */
-export async function createAuthorizationHeaders(
+export const createAuthorizationHeaders = Effect.fn("createAuthorizationHeaders")(function* (
   options: CreateAuthorizationHeadersOptions,
-): Promise<{ challenge: AuthorizationChallenge; headers: Headers }> {
-  const challenge = await requestAuthorizationChallenge(options);
-  let signature: string;
-  try {
-    const signed = await options.signer.signPersonalMessage(new TextEncoder().encode(challenge.payload));
-    signature = signed.signature;
-  } catch (cause) {
-    throw new MisoAuthError("signing_failed", "The authorization request was not signed.", { cause });
-  }
+): Effect.fn.Return<{ challenge: AuthorizationChallenge; headers: Headers }, MisoAuthError> {
+  const challenge = yield* requestAuthorizationChallenge(options);
+  const signature = yield* Effect.tryPromise({
+    try: () => options.signer.signPersonalMessage(new TextEncoder().encode(challenge.payload)),
+    catch: (cause) => new MisoAuthError({ code: "signing_failed", reason: "The authorization request was not signed.", cause }),
+  }).pipe(Effect.map((signed) => signed.signature));
   if (!signature) {
-    throw new MisoAuthError("signing_failed", "The signer returned an empty authorization signature.");
+    return yield* new MisoAuthError({
+      code: "signing_failed",
+      reason: "The signer returned an empty authorization signature.",
+    });
   }
   return {
     challenge,
@@ -233,7 +246,7 @@ export async function createAuthorizationHeaders(
       [MISO_AUTH_HEADERS.issuedAt]: challenge.issuedAt,
     }),
   };
-}
+});
 
 export interface AuthenticatedFetchOptions extends RequestInit {
   auth: {
@@ -247,18 +260,21 @@ export interface AuthenticatedFetchOptions extends RequestInit {
 }
 
 /** Perform a protected Miso API mutation with a fresh Enoki-verified Sui signature. */
-export async function authenticatedFetch(
+export const authenticatedFetch = Effect.fn("authenticatedFetch")(function* (
   input: string | URL,
   options: AuthenticatedFetchOptions,
-): Promise<Response> {
+): Effect.fn.Return<Response, MisoAuthError> {
   const { auth, challengeUrl, fetch: fetchOption, ...init } = options;
   const url = new URL(input);
   const method = (init.method ?? "").toUpperCase();
   if (url.search || url.hash) {
-    throw new MisoAuthError("invalid_target", "Authenticated request URLs cannot include a query or fragment.");
+    return yield* new MisoAuthError({
+      code: "invalid_target",
+      reason: "Authenticated request URLs cannot include a query or fragment.",
+    });
   }
   const fetcher = fetchOption ?? globalThis.fetch;
-  const authorization = await createAuthorizationHeaders({
+  const authorization = yield* createAuthorizationHeaders({
     apiUrl: url,
     challengeUrl,
     fetch: fetcher,
@@ -271,5 +287,8 @@ export async function authenticatedFetch(
   });
   const headers = new Headers(init.headers);
   authorization.headers.forEach((value, name) => headers.set(name, value));
-  return fetcher(url, { ...init, method, headers });
-}
+  return yield* Effect.tryPromise({
+    try: (signal) => fetcher(url, { ...init, method, headers, signal }),
+    catch: (cause) => new MisoAuthError({ code: "invalid_target", reason: "The authenticated request failed.", cause }),
+  });
+});

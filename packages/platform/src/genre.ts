@@ -40,12 +40,14 @@
  * `genres()[0]`, computed client-side the same way Move computes them.
  */
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID, deriveObjectID, normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
+import { Effect, Schema } from "effect";
+import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
 import type { TxThunk } from "./transactions.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
+import { PlatformDeployment } from "./deployments.ts";
 import type { ReleaseExtensionTarget } from "./release-extensions.ts";
 import type { RecordingExtensionTarget } from "./recording-extensions.ts";
 import * as genre from "./contracts/genre/genre.ts";
@@ -80,6 +82,31 @@ export function deriveGenreAddress(
     `${genrePackageId}::genre::GenreKey`,
     genre.GenreKey.serialize([canonicalName]).toBytes(),
   );
+}
+
+/**
+ * A vocabulary entry from the shared `genre` registry, identified by its
+ * canonical name (e.g. `"HIP_HOP"`). Constructing one needs the deployment's
+ * genre registry object id and genre package id — see {@link Genre.derive}.
+ */
+export class Genre extends Schema.Class<Genre>("@misofm/platform/Genre")({
+  id: Schema.String,
+  name: Schema.String,
+}) {
+  /**
+   * Derives a `Genre`'s immutable object address from the platform
+   * deployment's genre registry + package id. This is a pure derivation (no
+   * chain read) but is the pilot for a value object whose construction
+   * genuinely needs deployment context, so it reaches that context through
+   * the `PlatformDeployment` service rather than an explicit parameter.
+   */
+  static readonly derive = Effect.fn("Genre.derive")(function* (
+    canonicalName: string,
+  ): Effect.fn.Return<Genre, never, PlatformDeployment> {
+    const deployment = yield* PlatformDeployment;
+    const id = deriveGenreAddress(deployment.objects.genreRegistry, deployment.packages.genre, canonicalName);
+    return new Genre({ id, name: canonicalName });
+  });
 }
 
 // ── Shared validation ────────────────────────────────────────────────────────
@@ -334,19 +361,13 @@ export function recordingGenresFieldId(
  * are attached. The primary is `list[0]`; there is no separate primary reader
  * because the Move `genres` view already returns `[]` for the absent case.
  */
-export async function getReleaseGenres(
-  client: ClientWithCoreApi,
+export const getReleaseGenres = Effect.fn("getReleaseGenres")(function* (
   releaseId: string,
   releaseGenrePackageId: string,
-): Promise<string[]> {
-  const { objects } = await client.core.getObjects({
-    objectIds: [releaseGenresFieldId(releaseId, releaseGenrePackageId)],
-    include: { content: true },
-  });
-  const object = objects[0];
-  if (!object || object instanceof Error || !object.content) return [];
-  return parseReleaseGenresContent(object.content);
-}
+): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(releaseGenresFieldId(releaseId, releaseGenrePackageId));
+  return found._tag === "None" ? [] : parseReleaseGenresContent(found.value.content);
+});
 
 /**
  * Read a Recording's genre ids in order (primary first), or `[]` when no
@@ -354,16 +375,10 @@ export async function getReleaseGenres(
  * reader because the Move `genres` view already returns `[]` for the absent
  * case.
  */
-export async function getRecordingGenres(
-  client: ClientWithCoreApi,
+export const getRecordingGenres = Effect.fn("getRecordingGenres")(function* (
   recordingId: string,
   recordingGenrePackageId: string,
-): Promise<string[]> {
-  const { objects } = await client.core.getObjects({
-    objectIds: [recordingGenresFieldId(recordingId, recordingGenrePackageId)],
-    include: { content: true },
-  });
-  const object = objects[0];
-  if (!object || object instanceof Error || !object.content) return [];
-  return parseRecordingGenresContent(object.content);
-}
+): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
+  const found = yield* getOptionalObjectContent(recordingGenresFieldId(recordingId, recordingGenrePackageId));
+  return found._tag === "None" ? [] : parseRecordingGenresContent(found.value.content);
+});

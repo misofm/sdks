@@ -8,7 +8,7 @@
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
-    "build": "bun run --filter @misofm/streaming build && bun run --filter @misofm/musicos build && bun run --filter @misofm/partyos build && bun run --filter @misofm/platform build && bun run --filter @misofm/transcoding build",
+    "build": "bun run --filter @misofm/streaming build && bun run --filter @misofm/effect build && bun run --filter @misofm/musicos build && bun run --filter @misofm/partyos build && bun run --filter @misofm/platform build && bun run --filter @misofm/transcoding build",
     "codegen": "bun scripts/codegen.ts",
     "codegen:check": "bun run codegen && git diff --exit-code -- packages/musicos/src/contracts packages/partyos/src/contracts packages/platform/src/contracts",
     "test:consumer": "bun scripts/check-consumer.ts"

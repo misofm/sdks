@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { SuiClient, SuiGraphQL } from "@misofm/effect";
 import {
   getOwnedReleaseAdminCaps,
   getWorkAddressesByShareTypes,
@@ -12,6 +14,7 @@ import {
 import { Composition } from "../src/contracts/musicos/composition.ts";
 import { Recording } from "../src/contracts/musicos/recording.ts";
 import { Release } from "../src/contracts/musicos/release.ts";
+import { ReleaseAdminCap } from "../src/types.ts";
 
 const id = (digit: string) => `0x${digit.repeat(64)}`;
 
@@ -51,13 +54,14 @@ test("getWorkAddressesByShareTypes combines all type discovery in one GraphQL re
     },
   } as unknown as SuiGraphQLClient;
 
-  const result = await getWorkAddressesByShareTypes(
-    client,
-    {
-      compositions: [compositionShare, compositionShare],
-      recordings: [recordingShare],
-    },
-    packageId,
+  const result = await Effect.runPromise(
+    getWorkAddressesByShareTypes(
+      {
+        compositions: [compositionShare, compositionShare],
+        recordings: [recordingShare],
+      },
+      packageId,
+    ).pipe(Effect.provide(SuiGraphQL.layer(client))),
   );
 
   expect(calls).toHaveLength(1);
@@ -114,18 +118,19 @@ test("getWorksByIds fetches heterogeneous work objects in one Core request", asy
     },
   } as unknown as ClientWithCoreApi;
 
-  const result = await getWorksByIds(client, {
-    compositions: [compositionId],
-    recordings: [recordingId],
-    releases: [releaseId],
-  });
+  const result = await Effect.runPromise(
+    getWorksByIds({
+      compositions: [compositionId],
+      recordings: [recordingId],
+      releases: [releaseId],
+    }).pipe(Effect.provide(SuiClient.layer(client))),
+  );
 
-  expect(calls).toEqual([
-    {
-      objectIds: [compositionId, recordingId, releaseId],
-      include: { content: true },
-    },
-  ]);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({
+    objectIds: [compositionId, recordingId, releaseId],
+    include: { content: true },
+  });
   expect(result.compositions[compositionId]?.title).toBe("Composition");
   expect(result.recordings[recordingId]?.state).toEqual({
     type: "Published",
@@ -162,20 +167,24 @@ test("getOwnedReleaseAdminCaps uses the list projection without a second object 
     },
   } as unknown as ClientWithCoreApi;
 
-  await expect(
-    getOwnedReleaseAdminCaps(client, id("3"), id("a")),
-  ).resolves.toEqual([{ id: capId, releaseId }, { id: secondCapId, releaseId: id("5") }]);
-  expect(calls).toEqual([
-    {
-      owner: id("3"),
-      type: `${id("a")}::release::ReleaseAdminCap`,
-      include: { json: true },
-    },
-    {
-      owner: id("3"),
-      type: `${id("a")}::release::ReleaseAdminCap`,
-      include: { json: true },
-      cursor: "next",
-    },
+  const result = await Effect.runPromise(
+    getOwnedReleaseAdminCaps(id("3"), id("a")).pipe(Effect.provide(SuiClient.layer(client))),
+  );
+  expect(result).toEqual([
+    new ReleaseAdminCap({ id: capId, releaseId }),
+    new ReleaseAdminCap({ id: secondCapId, releaseId: id("5") }),
   ]);
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toMatchObject({
+    owner: id("3"),
+    type: `${id("a")}::release::ReleaseAdminCap`,
+    include: { json: true },
+  });
+  expect(calls[0]).not.toHaveProperty("cursor");
+  expect(calls[1]).toMatchObject({
+    owner: id("3"),
+    type: `${id("a")}::release::ReleaseAdminCap`,
+    include: { json: true },
+    cursor: "next",
+  });
 });

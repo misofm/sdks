@@ -1,7 +1,9 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Effect } from "effect";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
+import { DeploymentError } from "@misofm/effect";
 
 /** Sui networks for which this SDK may bundle a verified deployment. */
 export type PartyosNetwork = "mainnet" | "testnet";
@@ -88,3 +90,17 @@ export function normalizePartyDeployment(deployment: unknown): PartyDeployment {
     Object.fromEntries(CANONICAL_PARTYOS_PACKAGE_NAMES.map((name) => [name, deployment[name]])),
   ) as PartyDeployment;
 }
+
+/**
+ * Effect counterpart to {@link normalizePartyDeployment}: validation is pure and
+ * synchronous, so this exists only for callers composing a config-loading
+ * pipeline out of Effects rather than throwing at a configuration boundary.
+ */
+export const validatePartyDeployment = Effect.fn("validatePartyDeployment")(function* (
+  input: unknown,
+): Effect.fn.Return<PartyDeployment, DeploymentError> {
+  return yield* Effect.try({
+    try: () => normalizePartyDeployment(input),
+    catch: (cause) => new DeploymentError({ message: cause instanceof Error ? cause.message : String(cause) }),
+  });
+});

@@ -16,6 +16,7 @@
  * warm (on hover, on queue, on route) is the app's call.
  */
 
+import { Effect } from "effect";
 import {
   MAX_SEGMENTS_PER_RENDITION,
   START_RENDITION,
@@ -23,6 +24,7 @@ import {
   warmIdentifiers,
   type RenditionId,
 } from "./index.ts";
+import { WarmError } from "./errors.ts";
 
 /** Number of leading media segments a warm fetches by default. */
 const DEFAULT_WARM_SEGMENTS = 2;
@@ -35,11 +37,24 @@ export interface WarmOptions {
   /** Rendition to warm. Defaults to {@link START_RENDITION}, the rendition a
    *  player actually starts on. */
   rendition?: RenditionId;
-  /** Aborts every in-flight request; `warmTrack` rejects with the resulting
-   *  `AbortError`. */
-  signal?: AbortSignal;
   /** Fetch implementation to use. Defaults to the global `fetch`. */
   fetch?: typeof fetch;
+}
+
+/**
+ * Fetch one item and drain its body to completion so the cache keeps it,
+ * regardless of status: a warm must never fail for a missing item (a
+ * non-2xx response), only for a network-level failure (offline, CORS
+ * failure, DNS), which becomes a {@link WarmError}. `signal` is the fiber's
+ * own interruption signal, wired in by `Effect.tryPromise`: interrupting the
+ * fiber this runs on aborts the in-flight fetch.
+ */
+function warmItem(doFetch: typeof fetch, url: string): Effect.Effect<void, WarmError> {
+  return Effect.tryPromise({
+    try: (signal) =>
+      doFetch(url, { mode: "cors", credentials: "omit", signal }).then((response) => response.arrayBuffer()),
+    catch: (cause) => new WarmError({ url, cause }),
+  }).pipe(Effect.asVoid);
 }
 
 /**
@@ -49,32 +64,25 @@ export interface WarmOptions {
  * concurrently, in `cors`/`omit` mode, reading every body to completion so
  * the cache keeps them.
  *
- * A missing item (a non-2xx response) is not an error: a warm must never
- * throw for that. An aborted `signal` does throw, with the fetch
- * implementation's `AbortError`.
+ * A missing item (a non-2xx response) is not an error: this effect never
+ * fails for that. A network-level failure fetching one item (offline, CORS
+ * failure, DNS) is tolerated the same way — it must not sink its siblings'
+ * warming — so it is caught per item and never surfaces here; see
+ * {@link WarmError}. Interrupt the fiber this runs on (`Fiber.interrupt`,
+ * or a `Scope`/`Effect.timeout` closing) to cancel every in-flight fetch;
+ * there is no separate cancellation error to catch.
  */
-export async function warmTrack(baseUrl: string, quiltId: string, options: WarmOptions = {}): Promise<void> {
-  const segments = options.segments ?? DEFAULT_WARM_SEGMENTS;
-  const rendition = options.rendition ?? START_RENDITION;
-  const doFetch = options.fetch ?? fetch;
-  const identifiers = warmIdentifiers(segments, rendition);
+export function warmTrack(baseUrl: string, quiltId: string, options: WarmOptions = {}): Effect.Effect<void> {
+  return Effect.suspend(() => {
+    const segments = options.segments ?? DEFAULT_WARM_SEGMENTS;
+    const rendition = options.rendition ?? START_RENDITION;
+    const doFetch = options.fetch ?? fetch;
+    const identifiers = warmIdentifiers(segments, rendition);
 
-  await Promise.all(
-    identifiers.map(async (identifier) => {
-      const url = quiltItemUrl(baseUrl, quiltId, identifier);
-      try {
-        const response = await doFetch(url, { mode: "cors", credentials: "omit", signal: options.signal });
-        // Drain the body regardless of status: a warm must never throw for a
-        // missing item, and even an error response's body must be fully read
-        // for the browser to keep the cache entry.
-        await response.arrayBuffer();
-      } catch (error) {
-        // A network-level failure (offline, CORS failure, DNS) on one item
-        // must not sink its siblings' warming. An abort is the one thing
-        // that still throws, per this function's contract.
-        const aborted = options.signal?.aborted || (error instanceof Error && error.name === "AbortError");
-        if (aborted) throw error;
-      }
-    }),
-  );
+    return Effect.forEach(
+      identifiers,
+      (identifier) => warmItem(doFetch, quiltItemUrl(baseUrl, quiltId, identifier)).pipe(Effect.catch(() => Effect.void)),
+      { concurrency: "unbounded", discard: true },
+    );
+  });
 }

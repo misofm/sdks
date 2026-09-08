@@ -14,10 +14,11 @@
 // opinion attached to it through the release's cap-gated `uid_mut` hook, which is
 // why this module ships from `@misofm/platform` rather than the protocol SDK.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
+import { Effect } from "effect";
+import { getObjectsContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
@@ -149,17 +150,13 @@ function toCoverImageRef(blob: ParsedWalrusBlob): CoverImageRef {
  * release, parses the `ReleaseCoverArt`, and returns the still (+ optional
  * animation) as normalized Walrus refs for release displays.
  */
-export async function getReleaseCover(
-  client: ClientWithCoreApi,
+export const getReleaseCover = Effect.fn("getReleaseCover")(function* (
   releaseId: string,
   releaseCoverArtPackageId: string,
-): Promise<ReleaseCoverView | null> {
-  return (
-    (
-      await getReleaseCoversByIds(client, [releaseId], releaseCoverArtPackageId)
-    )[releaseId] ?? null
-  );
-}
+): Effect.fn.Return<ReleaseCoverView | null, SuiRpcError, SuiClient> {
+  const found = yield* getReleaseCoversByIds([releaseId], releaseCoverArtPackageId);
+  return found[releaseId] ?? null;
+});
 
 export function parseReleaseCoverContent(
   content: Uint8Array,
@@ -191,11 +188,10 @@ export function releaseCoverFieldId(
 /**
  * Read covers for many releases from the configured package in one Core request.
  */
-export async function getReleaseCoversByIds(
-  client: ClientWithCoreApi,
+export const getReleaseCoversByIds = Effect.fn("getReleaseCoversByIds")(function* (
   releaseIdsInput: readonly string[],
   releaseCoverArtPackageId: string,
-): Promise<Partial<Record<string, ReleaseCoverView>>> {
+): Effect.fn.Return<Partial<Record<string, ReleaseCoverView>>, SuiRpcError, SuiClient> {
   const releaseIds = [...new Set(releaseIdsInput)];
   const targets = releaseIds.map((releaseId) => ({
     releaseId,
@@ -203,18 +199,13 @@ export async function getReleaseCoversByIds(
   }));
   if (targets.length === 0) return {};
 
-  const { objects } = await client.core.getObjects({
-    objectIds: targets.map((target) => target.fieldId),
-    include: { content: true },
-  });
+  const contentById = yield* getObjectsContent(targets.map((target) => target.fieldId));
   const out: Partial<Record<string, ReleaseCoverView>> = {};
-  objects.forEach((object, index) => {
-    const target = targets[index];
-    if (!target || object instanceof Error || !object.content) return;
-    const cover = parseReleaseCoverContent(object.content);
-    if (cover) {
-      out[target.releaseId] = cover;
-    }
-  });
+  for (const target of targets) {
+    const found = contentById.get(target.fieldId);
+    if (!found) continue;
+    const cover = parseReleaseCoverContent(found.content);
+    if (cover) out[target.releaseId] = cover;
+  }
   return out;
-}
+});
