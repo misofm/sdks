@@ -21,8 +21,8 @@ import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transac
 import type { TxThunk } from "./transactions.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
-import * as coverArt from "@misofm/protocol/contracts/cover_art/cover_art";
-import * as releaseCoverArt from "@misofm/protocol/contracts/release_cover_art/release_cover_art";
+import * as coverArt from "./contracts/cover_art/cover_art.ts";
+import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 
 type ReleaseAuthorityInput =
   | { readonly authority: AdminCapAuthority; readonly releaseAdminCapId?: never }

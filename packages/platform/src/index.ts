@@ -6,7 +6,7 @@
 // Miso's own product sits on top of the permissionless protocol, and the two
 // ship as separate packages because they have different promises:
 //
-//   @misofm/protocol  PROTOCOL — Composition, Recording, Release. The open layer
+//   @misofm/musicos  PROTOCOL — Composition, Recording, Release. The open layer
 //                     anyone can build on, and nobody needs Miso's permission to use.
 //   @misofm/platform  PLATFORM — Pressing, Listing, Record, and the first-party
 //                     EXTENSIONS. How MISO sells copies of a release, and the
@@ -52,6 +52,14 @@ export * from "./catalog.ts";
 export * from "./walrus-ids.ts";
 export * from "./streaming.ts";
 export * from "./walrus.ts";
+
+// Re-homed from the pre-split protocol package: extension/primitive package
+// bindings, event decoders, and the generic royalty-pool / routed-stake
+// queries and PTB builders (see the boundary rule above — these are all
+// things Miso offers on top of the object model, not the model itself).
+export * from "./packages.ts";
+export { platformEventParsers } from "./events.ts";
+export * from "./royalty.ts";
 
 // High-level, JSON-safe platform projections used directly by clients and by
 // the thin HTTP read service. Namespaced because these composed view types are

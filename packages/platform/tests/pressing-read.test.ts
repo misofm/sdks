@@ -21,9 +21,9 @@ import {
   purchaseRecord,
   RECORD_SALES_DERIVATION_VECTOR_V1,
 } from "../src/pressing.ts";
-import * as pressing from "@misofm/protocol/contracts/miso_record/pressing";
-import * as record from "@misofm/protocol/contracts/miso_record/record";
-import * as listing from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as pressing from "../src/contracts/record/pressing.ts";
+import * as record from "../src/contracts/record/record.ts";
+import * as listing from "../src/contracts/record_shop/listing.ts";
 
 const BUYER = `0x${"44".repeat(32)}`;
 const RELEASE = RECORD_SALES_DERIVATION_VECTOR_V1.releaseId;

@@ -6,7 +6,8 @@
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": false,
-    "noEmit": true
+    "noEmit": true,
+    "types": []
   },
   "include": ["imports.ts"]
 }

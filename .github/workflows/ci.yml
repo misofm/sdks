@@ -34,3 +34,23 @@ jobs:
             (cd "$dir" && npm pack --dry-run)
             echo "::endgroup::"
           done
+
+  # Packs every workspace package into a real tarball and installs them into
+  # an isolated fixture consumer, then typechecks and runs it. Inside the
+  # workspace every import resolves locally regardless of a package's
+  # `exports` map, so `bun test` and `npm pack --dry-run` above cannot catch
+  # a broken or missing published entry point — only a real tarball install
+  # fails the way a downstream consumer would.
+  consumer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build
+        run: bun run build
+      - name: Consumer check
+        run: bun run test:consumer

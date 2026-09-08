@@ -6,7 +6,7 @@
 // module/function, type arguments, and argument counts, and that
 // borrow-before-share ordering (composition::new → recording::new → publish →
 // publish) is preserved now that createComposition/createRecording are
-// imported from @misofm/protocol across the package boundary.
+// imported from @misofm/musicos across the package boundary.
 
 import { test, expect } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";

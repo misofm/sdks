@@ -5,7 +5,7 @@
 //
 // One place that knows how to turn Sui objects into the things Miso talks about:
 // a pressing, a release, an artist, a library, a receipt. It composes
-// @misofm/protocol, owns the per-network id manifest, and returns view types that
+// @misofm/musicos, owns the per-network id manifest, and returns view types that
 // survive JSON.
 //
 // Browser- and server-compatible. The HTTP API is a thin cached transport over

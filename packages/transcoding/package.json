@@ -1,6 +1,6 @@
 {
   "name": "@misofm/transcoding",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Effect-based deterministic plaintext AAC fMP4 HLS transcoder.",
   "repository": {
     "type": "git",
@@ -52,7 +52,7 @@
     "test:ffmpeg": "bun test test/ffmpeg-integration.test.ts"
   },
   "dependencies": {
-    "@misofm/streaming": "0.1.0",
+    "@misofm/streaming": "0.2.1",
     "m3u8-parser": "7.2.0"
   },
   "peerDependencies": {

@@ -14,9 +14,9 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import type { TxThunk } from "./transactions.ts";
-import * as releaseDescription from "@misofm/protocol/contracts/release_description/release_description";
-import * as releaseDspLink from "@misofm/protocol/contracts/release_dsp_link/release_dsp_link";
-import * as releaseKind from "@misofm/protocol/contracts/release_kind/release_kind";
+import * as releaseDescription from "./contracts/release_description/release_description.ts";
+import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.ts";
+import * as releaseKind from "./contracts/release_kind/release_kind.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 
 function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {

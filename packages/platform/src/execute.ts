@@ -5,18 +5,18 @@
 // to this package's opinionated publish flows (batched, non-idempotent share-
 // currency publishing in `share.ts`). Everything else — `buildTx`,
 // `signAndExecute`, `toExecResult`, the object-change extractors — is generic
-// PTB execution plumbing that stays in `@misofm/protocol`'s `execute.ts` and is
+// PTB execution plumbing that stays in `@misofm/musicos`'s `execute.ts` and is
 // re-exported from there; this module builds on top of it.
 
 import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
 import type { SuiClientTypes } from "@mysten/sui/client";
-import { buildTx, toExecResult, FULL_INCLUDE, type ExecResult } from "@misofm/protocol";
+import { buildTx, toExecResult, FULL_INCLUDE, type ExecResult } from "@misofm/musicos";
 import type { TxThunk } from "./transactions.ts";
 
 // Consumers of the platform SDK should not need a second direct dependency on
 // the protocol SDK just to execute a composed PTB. Keep the generic execution
 // surface available through this platform-layer entry point as well.
-export * from "@misofm/protocol/execute";
+export * from "@misofm/musicos/execute";
 
 /** Publication execution also needs lifecycle events to associate same-typed
  * objects (notably several new Parties and Vaults) with their manifest refs. */

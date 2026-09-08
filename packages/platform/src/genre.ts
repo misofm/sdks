@@ -48,9 +48,9 @@ import type { TxThunk } from "./transactions.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import type { ReleaseExtensionTarget } from "./release-extensions.ts";
 import type { RecordingExtensionTarget } from "./recording-extensions.ts";
-import * as genre from "@misofm/protocol/contracts/genre/genre";
-import * as releaseGenre from "@misofm/protocol/contracts/release_genre/release_genre";
-import * as recordingGenre from "@misofm/protocol/contracts/recording_genre/recording_genre";
+import * as genre from "./contracts/genre/genre.ts";
+import * as releaseGenre from "./contracts/release_genre/release_genre.ts";
+import * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 
 // ── Vocabulary helpers ───────────────────────────────────────────────────────
 

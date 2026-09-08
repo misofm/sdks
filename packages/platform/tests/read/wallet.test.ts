@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
-import * as recordContract from "@misofm/protocol/contracts/miso_record/record";
+import * as recordContract from "../../src/contracts/record/record.ts";
 import { deriveRecordId } from "../../src/pressing.ts";
 import type { MisoClient } from "../../src/read/client.ts";
 import { getBalance, getOwnedRecords } from "../../src/read/wallet.ts";

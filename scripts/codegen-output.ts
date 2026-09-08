@@ -3,68 +3,83 @@
 
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import {
+  generatedDirectoryName,
+  type GeneratedTree,
+  type MisoPackageConfig,
+} from "../sui-codegen.config.ts";
 
 /**
- * The complete, closed-world directory set emitted by the current codegen config —
- * one entry per `packages[].package` output plus `utils`, which `@mysten/codegen`
- * writes on every run without a corresponding config entry, and the `frozen`
- * package entries (see `sui-codegen.config.ts`): retained here so each survives
- * pruning even though the runner never regenerates them.
+ * `@mysten/codegen` writes this directory on every run, in every output tree,
+ * without a corresponding config entry.
  */
-export const GENERATED_CONTRACT_DIRECTORIES = new Set([
-  "miso",
-  "miso_party",
-  "party_cta",
-  "party_genre",
-  "party_media",
-  "party_music",
-  "party_platform_link",
-  "party_pro_link",
-  "party_profile",
-  "party_roles",
-  "party_social",
-  "party_tags",
-  "party_wallet",
-  "composition_credits",
-  "recording_advisory",
-  "recording_credits",
-  "recording_language",
-  "recording_streaming_transcode",
-  "release_cover_art",
-  "release_credits",
-  "release_description",
-  "release_dsp_link",
-  "release_genre",
-  "recording_genre",
-  "release_kind",
-  "royalty_pool",
-  "routed_stake",
-  "vault",
-  "genre",
-  "cover_art",
-  "composition_royalty_pool",
-  "recording_royalty_pool",
-  "release_revenue_distributor",
-  "miso_record",
-  "utils",
-  // Frozen — see the corresponding `frozen` package entry in
-  // sui-codegen.config.ts for why each is un-generatable upstream.
-  "recording_master_reference",
-  "composition_routed_stake",
-  "composition_royalty_pool_plugin",
-  "recording_royalty_pool_plugin",
-  "release_revenue_distributor_plugin",
-  "miso_record_shop",
-]);
+const CODEGEN_UTILS_DIRECTORY = "utils";
+
+// A `.d.ts` referencing `@mysten/bcs` types only through inferred (unwritten)
+// signatures still needs a direct declaration reference to that package, or a
+// consumer building with `skipLibCheck: false` fails to resolve it. Every
+// generated file that imports from `@mysten/sui/bcs` gets exactly one such
+// anchor line directly beneath that import.
+const directBcsAnchor = 'import type {} from "@mysten/bcs";';
+const suiBcsImportLine = /^(import .* from '@mysten\/sui\/bcs';)$/m;
+
+/** Idempotent: strips any existing anchor line(s) before reinserting exactly one. */
+export function normalizeBcsAnchor(source: string): string {
+  const withoutAnchor = source
+    .split("\n")
+    .filter((line) => line !== directBcsAnchor)
+    .join("\n");
+  return suiBcsImportLine.test(withoutAnchor)
+    ? withoutAnchor.replace(suiBcsImportLine, `$1\n${directBcsAnchor}`)
+    : withoutAnchor;
+}
 
 /**
- * Enforce codegen as a closed-world operation. A removed Move package must not
- * leave a stale generated namespace that can be accidentally imported.
+ * The complete, closed-world directory set one generated tree may contain —
+ * derived from the codegen config rather than hand-maintained, so adding or
+ * renaming a Move package in `sui-codegen.config.ts` is the only edit needed.
  */
-export function pruneRemovedPackageDirectories(directory: string): void {
+export function generatedContractDirectories(
+  packages: readonly MisoPackageConfig[],
+  tree: GeneratedTree,
+): ReadonlySet<string> {
+  return new Set([
+    ...packages.filter((entry) => entry.tree === tree).map(generatedDirectoryName),
+    CODEGEN_UTILS_DIRECTORY,
+  ]);
+}
+
+/**
+ * Enforce codegen as a closed-world operation. A removed or renamed Move package
+ * must not leave a stale generated namespace that can be accidentally imported.
+ * Returns the directories it removed.
+ */
+export function pruneRemovedPackageDirectories(
+  directory: string,
+  expected: ReadonlySet<string>,
+): string[] {
+  const removed: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.isDirectory() && !GENERATED_CONTRACT_DIRECTORIES.has(entry.name)) {
+    if (entry.isDirectory() && !expected.has(entry.name)) {
       rmSync(join(directory, entry.name), { recursive: true, force: true });
+      removed.push(entry.name);
     }
   }
+  return removed;
+}
+
+/**
+ * Directories present in a generated tree that the config does not account
+ * for. After a run this can only mean a `@local-pkg/<name>` label disagrees
+ * with the Move package's real name: codegen emitted a directory for the real
+ * name while the keep-set expected the label.
+ */
+export function unexpectedPackageDirectories(
+  directory: string,
+  expected: ReadonlySet<string>,
+): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !expected.has(entry.name))
+    .map((entry) => entry.name)
+    .sort();
 }

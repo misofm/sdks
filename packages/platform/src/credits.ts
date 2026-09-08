@@ -38,12 +38,12 @@ import type {
 } from "@mysten/sui/transactions";
 import type { TxThunk } from "./transactions.ts";
 import { OPTION_NONE, OPTION_SOME } from "./internal.ts";
-import * as compositionCredits from "@misofm/protocol/contracts/composition_credits/composition_credits";
-import * as compositionPartyRole from "@misofm/protocol/contracts/composition_credits/composition_party_role";
-import * as recordingCredits from "@misofm/protocol/contracts/recording_credits/recording_credits";
-import * as recordingPartyRole from "@misofm/protocol/contracts/recording_credits/recording_party_role";
-import * as releaseCredits from "@misofm/protocol/contracts/release_credits/release_credits";
-import * as releasePartyRole from "@misofm/protocol/contracts/release_credits/release_party_role";
+import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
+import * as compositionPartyRole from "./contracts/composition_credits/composition_party_role.ts";
+import * as recordingCredits from "./contracts/recording_credits/recording_credits.ts";
+import * as recordingPartyRole from "./contracts/recording_credits/recording_party_role.ts";
+import * as releaseCredits from "./contracts/release_credits/release_credits.ts";
+import * as releasePartyRole from "./contracts/release_credits/release_party_role.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 
 function object(tx: Transaction, value: ObjectInput): TransactionObjectArgument {

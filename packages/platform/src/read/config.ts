@@ -11,8 +11,9 @@
 // by the platform SDK. Mainnet remains deliberately unavailable until a complete
 // deployment is bundled for it.
 
-import type { MisoDeployment } from "@misofm/protocol/deployments";
-import { getMisoPlatformDeployment, type RecordSalesDeployment } from "../deployments.ts";
+import type { MisoDeployment } from "@misofm/musicos/deployments";
+import type { PartyDeployment } from "@misofm/partyos/deployments";
+import { getMisoPlatformDeployment, type PartyExtensionsDeployment, type RecordSalesDeployment } from "../deployments.ts";
 import { walrusAggregatorUrl } from "../walrus.ts";
 
 export type Network = "testnet" | "mainnet";
@@ -58,6 +59,10 @@ export interface MisoConfig {
   /** Complete package set used by the integrated `client.miso` SDK. */
   deployment: MisoDeployment;
   protocol: ProtocolIds;
+  /** The Party object model deployment (`@misofm/partyos`). */
+  partyos: PartyDeployment;
+  /** First-party Party extension package ids. */
+  party: PartyExtensionsDeployment;
   /** Final Record/Record Shop deployment, or an explicit unavailable legacy state. */
   recordSales: RecordSalesDeployment;
   money: MoneyIds;
@@ -108,6 +113,8 @@ export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}
   const config: MisoConfig = {
     network,
     deployment: platform.protocol,
+    partyos: platform.partyos,
+    party: platform.party,
     recordSales: platform.recordSales,
     protocol: {
       // Read-only legacy type discovery does not make this package an

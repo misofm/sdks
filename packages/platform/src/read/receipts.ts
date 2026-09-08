@@ -20,11 +20,11 @@
 // read walks. We show the buyer that arithmetic, in the same truncating integer
 // math the chain does.
 
-import * as listingContract from "@misofm/protocol/contracts/miso_record_shop/listing";
+import * as listingContract from "../contracts/record_shop/listing.ts";
 import {
   extractTypeParams2,
   getCompositionsByIds,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
 import { getPressingDetail } from "./catalog.ts";
 import type { MisoClient } from "./client.ts";
@@ -36,7 +36,7 @@ import { getWorkAddressesByShareTypes } from "./works.ts";
 const BPS = 10_000n;
 const U64_MAX = (1n << 64n) - 1n;
 
-/** `miso_record_shop::listing::RecordSoldEvent<Currency>`. */
+/** `record_shop::listing::RecordSoldEvent<Currency>`. */
 const RECORD_SOLD_EVENT_NAME = "listing::RecordSoldEvent";
 
 /**
@@ -378,7 +378,7 @@ async function compositionRatesByRecording(client: MisoClient, recordingIds: str
   const addresses = await getWorkAddressesByShareTypes(
     client.graphql,
     { compositions: shareTypes, recordings: [] },
-    client.config.deployment.miso,
+    client.config.deployment.musicos,
   );
   const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
   const compositions = await getCompositionsByIds(client.protocol, compositionIds);

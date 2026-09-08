@@ -1,25 +1,36 @@
 # @misofm/platform
 
 The complete client SDK for the **Miso platform layer** on Sui: composed catalog,
-artist, wallet, and receipt reads; the record production line and sale of copies;
-and fail-closed Vault custody, raw Actions, and safe crank plugins built on `@misofm/protocol`'s
-protocol and data-extension primitives.
+artist, wallet, and receipt reads; the Party extensions (profile, media, roles,
+tags, genres, CTAs, platform links); the record production line and sale of
+copies; fail-closed Vault custody, raw Actions, and safe crank plugins; and
+every first-party extension and generic royalty primitive built on top of the
+`@misofm/musicos` object model and the `@misofm/partyos` Party identity model.
 
-## The split
+## The boundary rule
 
-Miso ships two SDK packages, and the package name tells you which promise you are
-holding:
+> `@misofm/musicos` is the object model. Everything Miso offers on top of it is
+> platform.
 
-| Package             | Layer        | Owns                                                                                                                                   |
-| -------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `@misofm/protocol` | **Protocol** | Composition, Recording, Release, Party identity; metadata/data extensions; utilities; generic royalty-pool and routed-stake primitives |
-| `@misofm/platform` | **Platform** | Pressing, Listing, Record, and an explicitly deployed Vault/Action/plugin compatibility set                                           |
+Miso ships three SDK packages, and the package name tells you which promise
+you are holding:
 
-A release is protocol. Pressing a record off that release and selling it is
-platform. So is deciding _what to do_ with a freshly-minted work's share
-supply — the protocol only knows how to mint one. Keeping the boundary at the
-package line is what stops the open protocol from quietly growing a
-storefront (or an opinion about tokenomics).
+| Package            | Layer        | Owns                                                                                                          |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `@misofm/musicos`  | **Object model** | Composition, Recording, Release, Track — the open Move package anyone can build on, no permission required |
+| `@misofm/partyos`  | **Party identity** | Party, PartyAdminCap, and consent-based group membership — the open Move package Party identity is built on |
+| `@misofm/platform` | **Platform** | The Party extensions (profile, media, roles, tags, genres, CTAs, platform links); work extensions; generic royalty-pool/routed-stake primitives; Actions; Vault; Record/Record Shop; product-specific publishing workflows |
+
+A release is object model. Pressing a record off that release and selling it
+is platform. So is deciding _what to do_ with a freshly-minted work's share
+supply — the object model only knows how to mint one. Likewise, a Party is
+identity — who or what is being described — and lives in `@misofm/partyos`;
+everything Miso attaches to that identity (a profile, media, roles, tags,
+genres, CTAs, platform links) is an opinion about how to describe or route
+value around it, not part of what the Party IS, so those extensions live in
+platform alongside work extensions and every royalty primitive. Keeping the
+boundary at the package line is what stops the open object models from
+quietly growing a storefront (or an opinion about tokenomics).
 
 Extensions add data to a work. Raw Actions accept an admin cap and remain
 composable with either direct authority or a scoped Vault borrow. Three safe,
@@ -31,7 +42,7 @@ address-owned admin caps explicitly; it never silently treats a legacy cap as a
 vaulted one. New Vault IDs are derived from the shared `VaultRegistry`, the raw
 cap ID, and its type; each VaultAdminCap ID is then derived from its Vault.
 
-This package depends on `@misofm/protocol` directly and imports its bare
+This package depends on `@misofm/musicos` directly and imports its bare
 `createComposition`/`createRecording` primitives, composing them with its own
 minato-dispersal and share-currency logic in the same PTB — the
 transaction-thunk composition pattern from the
@@ -39,11 +50,11 @@ transaction-thunk composition pattern from the
 crossing a package boundary.
 
 ```sh
-bun add @misofm/platform@^0.18.0
+bun add @misofm/platform
 ```
 
-`@misofm/protocol` resolves transitively through that dependency, so
-applications get exactly one protocol SDK and one compatible deployment map
+`@misofm/musicos` resolves transitively through that dependency, so
+applications get exactly one object-model SDK and one compatible deployment map
 without installing it themselves. Registration takes a recursively frozen
 snapshot of custom deployment/config records without freezing the caller's
 original objects, so later caller mutation cannot retarget an existing client.
@@ -100,8 +111,13 @@ const client = new SuiGrpcClient({ network: "testnet", baseUrl }).$extend(
 // ledger before any synchronous client-bound builder can be used.
 await client.miso.ready();
 
-// The permissionless protocol SDK is part of the same facade.
+// The permissionless object-model SDK is part of the same facade.
 const release = await client.miso.protocol.getReleaseById(releaseId);
+// Party identity comes from @misofm/partyos; platform adds the extensions.
+// client.miso.party is a PartyPlatformClient wrapping a PartyosClient (core
+// reads/builders delegate straight through) bound to this deployment's
+// `partyos` (core) and `party` (extensions) sections — also importable
+// standalone from `@misofm/platform/party`.
 const party = await client.miso.party.getPartyById(partyId);
 
 // Read: run + one currency's offer, one round trip, no registry lookup.
@@ -140,6 +156,42 @@ Verified package and singleton IDs are bundled in
 `MISO_PLATFORM_DEPLOYMENTS.testnet`. Calling `miso()` selects that verified map
 from the Sui client's network. Unbundled and custom networks still fail closed
 unless the caller passes one complete deployment through `miso({ deployment })`.
+
+The deprecated `misoPlatform(config)` constructor remains for callers that
+supply flat package ids instead of a complete deployment; it registers at
+`client.misoPlatform` instead of `client.miso` and requires the same
+`await client.misoPlatform.ready()` gate before use. Prefer zero-config
+`miso()` for new integrations.
+
+### Party and the generated contract tree
+
+Party identity (the `Party` object, `PartyAdminCap`, group membership) is
+owned by `@misofm/partyos`; this package only owns the extensions attached to
+it. `PartyPlatformClient` wraps a `PartyosClient` — every core method
+(`getPartyById`, `getMemberships`, …) delegates straight through, and `tx`/
+`call`/`bcs` merge the core and extension surfaces — and is also importable
+standalone (the same class `client.miso.party` returns):
+
+```ts
+import { PartyosClient } from "@misofm/partyos";
+import { PartyPlatformClient } from "@misofm/platform/party";
+
+const core = new PartyosClient(client, verifiedDeployment.partyos);
+const party = new PartyPlatformClient(client, core, verifiedDeployment.party);
+```
+
+Every generated Move package on this side of the boundary — the Party
+extensions, work extensions, royalty/routed-stake primitives, Record/Record
+Shop, Vault, and every Action/plugin — is reachable through the curated
+`contracts` barrel (`@misofm/platform` → `contracts.*`, or
+`@misofm/platform/contracts` directly) or, for a module the barrel doesn't
+curate, the raw generated file itself. The Party core's generated bindings
+live in `@misofm/partyos/contracts` instead:
+
+```ts
+import { record } from "@misofm/platform/contracts";
+import { Record } from "@misofm/platform/contracts/record/record";
+```
 
 ### High-level platform reads
 
@@ -240,7 +292,7 @@ the same PTB.
 
 ## Publishing (`transactions.ts`, `share.ts`, `release-graph.ts`)
 
-`@misofm/protocol`'s `createComposition`/`createRecording` mint a work and hand
+`@misofm/musicos`'s `createComposition`/`createRecording` mint a work and hand
 back its by-value parts (the object, its admin cap, its freshly-minted share
 `Balance`) without dispersing, sharing, or transferring anything. This package
 supplies the opinionated finish on top:
@@ -269,7 +321,7 @@ const thunk = client.miso.tx.publishComposition({
 
 `client.miso.tx.publishRecording` and `publishCompositionAndRecording`
 follow the same shape (the latter atomically, borrow-before-share, in one PTB —
-see `@misofm/protocol`'s README for why the ordering is load-bearing).
+see `@misofm/musicos`'s README for why the ordering is load-bearing).
 The protocol, immutable Record and Record Shop packages, minato, and core
 `ReleaseRegistry` address all come from the deployment selected by the Sui
 client's network. Record sales have no Record Registry or Settings singleton.
@@ -442,7 +494,7 @@ const { currencies } = await initializeShareCurrencies(
 `executeViaExecutor(executor, ...thunks)` (`execute.ts`) submits a
 non-idempotent PTB through a `ParallelTransactionExecutor` exactly once (no
 auto-retry) — it's what the batched provisioning above builds on, layered over
-`@misofm/protocol`'s transport-agnostic `buildTx`/`toExecResult`.
+`@misofm/musicos`'s transport-agnostic `buildTx`/`toExecResult`.
 
 ## Extensions
 
@@ -622,22 +674,30 @@ carry an optional `RecordingRoleLevel` (`Producer`, `Vocalist`, `Engineer`,
 
 ```
 src/
-  deployments.ts         fail-closed deployment schema and future address injection point
-  client.ts              the full client.miso facade; protocol and Party live at client.miso.protocol / .party
+  deployments.ts         fail-closed deployment schema (MisoPlatformDeployment, PartyExtensionsDeployment) and address injection point
+  client.ts              the full client.miso facade; object-model core lives at client.miso.protocol, Party at client.miso.party
+  packages.ts            MisoPlatformPackageBindings: extensions/primitives/party generated calls bound to one deployment
+  events.ts              platformEventParsers: extension + generic-primitive event decoders
+  royalty.ts             generic royalty-pool / stake / routed-stake derive helpers and PTB builders
   pressing.ts            facade: builders, readers, and the id derivations
-  queries.ts             shared read plumbing (isNotFound, re-exported from @misofm/protocol)
+  queries.ts             shared read plumbing (isNotFound, re-exported from @misofm/musicos)
   transactions.ts        the TxThunk contract + the opinionated publish flow (disperse/finalize/publish*)
   release-graph.ts        whole release graph in one PTB (publishReleaseGraph)
+  publication.ts         atomic catalog publication (publishAtomicCatalog)
   share.ts               share-currency provisioning (createShareCurrency, batched variants)
   share-template.ts      embedded `share` package bytecode
   credits.ts             EXTENSION: contributor credits + the three role vocabularies
   cover.ts               EXTENSION: release cover art (Walrus blob via ori)
+  genre.ts               EXTENSION: release/recording genre vocabulary
+  release-extensions.ts  EXTENSION: release kind, description, DSP links
+  recording-extensions.ts EXTENSION: recording advisory, language, master reference, streaming transcode
+  party/                 Party EXTENSIONS: profile, media, roles, tags, genres, CTAs, links (PartyPlatformClient, wraps @misofm/partyos's PartyosClient) — also `@misofm/platform/party`
   read/                  high-level catalog, artist, wallet, and receipt views
   vault.ts               Vault authority, plugin, event, and receiving-coin builders
-  execute.ts              executeViaExecutor, layered on @misofm/protocol's buildTx/toExecResult
+  execute.ts              executeViaExecutor, layered on @misofm/musicos's buildTx/toExecResult
   internal.ts            private helpers (the 0x1::option moveCall targets) — NOT exported
-  contracts.ts           barrel re-exporting the generated bindings as `contracts`
-  contracts/             GENERATED — do not edit by hand
+  contracts.ts           barrel re-exporting the curated generated bindings as `contracts`
+  contracts/             GENERATED — do not edit by hand; also reachable raw via `@misofm/platform/contracts/*`
 ```
 
 ## Codegen
@@ -649,41 +709,49 @@ the on-chain ABI:
 bun run codegen   # reads sui-codegen.config.ts → src/contracts/
 ```
 
-`sui-codegen.config.ts` lists `miso_record`, `miso_record_shop`, data
-extensions, generic `royalty_pool`/`routed_stake`, and the `vault` plus all
-vault-plugin packages. The protocol CORE (`miso` —
-composition/recording/release/track) generates into
-`@misofm/protocol` instead, which this package depends on for those bindings —
-adding the core here to save an import is how the split this package exists to
-enforce gets undone.
+This package's generated tree (`src/contracts/`) covers every Move package this
+side of the boundary rule — the ten `party_*` extensions plus `party_wallet`,
+work extensions, generic royalty/routed-stake primitives, Record and Record
+Shop, Vault, and every Action/plugin package. The Party core (`partyos`)
+generates into `@misofm/partyos`, and the object-model core
+(composition/recording/release/track) generates into `@misofm/musicos`;
+this package depends on both for those bindings — adding either core here to
+save an import is how the split these packages exist to enforce gets undone.
 
-Paths resolve against sibling checkouts, so regenerating requires
-`~/Documents/GitHub/misofm/{sdk, record, record-shop, vault, vault-plugins}` and
-`~/Documents/GitHub/misonetwork/{party-actions, protocol, protocol-actions,
-protocol-extensions, royalty-pool, routed-stake, share, cover-art, genre}`.
+The root `sui-codegen.config.ts` (one level up from this package) is the
+source of truth for exactly which Move packages generate into which package's
+tree, and where their sibling checkouts resolve from; read it rather than
+relying on an enumeration here going stale.
 
-For an isolated checkout, copy those source trees and set
+```sh
+bun run codegen   # reads ../../sui-codegen.config.ts → src/contracts/
+```
+
+For an isolated checkout, copy the source trees it lists and set
 `MISO_SDK_CODEGEN_SOURCE_ROOT` to their common parent. The codegen config reads
 only from that copy, avoiding writes to a developer's live source tree.
 
-## Dependency on `@misofm/protocol`
+## Dependency on `@misofm/musicos` and `@misofm/partyos`
 
-`@misofm/protocol` is a regular runtime dependency of this package (a workspace
-dependency in this monorepo, resolved to a published version range on publish),
-not a peer. This package imports its primitives, deployment configuration,
-protocol client, and Party client directly, then exposes them at
-`client.miso.protocol` and `client.miso.party` only after
-`await client.miso.ready()` validates the exact ledger. Direct protocol reads,
-generated calls, package bindings, and nested Party APIs cannot be obtained
-before that gate.
+`@misofm/musicos` and `@misofm/partyos` are regular runtime dependencies of
+this package (workspace dependencies in this monorepo, resolved to published
+version ranges on publish), not peers. This package imports their primitives
+and deployment configuration directly, then exposes the object-model client
+at `client.miso.protocol` only after `await client.miso.ready()` validates the
+exact ledger. `client.miso.party` is a `PartyPlatformClient`
+(`@misofm/platform/party`) wrapping a `PartyosClient` from `@misofm/partyos`
+for the Party core, with the first-party extensions (profile, media, roles,
+tags, genres, CTAs, platform links) layered on top. Direct object-model
+reads, generated calls, package bindings, and Party APIs (core and
+extensions alike) cannot be obtained before the readiness gate.
 
 `@mysten/sui` itself stays a peer dependency here, so an application resolves
-exactly one Sui SDK across both packages regardless of which protocol version
-`@misofm/platform` pins.
+exactly one Sui SDK across all three packages regardless of which
+object-model or Party-identity version `@misofm/platform` pins.
 
 ```bash
 bun add @misofm/platform
 ```
 
-`@misofm/protocol` resolves automatically as a transitive dependency; there is
+`@misofm/musicos` resolves automatically as a transitive dependency; there is
 no separate install step and no peer version for consumers to reconcile.

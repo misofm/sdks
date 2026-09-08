@@ -1,0 +1,33 @@
+// Build config — emits the published artifact to `dist/`.
+//
+// The source uses `./foo.ts` relative imports, which Bun runs natively but which
+// no other consumer can: Node refuses to type-strip anything under
+// `node_modules`, and `tsc` rejects `.ts` import specifiers unless the CONSUMER
+// opts into `allowImportingTsExtensions` (which in turn forbids them from
+// emitting, so any consumer that is itself a library could not build).
+//
+// `rewriteRelativeImportExtensions` rewrites those specifiers to `./foo.js` on
+// emit, so the shipped artifact is plain ESM + declarations with no demands on
+// the consumer's tsconfig — and the source needs no edits.
+//
+// `lib` adds DOM here because `credits.ts` uses `TextEncoder`. Locally that
+// resolves only via the ambient globals from `@types/bun`, which consumers do
+// not have; declaring it explicitly keeps the emitted .d.ts self-contained.
+{
+  "extends": "./tsconfig.json",
+  "include": ["src"],
+  "exclude": ["tests"],
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "lib": ["ESNext", "DOM"],
+    "rootDir": "src",
+    "outDir": "dist"
+  }
+}

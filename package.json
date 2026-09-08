@@ -2,13 +2,16 @@
   "name": "@misofm/sdk-monorepo",
   "private": true,
   "packageManager": "bun@1.4.0",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
-    "build": "bun run --filter '*' build",
+    "build": "bun run --filter @misofm/streaming build && bun run --filter @misofm/musicos build && bun run --filter @misofm/partyos build && bun run --filter @misofm/platform build && bun run --filter @misofm/transcoding build",
     "codegen": "bun scripts/codegen.ts",
-    "codegen:check": "bun run codegen && git diff --exit-code -- packages/protocol/src/contracts"
+    "codegen:check": "bun run codegen && git diff --exit-code -- packages/musicos/src/contracts packages/partyos/src/contracts packages/platform/src/contracts",
+    "test:consumer": "bun scripts/check-consumer.ts"
   },
   "devDependencies": {
     "@mysten/codegen": "^0.12.6",

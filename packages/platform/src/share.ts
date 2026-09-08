@@ -32,7 +32,7 @@ import {
   createdByType,
   allCreatedByType,
   type ExecResult,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 
 import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
 import { SHARE_TEMPLATE } from "./share-template.ts";

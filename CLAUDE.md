@@ -26,14 +26,46 @@ extrapolate from other blockchains.
 
 ## Project Structure
 
+This is a Bun workspace of publishable packages under `packages/*`:
+
+- `packages/musicos` — `@misofm/musicos`, the works object model SDK (Composition,
+  Recording, Release, Track).
+- `packages/partyos` — `@misofm/partyos`, the Party object model SDK (Party, admin cap,
+  group membership).
+- `packages/platform` — `@misofm/platform`, everything Miso builds on top of the object
+  models (work and Party extensions, royalty primitives, Vault, Actions, product workflows).
+- `packages/streaming`, `packages/transcoding` — the streaming transcode contract and
+  transcoder.
+
+Within `packages/musicos`, `packages/partyos`, and `packages/platform`:
+
 - `src/` — public TypeScript SDK, transaction builders, reads, and generated bindings
-- `src/contracts/` — generated bindings; regenerate with `bun run codegen`
+- `src/contracts/` — generated bindings; regenerate with `bun run codegen` at the repo root
 - `tests/` — Bun unit and transaction-shape tests
-- `sui-codegen.config.ts` — sibling Move package inputs for binding generation
+
+At the repo root:
+
+- `sui-codegen.config.ts` — the three generated trees' Move package inputs, and the source of
+  truth for which package lands in `packages/musicos/src/contracts/`,
+  `packages/partyos/src/contracts/`, or `packages/platform/src/contracts/`. See the "Expected checkout layout" comment there for
+  where this repo expects its sibling Move package checkouts to live — do not restate that
+  layout elsewhere.
+- `scripts/codegen.ts` — the codegen runner that generates every tree.
+
+## The object-model / platform boundary
+
+> `@misofm/musicos` and `@misofm/partyos` are the object models. Everything Miso offers on top
+> of them is platform.
+
+When adding a feature, decide which package it belongs to using that rule, not convenience:
+if it is intrinsic to a Composition/Recording/Release/Track, it belongs in `musicos`; if it is
+intrinsic to a Party (identity, admin cap, membership), it belongs in `partyos`; if it is an
+opinion Miso's product adds on top — including every `party_*` extension — it belongs in
+`platform`.
 
 ## Project Rules
 
 - Use `@mysten/sui` v2 APIs and gRPC/Core client patterns; do not add JSON-RPC.
-- Do not hand-edit generated files under `src/contracts/`.
+- Do not hand-edit generated files under any `packages/*/src/contracts/`.
 - Keep PTB helpers composable: accept a `Transaction`, return results when useful, and do not execute.
 - Run `bun run typecheck`, `bun test`, `bun run build`, and `bun run codegen:check` before handoff.

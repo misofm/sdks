@@ -4,7 +4,7 @@
 import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
 import type { ClientWithCoreApi } from "@mysten/sui/client";
-import * as releaseKind from "@misofm/protocol/contracts/release_kind/release_kind";
+import * as releaseKind from "../../src/contracts/release_kind/release_kind.ts";
 import {
   getReleaseKind,
   releaseKindFieldId,

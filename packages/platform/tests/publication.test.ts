@@ -15,7 +15,7 @@ import {
   deriveCompositionAdminCapId,
   deriveRecordingAdminCapId,
   deriveReleaseAdminCapId,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 import {
   assertAtomicPublicationBounds,
   inspectAtomicPublication,
@@ -213,7 +213,7 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("vault::new")).toBe(5);
   expect(count("vault::share")).toBe(5);
   expect(tx.getData().commands.filter((command) => command.$kind === "TransferObjects")).toHaveLength(7);
-  const recordingCapType = `${input.deployment.protocol.miso}::recording::RecordingAdminCap<${SHARE_2}>`;
+  const recordingCapType = `${input.deployment.protocol.musicos}::recording::RecordingAdminCap<${SHARE_2}>`;
   const recordingVault = tx
     .getData()
     .commands.find(
@@ -502,15 +502,15 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
   const routedStakeId = "0x" + "36".repeat(32);
   const compositionCapId = deriveCompositionAdminCapId(
     compositionId,
-    deployment.protocol.miso,
+    deployment.protocol.musicos,
   );
   const recordingCapId = deriveRecordingAdminCapId(
     recordingId,
-    deployment.protocol.miso,
+    deployment.protocol.musicos,
   );
   const releaseCapId = deriveReleaseAdminCapId(
     releaseId,
-    deployment.protocol.miso,
+    deployment.protocol.musicos,
   );
   const sales =
     deployment.recordSales.status === "available"
@@ -543,9 +543,9 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
     }).toBytes(),
   }));
   const objectTypes: Record<string, string> = {
-    [compositionId]: `${deployment.protocol.miso}::composition::Composition<${SHARE_1}>`,
-    [recordingId]: `${deployment.protocol.miso}::recording::Recording<${SHARE_2},${SHARE_1}>`,
-    [releaseId]: `${deployment.protocol.miso}::release::Release`,
+    [compositionId]: `${deployment.protocol.musicos}::composition::Composition<${SHARE_1}>`,
+    [recordingId]: `${deployment.protocol.musicos}::recording::Recording<${SHARE_2},${SHARE_1}>`,
+    [releaseId]: `${deployment.protocol.musicos}::release::Release`,
     [compositionPoolId]: `${deployment.packages.royaltyPool}::pool::RoyaltyPool<${SHARE_1},0x2::sui::SUI>`,
     [recordingPoolId]: `${deployment.packages.royaltyPool}::pool::RoyaltyPool<${SHARE_2},0x2::sui::SUI>`,
     [routedStakeId]: `${deployment.packages.routedStake}::routed_stake::RoutedStake<${SHARE_2},${SHARE_1}>`,

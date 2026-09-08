@@ -6,7 +6,7 @@
 // `Transaction`, so a platform call composes with protocol calls and anything
 // else in the same PTB.
 //
-// This module holds the OPINIONATED publish flows. `@misofm/protocol` does the
+// This module holds the OPINIONATED publish flows. `@misofm/musicos` does the
 // minimum the Move semantics FORCE and returns anything a caller could
 // legitimately route elsewhere; deciding where those values GO is the
 // platform-layer call that lives here:
@@ -27,7 +27,7 @@
 // constraint, not a same-function one, which is exactly what makes this split
 // possible.
 //
-// Composes with `@misofm/protocol`'s calls in the same PTB (the
+// Composes with `@misofm/musicos`'s calls in the same PTB (the
 // transaction-thunk composition pattern, just crossing a package boundary now).
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
@@ -41,10 +41,10 @@ import {
   type RecordingParts,
   type ShareCurrencyBinding,
   type TxThunk,
-} from "@misofm/protocol";
+} from "@misofm/musicos";
 import { asU64, directAdminCap, disposeNewAdminCap, invokeWithAdminCap, type AdminCapAuthority, type AdminCapCustody, type U64Input } from "./vault.ts";
-import * as royaltyPool from "@misofm/protocol/contracts/royalty_pool/pool";
-import * as royaltyPoolStake from "@misofm/protocol/contracts/royalty_pool/stake";
+import * as royaltyPool from "./contracts/royalty_pool/pool.ts";
+import * as royaltyPoolStake from "./contracts/royalty_pool/stake.ts";
 
 const { track, release } = contracts;
 
@@ -284,7 +284,7 @@ export type FinalizeCompositionParams = FinalizeCompositionParamsBase & AdminCus
  * The opinionated finish for a composition: disperse its share supply to
  * `shareRecipients`, publish (share) it, and transfer its admin cap to
  * `adminAddress`. Consumers that want different economics skip this and act on
- * the `CompositionParts` from `@misofm/protocol`'s `createComposition` directly.
+ * the `CompositionParts` from `@misofm/musicos`'s `createComposition` directly.
  */
 export function finalizeComposition(tx: Transaction, params: FinalizeCompositionParams): void {
   disperseShares(tx, params.minatoPackageId, params.shareType, params.balance, params.shareRecipients);

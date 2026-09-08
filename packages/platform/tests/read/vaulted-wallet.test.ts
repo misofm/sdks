@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
-import { contracts } from "@misofm/protocol";
-import * as vaultContract from "@misofm/protocol/contracts/vault/vault";
+import { contracts } from "@misofm/musicos";
+import * as vaultContract from "../../src/contracts/vault/vault.ts";
 import type { MisoClient } from "../../src/read/client.ts";
 import {
   classifyVaultedWorkAdminCapType,
@@ -93,7 +93,7 @@ function fakeClient(): MisoClient {
   };
   return {
     config: {
-      deployment: { miso: MISO },
+      deployment: { musicos: MISO },
       protocol: { vault: VAULT_PACKAGE },
     },
     protocol: { core },

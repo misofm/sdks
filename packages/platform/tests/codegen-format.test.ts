@@ -1,25 +1,21 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+// Codegen normalisation now lives at the monorepo root (`scripts/codegen.ts`,
+// via `scripts/codegen-output.ts`), which runs against both generated trees.
+// This test only asserts the platform tree's own output stays normalised and
+// carries the addresses this SDK depends on — it derives from the same
+// `normalizeBcsAnchor` the generator itself uses rather than re-implementing
+// the formatting rule.
 import { expect, test } from "bun:test";
-
-const suiBcsImport = /^import .* from '@mysten\/sui\/bcs';$/m;
-const directBcsAnchor = 'import type {} from "@mysten/bcs";';
+import { normalizeBcsAnchor } from "../../../scripts/codegen-output.ts";
 
 test("generated BCS modules carry exactly one direct declaration anchor", async () => {
   const generated = new Bun.Glob("src/contracts/**/*.ts");
 
-  for await (const path of generated.scan({
-    cwd: import.meta.dir + "/../../protocol",
-  })) {
-    const source = await Bun.file(
-      import.meta.dir + "/../../protocol/" + path,
-    ).text();
-    const anchorCount = source
-      .split("\n")
-      .filter((line) => line === directBcsAnchor).length;
-
-    expect(anchorCount, path).toBe(suiBcsImport.test(source) ? 1 : 0);
+  for await (const path of generated.scan({ cwd: import.meta.dir + "/.." })) {
+    const source = await Bun.file(import.meta.dir + "/../" + path).text();
+    expect(normalizeBcsAnchor(source), path).toBe(source);
   }
 });
 
@@ -34,13 +30,9 @@ test("release cover bindings use the verified transitive Ori address", async () 
   const files: string[] = [];
   let sources = "";
 
-  for await (const path of generated.scan({
-    cwd: import.meta.dir + "/../../protocol",
-  })) {
+  for await (const path of generated.scan({ cwd: import.meta.dir + "/.." })) {
     files.push(path);
-    sources += await Bun.file(
-      import.meta.dir + "/../../protocol/" + path,
-    ).text();
+    sources += await Bun.file(import.meta.dir + "/../" + path).text();
   }
 
   expect(files).toContain(

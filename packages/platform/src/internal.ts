@@ -9,8 +9,8 @@ import type { Transaction, TransactionArgument } from "@mysten/sui/transactions"
 // call needs an `Option` argument built inline. Consumed by `./cover` and
 // `./credits`.
 //
-// These came over from `@misonetwork/sdk`'s own private `internal.ts` when the
-// extension surface moved here. They were NOT promoted to that package's public
+// These came over from the object-model package's own private `internal.ts`
+// when the extension surface moved here. They were NOT promoted to that package's public
 // API to make them reachable: they are two literal Move function targets from the
 // standard library, so re-deriving them costs nothing, whereas exporting them
 // would widen the protocol SDK's public surface — and therefore its compatibility
