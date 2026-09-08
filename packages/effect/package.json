@@ -1,0 +1,82 @@
+{
+  "name": "@misofm/effect",
+  "version": "0.1.0",
+  "packageManager": "bun@1.4.0",
+  "description": "Shared Effect foundation for the Miso SDKs: one SuiClient service, one error vocabulary, and the read/execute primitives every package builds on.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misofm/sdks.git",
+    "directory": "packages/effect"
+  },
+  "homepage": "https://github.com/misofm/sdks#readme",
+  "bugs": {
+    "url": "https://github.com/misofm/sdks/issues"
+  },
+  "keywords": [
+    "sui",
+    "effect",
+    "miso",
+    "blockchain",
+    "sdk"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "docs": "typedoc",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./sui-client": {
+      "types": "./dist/sui-client.d.ts",
+      "default": "./dist/sui-client.js"
+    },
+    "./reads": {
+      "types": "./dist/reads.d.ts",
+      "default": "./dist/reads.js"
+    },
+    "./execute": {
+      "types": "./dist/execute.d.ts",
+      "default": "./dist/execute.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "devDependencies": {
+    "@mysten/sui": "2.29.0",
+    "@types/bun": "^1.4.0",
+    "effect": "4.0.0-rc.112",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.0",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@mysten/sui": "2.29.0",
+    "effect": "4.0.0-rc.112",
+    "typescript": "^5.7 || ^6 || ^7"
+  },
+  "main": "./dist/index.js"
+}
