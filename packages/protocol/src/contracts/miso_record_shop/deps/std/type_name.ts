@@ -5,7 +5,7 @@
 
 /** Functionality for converting Move types into values. Use with care! */
 
-import { MoveStruct } from '../../../utils/index.js';
+import { MoveStruct } from '../../../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 const $moduleName = 'std::type_name';

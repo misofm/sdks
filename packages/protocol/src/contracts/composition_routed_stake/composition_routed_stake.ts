@@ -12,7 +12,7 @@
  */
 
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.js';
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface CreateStakeArguments {
     composition: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;

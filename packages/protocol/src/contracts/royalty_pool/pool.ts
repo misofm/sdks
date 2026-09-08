@@ -46,16 +46,28 @@
  * compete for the _unregistered_ supply's drift — the designed incentive for being
  * registered — never below any registered stake's floor.
  *
- * ### Precision
+ * ### Exact accounting
  *
- * The share token's shape is fixed at issuance by the protocol — exactly 10¹³ base
- * units, 6 decimals, supply made immutable via `miso_share::share::initialize`
- * (`make_supply_fixed`) — so `staked_shares ≤ 10¹³` objectively. A deposit of
- * `value ≥ 1` base units therefore advances the accumulator by
- * `value · PRECISION / staked_shares ≥ 10¹⁸ / 10¹³ = 10⁵`: the truncation-to-zero
- * case that would permanently lock a deposit in the pool balance is impossible by
- * construction, not by convention. Sub-base-unit claim residue (the remaining
- * source of locked dust) is documented on `unregister_stake`.
+ * Every base unit deposited is accounted for, to the last index unit:
+ *
+ * - A deposit of `v` across `S` staked shares advances the index by
+ *   `⌊(v · PRECISION + carry) / S⌋` and keeps the remainder in `carry` (in
+ *   `value · PRECISION` units, independent of `S`), so deposit rounding never
+ *   loses value — it is folded into the next deposit. This also means a share
+ *   supply larger than `PRECISION` cannot lock deposits: they accumulate in
+ *   `carry` until they fold.
+ * - A registration records its debt in `shares · index` units at full precision
+ *   and pays `⌊(shares · index − debt) / PRECISION⌋`; the payout is added back to
+ *   the debt as `reward · PRECISION`. A registration's lifetime payout is
+ *   therefore exactly `⌊shares · Δindex / PRECISION⌋`: sub-unit credit carries
+ *   across claims and is never inflated. At most one base unit of sub-unit residue
+ *   is forfeited per registration, at unregister.
+ *
+ * Consequently
+ * `balance · PRECISION == Σ (shares · index − debt) + carry +  forfeited` at all
+ * times — the pool can never owe more than it holds — and `PRECISION` is only a
+ * granularity/overflow choice: `shares · index` fits `u256` for any `u64` share
+ * supply and lifetime deposits.
  */
 
 import { MoveStruct, MoveTuple, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -69,6 +81,11 @@ export const RoyaltyPool = new MoveStruct({ name: `${$moduleName}::RoyaltyPool<p
         balance: balance_1.Balance,
         staked_shares: bcs.u64(),
         cumulative_reward_per_share: bcs.u256(),
+        /**
+         * Deposit remainder not yet folded into the index, in `value · PRECISION` units.
+         * Smaller than `staked_shares` as of the last deposit.
+         */
+        carry: bcs.u128(),
         /**
          * Lifetime sum of every deposited value, in currency base units. Read-only
          * analytics — never decremented; not used by any on-chain logic.
@@ -327,10 +344,10 @@ export interface UnregisterStakeOptions {
 }
 /**
  * Unregister a stake from the pool. All claimable rewards must be drained first —
- * i.e., a final `claim_rewards` call must yield 0. Sub-base-unit residue in
- * `last_claim_index` (left by the consumed-index advance when a reward truncated
- * to 0) does NOT block unregister, since that residue could never be claimed as a
- * whole base unit anyway. Forfeiting it on exit is the deliberate semantics.
+ * i.e., a final `claim_rewards` call must yield 0. Sub-base-unit residue
+ * (`shares · index − debt < PRECISION`) does NOT block unregister, since it could
+ * never be claimed as a whole base unit anyway. Forfeiting it on exit is the
+ * deliberate semantics.
  */
 export function unregisterStake(options: UnregisterStakeOptions) {
     const packageAddress = options.package ?? '@local-pkg/royalty_pool';
@@ -363,8 +380,8 @@ export interface ClaimRewardsOptions {
     ];
 }
 /**
- * Claim accrued rewards for a registered stake. Advances the stake's
- * `last_claim_index` to the pool's current accumulator.
+ * Claim accrued rewards for a registered stake. Adds the payout to the
+ * registration's debt, so sub-unit credit carries over to the next claim.
  */
 export function claimRewards(options: ClaimRewardsOptions) {
     const packageAddress = options.package ?? '@local-pkg/royalty_pool';
@@ -492,6 +509,34 @@ export function cumulativeRewardPerShare(options: CumulativeRewardPerShareOption
         package: packageAddress,
         module: 'pool',
         function: 'cumulative_reward_per_share',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface CarryArguments {
+    self: RawTransactionArgument<string>;
+}
+export interface CarryOptions {
+    package?: string;
+    arguments: CarryArguments | [
+        self: RawTransactionArgument<string>
+    ];
+    typeArguments: [
+        string,
+        string
+    ];
+}
+/** Deposit remainder awaiting the next deposit, in `value · PRECISION` units. */
+export function carry(options: CarryOptions) {
+    const packageAddress = options.package ?? '@local-pkg/royalty_pool';
+    const argumentsTypes = [
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["self"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'pool',
+        function: 'carry',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
