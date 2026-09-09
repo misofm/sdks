@@ -45,6 +45,8 @@ export interface ProtocolIds {
   releaseCredits: string;
   /** `miso_credit` — the shared `Credit<Role>` value type credits are built from. */
   credit: string;
+  /** `royalty_pool` — the pool package royalty deposits and claims go through. */
+  royaltyPool: string;
 }
 
 /** The currency the app prices records in, and where test dollars come from. */
@@ -129,6 +131,7 @@ export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}
       recordingCredits: platform.packages.recordingCredits,
       releaseCredits: platform.packages.releaseCredits,
       credit: platform.packages.credit,
+      royaltyPool: platform.packages.royaltyPool,
     },
     money: {
       usdCoinType:

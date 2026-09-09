@@ -88,4 +88,11 @@ export {
   recordSoldCurrencyType,
 } from "./receipts.ts";
 
+export {
+  ROYALTY_CLAIMS_PAGE_LIMIT,
+  listRoyaltyClaims,
+  royaltyClaimedEventType,
+} from "./royalties.ts";
+export type { ListRoyaltyClaimsOptions } from "./royalties.ts";
+
 export type * from "./types.ts";
