@@ -426,3 +426,33 @@ export interface PurchaseReceipt {
   price: string;
   tracks: TrackRoyalty[];
 }
+
+/** One pool swept by a royalty claim transaction. */
+export interface RoyaltyClaimEntry {
+  poolId: string;
+  stakeId: string;
+  /** The pool's share type, e.g. `0x…::share::Share`. */
+  shareType: string;
+  /** The currency paid out, e.g. the network's stable coin type. */
+  currency: string;
+  /** Base units of `currency`, a u64 as a decimal string. */
+  amount: string;
+}
+
+/** One royalty claim transaction sent by the address. */
+export interface RoyaltyClaim {
+  txDigest: string;
+  /** Checkpoint timestamp, milliseconds since the epoch; 0 if the index had none. */
+  timestampMs: number;
+  /** The pools swept, in event order. */
+  entries: RoyaltyClaimEntry[];
+}
+
+/** A page of claims, newest first. */
+export interface RoyaltyClaimPage {
+  claims: RoyaltyClaim[];
+  /** Pass as `before` for the next (older) page; null when none remain. */
+  nextCursor: string | null;
+  /** Earliest timestamp the event index still covers, or null if unknown. */
+  availableFromMs: number | null;
+}

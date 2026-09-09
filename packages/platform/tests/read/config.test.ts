@@ -18,6 +18,7 @@ describe("misoConfig", () => {
           ? deployment.operations.vault.packageId
           : deployment.operations.legacy?.vaultPackageId,
       releaseCoverArt: deployment.packages.releaseCoverArt,
+      royaltyPool: deployment.packages.royaltyPool,
       releaseKind: deployment.packages.releaseKind,
       recordingMasterReference: deployment.packages.recordingMasterReference,
       recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode ?? null,

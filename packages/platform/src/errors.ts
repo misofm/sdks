@@ -154,3 +154,16 @@ export class ForeignPressingError extends Schema.TaggedError<ForeignPressingErro
     return `@misofm/platform: object ${this.pressingId} is not a Pressing from the configured Record package.`;
   }
 }
+
+/** A `royalty_pool::pool::RoyaltyClaimedEvent` the indexer returned does not carry the fields this package expects. */
+export class MalformedRoyaltyClaimedEventError extends Schema.TaggedError<MalformedRoyaltyClaimedEventError>()(
+  "MalformedRoyaltyClaimedEventError",
+  {
+    digest: Schema.String,
+    reason: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `@misofm/platform: ${this.reason} (transaction ${this.digest}).`;
+  }
+}
