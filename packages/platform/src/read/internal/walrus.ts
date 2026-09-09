@@ -15,13 +15,21 @@ export function u256ToB64Url(value: bigint | string): string {
   return walrusBlobIdFromU256(value);
 }
 
-/** Build a blob URL with Walrus's non-strict default made explicit. */
+/**
+ * The canonical read URL for a blob: `{aggregator}/v1/blobs/{blob_id}`, no query.
+ *
+ * Read policy is not the client's to pin. Walrus's default consistency check
+ * has been the fast one since v1.37, its aggregator rejects any query
+ * parameter it does not know, and a query string splits every cache (browser,
+ * edge, CDN) into one entry per spelling of the same blob. Anything Miso wants
+ * to say to the aggregator about a read belongs in the CDN that fronts it.
+ */
 export function walrusBlobReadUrl(
   aggregator: string,
   blobId: bigint | string,
 ): string {
   const base = aggregator.replace(/\/$/, "");
-  return `${base}/v1/blobs/${u256ToB64Url(blobId)}?strict_consistency_check=false`;
+  return `${base}/v1/blobs/${u256ToB64Url(blobId)}`;
 }
 
 /** Build Walrus's 37-byte quilt-patch id. All fields use BCS little-endian. */

@@ -13,9 +13,9 @@ describe("Walrus ids", () => {
     expect(u256ToB64Url("42")).not.toMatch(/[+/=]/);
   });
 
-  test("pins the aggregator's non-strict blob read mode", () => {
+  test("builds the bare blob read URL with no query string", () => {
     expect(walrusBlobReadUrl("https://walrus.example/", "42")).toBe(
-      `https://walrus.example/v1/blobs/${u256ToB64Url("42")}?strict_consistency_check=false`,
+      `https://walrus.example/v1/blobs/${u256ToB64Url("42")}`,
     );
   });
 
