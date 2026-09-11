@@ -12,7 +12,9 @@ import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
 import * as language from "./contracts/recording_language/recording_language.ts";
-import * as walrusData from "./contracts/recording_master_reference/deps/ori/data.ts";
+// The generator prunes duplicate dependency subtrees and retains ori::data
+// under cover_art. Both generated modules describe the same WalrusBlob ABI.
+import * as walrusData from "./contracts/cover_art/deps/ori/data.ts";
 import * as masterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as engineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
 import * as streamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";

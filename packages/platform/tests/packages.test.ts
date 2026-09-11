@@ -83,7 +83,7 @@ test("extension and primitive calls bind to their own fresh package IDs", () => 
     }),
   );
   tx.add(
-    packages.call.primitives.royaltyPool.pool.sweepAndDeposit({
+    packages.call.primitives.royaltyPool.pool.settle({
       typeArguments: [SHARE, "0x2::sui::SUI"],
       arguments: [tx.object(A)],
     }),
@@ -94,7 +94,7 @@ test("extension and primitive calls bind to their own fresh package IDs", () => 
     package: FULL_DEPLOYMENT.packages.recordingAdvisory,
     function: "unset_rating",
   });
-  expect(calls.find((call) => call.function === "sweep_and_deposit")).toMatchObject({
+  expect(calls.find((call) => call.function === "settle")).toMatchObject({
     package: FULL_DEPLOYMENT.packages.royaltyPool,
     module: "pool",
   });

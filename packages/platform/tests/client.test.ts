@@ -142,6 +142,14 @@ test("explicit verified deployment binds both finalized sales packages", async (
   await Effect.runPromise(client.miso.ready());
   expect(client.miso.recordPackageId).toBe(RECORD);
   expect(client.miso.recordShopPackageId).toBe(SHOP);
+  expect(client.miso.bcs.PressingSharedEvent).toBeDefined();
+  expect(client.miso.bcs.PressingDistributorAuthorizedEvent).toBeDefined();
+  expect(client.miso.bcs.ListingSharedEvent).toBeDefined();
+  expect(client.miso.bcs.VaultCapabilityReturnedEvent).toBeDefined();
+  expect(client.miso.bcs.ReleaseCoinsReceivedEvent).toBeDefined();
+  expect(client.miso.party.bcs.ProfileSetEvent).toBe(client.miso.party.bcs.PartyProfileSetEvent);
+  expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
+  expect(client.miso.party.bcs.MediaClearedEvent).toBeDefined();
 
   const tx = new Transaction();
   client.miso.tx.purchaseRecord({

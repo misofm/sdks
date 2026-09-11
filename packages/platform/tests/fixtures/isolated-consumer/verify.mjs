@@ -15,6 +15,8 @@ import * as partyosContracts from "@misofm/partyos/contracts";
 import * as partyosErrors from "@misofm/partyos/errors";
 
 import * as platformRoot from "@misofm/platform";
+import * as platformEvents from "@misofm/platform/events";
+import * as platformContracts from "@misofm/platform/contracts";
 import * as platformClient from "@misofm/platform/client";
 import * as platformPressing from "@misofm/platform/pressing";
 import * as platformVault from "@misofm/platform/vault";
@@ -23,7 +25,7 @@ import * as platformCredits from "@misofm/platform/credits";
 import * as platformParty from "@misofm/platform/party";
 import * as platformErrors from "@misofm/platform/errors";
 import * as recordModule from "@misofm/platform/contracts/record/record";
-import * as languageCodeModule from "@misofm/platform/contracts/recording_language/deps/language_code/language_code";
+import * as languageCodeModule from "@misofm/platform/contracts/party_profile/deps/language_code/language_code";
 
 import * as streamingRoot from "@misofm/streaming";
 import * as streamingErrors from "@misofm/streaming/errors";
@@ -81,6 +83,48 @@ invariant(hasExport(partyosErrors, "PartyNotFoundError"), "@misofm/partyos/error
 invariant(Object.keys(platformRoot).length > 0, "@misofm/platform root export did not load");
 invariant(hasExport(platformRoot, "MisoClient"), "@misofm/platform root missing MisoClient");
 invariant(hasExport(platformRoot, "contracts"), "@misofm/platform root missing contracts namespace");
+invariant(hasExport(platformRoot, "platformEventParsers"), "@misofm/platform root missing platform event registry");
+invariant(hasExport(platformEvents, "platformEventParsers"), "@misofm/platform/events missing platform event registry");
+invariant(hasExport(platformContracts, "share"), "platform contracts missing share input");
+invariant(hasExport(platformContracts, "pay"), "platform contracts missing pay input");
+invariant(hasExport(platformContracts, "platformLink"), "platform contracts missing platform_link input");
+
+// Public barrel codecs and the public registry must agree on representative
+// rich fields. These values are deliberately built through the barrel (the
+// fixture has no deep source imports) and include wide quantities and byte
+// vectors that used to be pruned or narrowed.
+const eventId = `0x${"11".repeat(32)}`;
+const descriptionBytes = platformContracts.releaseDescription.ReleaseDescriptionSetEvent.serialize({
+  release_id: eventId,
+  release_admin_cap_id: eventId,
+  description_existed_before: false,
+  description_before: [],
+  description_after: [76, 105, 110, 101, 114],
+}).toBytes();
+const description = platformEvents.platformEventParsers.extensions.releaseDescription.descriptionSet(descriptionBytes);
+invariant(Array.isArray(description.description_after), "description byte vector did not survive public decode");
+const claimBytes = platformContracts.royaltyPool.RoyaltyClaimedEvent.serialize({
+  pool_id: eventId,
+  stake_id: eventId,
+  staked_amount: "1",
+  reward_amount: "9007199254740993",
+  registration_debt_before: "340282366920938463463374607431768211456",
+  registration_debt_after: "340282366920938463463374607431768211457",
+  reward_residue_after: "0",
+  stake_registration_count_after: "1",
+  pool_balance_after: "2",
+  staked_shares_after: "3",
+  cumulative_reward_per_share_after: "4",
+  carry_after: "5",
+  cumulative_deposits_after: "6",
+}).toBytes();
+const claim = platformRoot.platformEventParsers.primitives.royaltyPool.royaltyClaimed(claimBytes);
+invariant(claim.reward_amount === "9007199254740993", "wide royalty quantity lost precision");
+invariant(typeof platformContracts.pay.PaymentSentEvent === "function", "generic pay event factory missing");
+invariant(typeof platformContracts.share.ShareInitializedEvent.parse === "function", "share event codec missing");
+invariant(typeof platformContracts.platformLink.PlatformLinkSetEvent.parse === "function", "platform-link event codec missing");
+const mappedRevenue = platformRoot.parseReleaseRevenueDistributedEvent;
+invariant(typeof mappedRevenue === "function", "release revenue mapper missing");
 
 invariant(Object.keys(platformClient).length > 0, "@misofm/platform/client export did not load");
 invariant(hasExport(platformClient, "MisoPlatformClient"), "@misofm/platform/client missing MisoPlatformClient");
@@ -111,7 +155,7 @@ invariant(typeof recordModule.Record.parse === "function", "Record BCS codec mis
 
 invariant(
   Object.keys(languageCodeModule).length > 0,
-  "@misofm/platform/contracts/recording_language/deps/language_code/language_code did not load",
+  "@misofm/platform/contracts/party_profile/deps/language_code/language_code did not load",
 );
 invariant(hasExport(languageCodeModule, "LanguageCode"), "raw nested deps/language_code module missing LanguageCode");
 invariant(typeof languageCodeModule.LanguageCode.parse === "function", "LanguageCode BCS codec missing parse()");

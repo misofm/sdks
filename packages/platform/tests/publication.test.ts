@@ -25,6 +25,8 @@ import {
 } from "../src/publication.ts";
 import { derivePressingAdminCapId, derivePressingId } from "../src/pressing.ts";
 import * as contracts from "../src/contracts.ts";
+import { party } from "@misofm/partyos/contracts";
+import { derivePartyAdminCapId } from "@misofm/partyos";
 import type { PlatformExecResult } from "../src/execute.ts";
 
 const A = "0x" + "ab".repeat(32);
@@ -491,7 +493,7 @@ test("routed stakes require fresh parents and matching royalty pools", () => {
 test("atomic result parsing maps canonical Vault events without requiring top-level cap effects", () => {
   const input: AtomicPublicationParams = {
     ...params(),
-    parties: [{ ref: "artist", id: A }],
+    parties: [{ ref: "artist", create: "individual", name: "Artist", custody: { kind: "vault", owner: A } }],
   };
   const deployment = input.deployment;
   const compositionId = "0x" + "31".repeat(32);
@@ -500,6 +502,8 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
   const compositionPoolId = "0x" + "34".repeat(32);
   const recordingPoolId = "0x" + "35".repeat(32);
   const routedStakeId = "0x" + "36".repeat(32);
+  const partyId = "0x" + "37".repeat(32);
+  const partyCapId = derivePartyAdminCapId(partyId, deployment.partyos.partyos);
   const compositionCapId = deriveCompositionAdminCapId(
     compositionId,
     deployment.protocol.musicos,
@@ -527,6 +531,7 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
     sales.recordPackageId,
   );
   const wrappedCaps = [
+    partyCapId,
     compositionCapId,
     recordingCapId,
     releaseCapId,
@@ -538,10 +543,29 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
   const events = wrappedCaps.map((wrappedCapId, index) => ({
     eventType: `${OPERATIONS.vault.packageId}::vault::VaultCreatedEvent<0x1::cap::Cap>`,
     bcs: contracts.vault.VaultCreatedEvent.serialize({
+      registry_id: OPERATIONS.vault.registryId,
       vault_id: vaultIds[index]!,
       cap_id: wrappedCapId,
+      admin_cap_id: `0x${(80 + index).toString(16).repeat(64).slice(0, 64)}`,
+      authorized_plugins_id: `0x${(90 + index).toString(16).repeat(64).slice(0, 64)}`,
+      authorized_plugin_count: "0",
+      active: true,
+      capability_available: true,
     }).toBytes(),
   }));
+  events.push({
+    eventType: `${deployment.partyos.partyos}::party::PartyCreatedEvent`,
+    bcs: party.PartyCreatedEvent.serialize({
+      party_id: partyId,
+      admin_cap_id: partyCapId,
+      name: "Artist",
+      kind: 0,
+      member_ids: [],
+      creator: A,
+      created_at_ms: "9007199254740993",
+      created_epoch: "17",
+    }).toBytes(),
+  });
   const objectTypes: Record<string, string> = {
     [compositionId]: `${deployment.protocol.musicos}::composition::Composition<${SHARE_1}>`,
     [recordingId]: `${deployment.protocol.musicos}::recording::Recording<${SHARE_2},${SHARE_1}>`,
@@ -585,6 +609,6 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
   });
   expect(parsed.recordings.r1!.authority).toMatchObject({
     kind: "vault",
-    vaultId: vaultIds[1],
+    vaultId: vaultIds[2],
   });
 });

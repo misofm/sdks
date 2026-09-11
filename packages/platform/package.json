@@ -122,6 +122,10 @@
       "types": "./dist/packages.d.ts",
       "default": "./dist/packages.js"
     },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
+    },
     "./contracts": {
       "types": "./dist/contracts.d.ts",
       "default": "./dist/contracts.js"

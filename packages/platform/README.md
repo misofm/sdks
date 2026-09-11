@@ -776,7 +776,7 @@ src/
   deployments.ts         fail-closed deployment schema (MisoPlatformDeployment, PartyExtensionsDeployment) and address injection point
   client.ts              the full client.miso facade; object-model core lives at client.miso.protocol, Party at client.miso.party
   packages.ts            MisoPlatformPackageBindings: extensions/primitives/party generated calls bound to one deployment
-  events.ts              platformEventParsers: extension + generic-primitive event decoders
+  events.ts              platformEventParsers: work/Party extensions, Actions, products, plugins, and primitive event decoders
   royalty.ts             generic royalty-pool / stake / routed-stake derive helpers and PTB builders
   pressing.ts            facade: builders, readers, and the id derivations
   queries.ts             shared read plumbing (isNotFound, re-exported from @misofm/musicos)
@@ -811,7 +811,7 @@ bun run codegen   # reads sui-codegen.config.ts → src/contracts/
 This package's generated tree (`src/contracts/`) covers every Move package this
 side of the boundary rule — the ten `party_*` extensions plus `party_wallet`,
 work extensions, generic royalty/routed-stake primitives, Record and Record
-Shop, Vault, and every Action/plugin package. The Party core (`partyos`)
+Shop, Vault, generic `share`, `miso_pay`, and `platform_link` primitives, and every Action/plugin package. The Party core (`partyos`)
 generates into `@misofm/partyos`, and the object-model core
 (composition/recording/release/track) generates into `@misofm/musicos`;
 this package depends on both for those bindings — adding either core here to

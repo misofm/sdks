@@ -1166,15 +1166,17 @@ export class MisoPlatformClient {
             [
               "share",
               "deposit",
-              "sweepAndDeposit",
-              "receiveAndDeposit",
+              "settle",
+              "recoverCoins",
               "registerStake",
               "unregisterStake",
               "claimRewards",
               "pendingRewards",
               "stakedShares",
               "cumulativeRewardPerShare",
+              "carry",
               "cumulativeDeposits",
+              "settledValue",
               "derivedAddress",
               "assertDerivedFrom",
             ] as const,
@@ -1283,7 +1285,11 @@ export class MisoPlatformClient {
     DistributorAuthorizedEvent: pressingContract.DistributorAuthorizedEvent,
     DistributorRevokedEvent: pressingContract.DistributorRevokedEvent,
     RecordPurchasedEvent: pressingContract.RecordPurchasedEvent,
+    PressingSharedEvent: pressingContract.PressingSharedEvent,
+    PressingDistributorAuthorizedEvent: pressingContract.PressingDistributorAuthorizedEvent,
+    PressingDistributorRevokedEvent: pressingContract.PressingDistributorRevokedEvent,
     ListingCreatedEvent: listingContract.ListingCreatedEvent,
+    ListingSharedEvent: listingContract.ListingSharedEvent,
     ListingPriceChangedEvent: listingContract.ListingPriceChangedEvent,
     ListingStateChangedEvent: listingContract.ListingStateChangedEvent,
     RecordSoldEvent: listingContract.RecordSoldEvent,
@@ -1292,8 +1298,15 @@ export class MisoPlatformClient {
     VaultKey: vaultContract.VaultKey,
     VaultAdminCapKey: vaultContract.VaultAdminCapKey,
     VaultCreatedEvent: vaultContract.VaultCreatedEvent,
+    VaultRegistryCreatedEvent: vaultContract.VaultRegistryCreatedEvent,
+    VaultSharedEvent: vaultContract.VaultSharedEvent,
+    PluginAuthorizedEvent: vaultContract.PluginAuthorizedEvent,
+    PluginRevokedEvent: vaultContract.PluginRevokedEvent,
     VaultCapabilityWithdrawnEvent: vaultContract.VaultCapabilityWithdrawnEvent,
     VaultCapabilityRestoredEvent: vaultContract.VaultCapabilityRestoredEvent,
+    VaultCapabilityBorrowedByPluginEvent: vaultContract.VaultCapabilityBorrowedByPluginEvent,
+    VaultCapabilityBorrowedByAdminEvent: vaultContract.VaultCapabilityBorrowedByAdminEvent,
+    VaultCapabilityReturnedEvent: vaultContract.VaultCapabilityReturnedEvent,
     PartyObjectReceivedEvent: partyWalletContract.ObjectReceivedEvent,
     PartyCoinsReceivedEvent: partyWalletContract.CoinsReceivedEvent,
     PartyFundsRedeemedEvent: partyWalletContract.FundsRedeemedEvent,
@@ -1301,6 +1314,10 @@ export class MisoPlatformClient {
       releaseRevenueDistributorContract.ReleaseTrackRevenueDistributedEvent,
     ReleaseRevenueDistributedEvent:
       releaseRevenueDistributorContract.ReleaseRevenueDistributedEvent,
+    ReleaseCoinsReceivedEvent:
+      releaseRevenueDistributorContract.ReleaseCoinsReceivedEvent,
+    ReleaseFundsRedeemedEvent:
+      releaseRevenueDistributorContract.ReleaseFundsRedeemedEvent,
   };
 }
 

@@ -940,6 +940,7 @@ export function parseReleaseRevenueDistributedEvent(content: Uint8Array) {
   );
   return {
     releaseId: event.release_id,
+    trackCount: event.track_count.toString(),
     totalInput: event.total_input.toString(),
     totalDistributed: event.total_distributed.toString(),
     remainder: event.remainder.toString(),
@@ -952,7 +953,10 @@ export function parseReleaseTrackRevenueDistributedEvent(content: Uint8Array) {
   return {
     releaseId: event.release_id,
     trackIndex: event.track_index.toString(),
+    compositionId: event.composition_id,
     recordingId: event.recording_id,
+    splitBps: event.split_bps,
+    totalInput: event.total_input.toString(),
     amount: event.amount.toString(),
   };
 }

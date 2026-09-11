@@ -25,20 +25,33 @@ import { getPartyDeployment, type PartyDeployment } from "@misofm/partyos/deploy
 import { Party as PartyStruct } from "@misofm/partyos/contracts/partyos/party";
 import { PartyNotFoundError } from "@misofm/partyos/errors";
 
-import { MisoClient as PlatformRootClient, type MisoOptions as PlatformRootOptions } from "@misofm/platform";
+import {
+  MisoClient as PlatformRootClient,
+  platformEventParsers as rootPlatformEventParsers,
+  parseReleaseRevenueDistributedEvent,
+  parseReleaseTrackRevenueDistributedEvent,
+  type MisoOptions as PlatformRootOptions,
+} from "@misofm/platform";
+import { platformEventParsers } from "@misofm/platform/events";
 import { MisoPlatformClient, type MisoPlatformConfig } from "@misofm/platform/client";
 import { derivePressingId, type OpenPressingParams } from "@misofm/platform/pressing";
 import { directAdminCap, type AdminCapAuthority } from "@misofm/platform/vault";
 import { misoConfig, type MisoConfig } from "@misofm/platform/read";
 import { attachCompositionCredit, type CompositionRole } from "@misofm/platform/credits";
 import { PartyPlatformClient, type Profile } from "@misofm/platform/party";
-import { record as platformRecord } from "@misofm/platform/contracts";
+import {
+  record as platformRecord,
+  listing as platformListing,
+  share as platformShare,
+  pay as platformPay,
+  platformLink as platformLinkContract,
+} from "@misofm/platform/contracts";
 import { RecordSalesUnavailableError } from "@misofm/platform/errors";
 
 // The raw wildcard subpath (`./contracts/*`): a deep module and a nested
 // `deps/*` module, neither of which is exposed through the curated barrel.
 import { Record as RecordStruct } from "@misofm/platform/contracts/record/record";
-import { LanguageCode as LanguageCodeTuple } from "@misofm/platform/contracts/recording_language/deps/language_code/language_code";
+import { LanguageCode as LanguageCodeTuple } from "@misofm/platform/contracts/party_profile/deps/language_code/language_code";
 
 import { HLS_CONTRACT, type Rendition } from "@misofm/streaming";
 import { WarmError } from "@misofm/streaming/errors";
@@ -72,6 +85,13 @@ type _PlatformReadConfig = MisoConfig;
 type _PlatformCreditRole = CompositionRole;
 type _PlatformParty = Profile;
 type _PlatformContractsRecordReleaseIdOptions = Parameters<typeof platformRecord.releaseId>[0];
+type _PlatformRecordSoldCurrencyByte = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_currency"][number];
+type _PlatformShareEvent = ReturnType<typeof platformShare.ShareInitializedEvent.parse>;
+type _PlatformLinkEvent = ReturnType<typeof platformLinkContract.PlatformLinkSetEvent.parse>;
+type _PlatformPaymentEventFactory = typeof platformPay.PaymentSentEvent;
+type _PlatformTrackDistribution = ReturnType<typeof parseReleaseTrackRevenueDistributedEvent>;
+type _PlatformRevenueDistribution = ReturnType<typeof parseReleaseRevenueDistributedEvent>;
+type _PlatformWideReward = ReturnType<typeof platformEventParsers.primitives.royaltyPool.royaltyClaimed>["cumulative_reward_per_share_after"];
 type _Record = ReturnType<typeof RecordStruct.parse>;
 type _LanguageCode = ReturnType<typeof LanguageCodeTuple.parse>;
 type _PlatformRecordSalesUnavailableError = RecordSalesUnavailableError;
@@ -102,6 +122,14 @@ void ([
   attachCompositionCredit,
   PartyPlatformClient,
   platformRecord,
+  platformListing,
+  platformShare,
+  platformPay,
+  platformLinkContract,
+  rootPlatformEventParsers,
+  platformEventParsers,
+  parseReleaseRevenueDistributedEvent,
+  parseReleaseTrackRevenueDistributedEvent,
   RecordStruct,
   LanguageCodeTuple,
   RecordSalesUnavailableError,
@@ -134,6 +162,13 @@ export type IsolatedConsumerTypeProbe = [
   _PlatformCreditRole,
   _PlatformParty,
   _PlatformContractsRecordReleaseIdOptions,
+  _PlatformRecordSoldCurrencyByte,
+  _PlatformShareEvent,
+  _PlatformLinkEvent,
+  _PlatformPaymentEventFactory,
+  _PlatformTrackDistribution,
+  _PlatformRevenueDistribution,
+  _PlatformWideReward,
   _Record,
   _LanguageCode,
   _PlatformRecordSalesUnavailableError,

@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";
 import * as vaultApi from "../src/vault.ts";
 import * as releasePluginContract from "../src/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
+import * as releaseDistributorContract from "../src/contracts/release_revenue_distributor/release_revenue_distributor.ts";
 import {
   createCompositionRoutedStake, directAdminCap,
   custodyNewAdminCap, deriveVaultAdminCapId, deriveVaultId,
@@ -40,6 +41,42 @@ const labels = (tx: Transaction) => calls(tx).map((call) => `${call.module}::${c
 const direct = directAdminCap(A);
 const vaulted = (tx: Transaction) => vaultAdminCap({
   vault: tx.object(A), vaultAdminCap: tx.object(B), capType: CAP, vaultPackageId: VAULT,
+});
+
+test("release revenue event mappers preserve rich totals and provenance", () => {
+  const summary = releaseDistributorContract.ReleaseRevenueDistributedEvent.serialize({
+    release_id: A,
+    track_count: "9007199254740993",
+    total_input: "18446744073709551615",
+    total_distributed: "18446744073709551614",
+    remainder: "1",
+  }).toBytes();
+  expect(vaultApi.parseReleaseRevenueDistributedEvent(summary)).toEqual({
+    releaseId: A,
+    trackCount: "9007199254740993",
+    totalInput: "18446744073709551615",
+    totalDistributed: "18446744073709551614",
+    remainder: "1",
+  });
+
+  const track = releaseDistributorContract.ReleaseTrackRevenueDistributedEvent.serialize({
+    release_id: A,
+    track_index: "2",
+    composition_id: B,
+    recording_id: C,
+    split_bps: 1234,
+    total_input: "18446744073709551615",
+    amount: "42",
+  }).toBytes();
+  expect(vaultApi.parseReleaseTrackRevenueDistributedEvent(track)).toEqual({
+    releaseId: A,
+    trackIndex: "2",
+    compositionId: B,
+    recordingId: C,
+    splitBps: 1234,
+    totalInput: "18446744073709551615",
+    amount: "42",
+  });
 });
 
 test("invokeWithAdminCap supports direct caps without custody commands", () => {

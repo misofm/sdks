@@ -20,7 +20,23 @@ function edge(cursor: string, digest: string, amount: string, timestamp = "2026-
       transaction: { digest },
       contents: {
         type: { repr: TYPE },
-        json: { pool_id: "0x1", stake_id: "0x2", reward_amount: amount },
+        // Current RoyaltyClaimedEvent JSON retains the complete rich snapshot;
+        // the read projection intentionally selects only identity and reward.
+        json: {
+          pool_id: "0x1",
+          stake_id: "0x2",
+          staked_amount: "9007199254740993",
+          reward_amount: amount,
+          registration_debt_before: "1606938044258990275541962092341162602522202993782792835301376",
+          registration_debt_after: "1606938044258990275541962092341162602522202993782792835301377",
+          reward_residue_after: "3",
+          stake_registration_count_after: "4",
+          pool_balance_after: "5",
+          staked_shares_after: "6",
+          cumulative_reward_per_share_after: "7",
+          carry_after: "8",
+          cumulative_deposits_after: "9",
+        },
       },
     },
   };

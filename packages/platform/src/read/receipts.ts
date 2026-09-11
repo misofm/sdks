@@ -63,20 +63,46 @@ function coerceU64(v: unknown): bigint | null {
   return value !== null && value >= 0n && value <= U64_MAX ? value : null;
 }
 
-function priceFromUnknown(value: unknown): Price | null {
-  if (!value || typeof value !== "object") return null;
-  const variants = value as {
-    $kind?: string;
-    Fixed?: unknown;
-    Floor?: unknown;
-  };
-  const fixed = variants.$kind === "Fixed" || Object.hasOwn(variants, "Fixed");
-  const floor = variants.$kind === "Floor" || Object.hasOwn(variants, "Floor");
-  if (fixed === floor) return null;
-  const amount = coerceU64(fixed ? variants.Fixed : variants.Floor);
+function priceFromRichFields(
+  pricingIsFixed: unknown,
+  priceValue: unknown,
+): Price | null {
+  if (typeof pricingIsFixed !== "boolean") return null;
+  const amount = coerceU64(priceValue);
   return amount == null || amount <= 0n
     ? null
-    : { kind: fixed ? "fixed" : "floor", amount: amount.toString() };
+    : { kind: pricingIsFixed ? "fixed" : "floor", amount: amount.toString() };
+}
+
+/** Decode a Move `vector<u8>` containing a UTF-8 defining type name. */
+function utf8ByteVector(value: unknown): string | null {
+  let bytes: number[];
+  if (typeof value === "string") {
+    // GraphQL's MoveValue JSON projects vector<u8> as standard padded Base64.
+    // Require the canonical spelling and round-trip it before accepting it;
+    // arbitrary strings are never interpreted as a type name.
+    if (value.length === 0 || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) return null;
+    try {
+      const binary = atob(value);
+      const canonical = btoa(binary);
+      if (canonical !== value) return null;
+      bytes = Array.from(binary, (char) => char.charCodeAt(0));
+    } catch {
+      return null;
+    }
+  } else if (Array.isArray(value) || value instanceof Uint8Array) {
+    bytes = Array.from(value);
+  } else {
+    return null;
+  }
+  if (!bytes.every((byte) => typeof byte === "number" && Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+    return null;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bytes));
+  } catch {
+    return null;
+  }
 }
 
 function typeName(value: unknown): string | null {
@@ -121,8 +147,9 @@ function saleFromJson(
   const purchasePrice = coerceU64(json.purchase_price);
   const purchasedTimestampMs = coerceU64(json.purchased_timestamp_ms);
   const recordId = json.record_id;
-  const pricing = priceFromUnknown(json.pricing);
-  const embeddedCurrency = typeName(json.purchase_currency);
+  const pricing = priceFromRichFields(json.pricing_is_fixed, json.price);
+  const currencyText = utf8ByteVector(json.purchase_currency);
+  const embeddedCurrency = currencyText == null ? null : typeName(currencyText);
   if (
     edition == null ||
     number == null ||
@@ -215,14 +242,17 @@ export function findRecordSales(
     );
     if (!currencyType) continue;
     try {
-      // The generated struct decodes addresses to 0x-hex and u64s to decimal strings.
+      // The generated struct decodes addresses to 0x-hex and unsigned values
+      // to decimal strings. `purchase_currency` is the raw Move byte vector,
+      // so decode it before normalizing the defining type tag.
       const s = listingContract.RecordSoldEvent.parse(e.bcs);
-      const pricing = priceFromUnknown(s.pricing);
-      const embeddedCurrency = typeName(s.purchase_currency);
-      const purchasePrice = BigInt(s.purchase_price);
+      const pricing = priceFromRichFields(s.pricing_is_fixed, s.price);
+      const currencyText = utf8ByteVector(s.purchase_currency);
+      const embeddedCurrency = currencyText == null ? null : typeName(currencyText);
+      const purchasePrice = coerceU64(s.purchase_price);
       if (
-        !pricing || embeddedCurrency !== currencyType ||
-        !validPricingRelationship(purchasePrice, pricing) ||
+        !pricing || embeddedCurrency !== currencyType || purchasePrice == null ||
+        purchasePrice <= 0n || !validPricingRelationship(purchasePrice, pricing) ||
         s.edition <= 0 || s.number <= 0
       ) throw new MalformedRecordSoldEventError({ reason: "malformed canonical RecordSoldEvent" });
       sales.push({
@@ -233,7 +263,7 @@ export function findRecordSales(
         edition: s.edition,
         number: s.number,
         purchaseCurrency: embeddedCurrency,
-        purchasePrice: s.purchase_price,
+        purchasePrice: purchasePrice.toString(),
         pricing,
         currencyType,
         purchasedBy: s.purchased_by,

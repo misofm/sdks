@@ -35,6 +35,24 @@ import * as rawRoyaltyPool from "./contracts/royalty_pool/pool.ts";
 import * as rawRoyaltyStake from "./contracts/royalty_pool/stake.ts";
 import * as rawRoutedStake from "./contracts/routed_stake/routed_stake.ts";
 import * as rawPartyProfile from "./contracts/party_profile/party_profile.ts";
+import * as rawShare from "./contracts/share/share.ts";
+import * as rawPay from "./contracts/miso_pay/pay.ts";
+import * as rawPlatformLink from "./contracts/platform_link/platform_link.ts";
+
+// Generic inputs have no configured platform deployment or client-bound call
+// surface yet. Expose their event codecs through this curated barrel while
+// keeping generated transaction functions available only through the raw
+// wildcard `./contracts/*` subpath.
+export const share = {
+  ShareInitializedEvent: rawShare.ShareInitializedEvent,
+} as const;
+export const pay = {
+  PaymentSentEvent: rawPay.PaymentSentEvent,
+} as const;
+export const platformLink = {
+  PlatformLinkSetEvent: rawPlatformLink.PlatformLinkSetEvent,
+  PlatformLinkRemovedEvent: rawPlatformLink.PlatformLinkRemovedEvent,
+} as const;
 
 // Record identity/issuance and Record Shop primary-sale mechanics. The
 // package-restricted witness constructor is intentionally not exported here.

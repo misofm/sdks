@@ -7,7 +7,7 @@ import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { Effect } from "effect";
 import { SuiClient } from "@misofm/effect";
-import * as walrusData from "../src/contracts/recording_master_reference/deps/ori/data.ts";
+import * as walrusData from "../src/contracts/cover_art/deps/ori/data.ts";
 import * as masterReference from "../src/contracts/recording_master_reference/recording_master_reference.ts";
 import * as engineSessionContract from "../src/contracts/recording_engine_session/recording_engine_session.ts";
 import {

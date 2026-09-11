@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
+import { Effect, Layer } from "effect";
+import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { SuiClient, SuiGraphQL } from "@misofm/effect";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import {
   findRecordSale,
   findRecordSales,
+  getPurchaseReceipt,
   isRecordSoldEventType,
 } from "../../src/read/receipts.ts";
+import { misoConfig } from "../../src/read/config.ts";
 import { MalformedRecordSoldEventError } from "../../src/errors.ts";
 
 const SHOP_PACKAGE = "0xa";
@@ -26,12 +31,12 @@ function eventType(packageId = SHOP_PACKAGE, currency = CURRENCY): string {
 }
 
 function bcsEvent(
-  pricing: { Fixed: string } | { Floor: string },
+  pricing: { fixed: boolean; price: string },
   recordId = IDS.record,
   purchaseCurrency = CURRENCY,
 ) {
-  const configured = BigInt("Fixed" in pricing ? pricing.Fixed : pricing.Floor);
-  const purchasePrice = "Floor" in pricing ? configured + 50n : configured;
+  const configured = BigInt(pricing.price);
+  const purchasePrice = pricing.fixed ? configured : configured + 50n;
   return listing.RecordSoldEvent.serialize({
     listing_id: IDS.listing,
     record_id: recordId,
@@ -39,11 +44,21 @@ function bcsEvent(
     pressing_id: IDS.pressing,
     edition: 2,
     number: recordId === IDS.record ? 7 : 8,
-    purchase_currency: { name: purchaseCurrency },
+    purchase_currency: Array.from(new TextEncoder().encode(purchaseCurrency)),
     purchase_price: purchasePrice.toString(),
     purchased_by: IDS.buyer,
     purchased_timestamp_ms: "1234",
-    pricing,
+    pricing_is_fixed: pricing.fixed,
+    price: configured.toString(),
+    enabled: true,
+    distributor: Array.from(new TextEncoder().encode("0xvendor::dist::D")),
+    supply_before: 1,
+    supply_delta: 1,
+    supply_after: 2,
+    has_max_supply: true,
+    max_supply: 100,
+    payment_recipient: IDS.release,
+    proceeds_amount: purchasePrice.toString(),
   }).toBytes();
 }
 
@@ -59,9 +74,9 @@ describe("Record Shop sale receipts", () => {
 
   test("preserves every canonical sale in event order and selects by Record ID", () => {
     const events = [
-      { eventType: eventType(), bcs: bcsEvent({ Fixed: "99" }), json: null },
-      { eventType: eventType("0xb"), bcs: bcsEvent({ Fixed: "1" }), json: null },
-      { eventType: eventType(), bcs: bcsEvent({ Floor: "2500" }, IDS.secondRecord), json: null },
+      { eventType: eventType(), bcs: bcsEvent({ fixed: true, price: "99" }), json: null },
+      { eventType: eventType("0xb"), bcs: bcsEvent({ fixed: true, price: "1" }), json: null },
+      { eventType: eventType(), bcs: bcsEvent({ fixed: false, price: "2500" }, IDS.secondRecord), json: null },
     ];
     const sales = findRecordSales(events, SHOP_PACKAGE);
     expect(sales.map((sale) => sale.recordId)).toEqual([IDS.record, IDS.secondRecord]);
@@ -73,7 +88,7 @@ describe("Record Shop sale receipts", () => {
   test("validates embedded TypeName and never falls back from malformed canonical BCS", () => {
     const malformed = {
       eventType: eventType(),
-      bcs: bcsEvent({ Fixed: "99" }, IDS.record, "0x2::other::OTHER"),
+      bcs: bcsEvent({ fixed: true, price: "99" }, IDS.record, "0x2::other::OTHER"),
       json: {
         listing_id: IDS.listing,
         record_id: IDS.record,
@@ -81,11 +96,12 @@ describe("Record Shop sale receipts", () => {
         pressing_id: IDS.pressing,
         edition: 2,
         number: 7,
-        purchase_currency: { name: CURRENCY },
+        purchase_currency: Array.from(new TextEncoder().encode(CURRENCY)),
         purchase_price: "99",
         purchased_by: IDS.buyer,
         purchased_timestamp_ms: "1234",
-        pricing: { Fixed: "99" },
+        pricing_is_fixed: true,
+        price: "99",
       },
     };
     expect(() => findRecordSales([malformed], SHOP_PACKAGE)).toThrow(MalformedRecordSoldEventError);
@@ -102,11 +118,12 @@ describe("Record Shop sale receipts", () => {
         pressing_id: IDS.pressing,
         edition: 2,
         number: 7,
-        purchase_currency: { name: CURRENCY },
+        purchase_currency: Array.from(new TextEncoder().encode(CURRENCY)),
         purchase_price: "123",
         purchased_by: IDS.buyer,
         purchased_timestamp_ms: "5678",
-        pricing: { Floor: "100" },
+        pricing_is_fixed: false,
+        price: "100",
       },
     }], SHOP_PACKAGE, IDS.record);
     expect(sale).toMatchObject({
@@ -114,6 +131,31 @@ describe("Record Shop sale receipts", () => {
       purchasePrice: "123",
       purchasedTimestampMs: "5678",
     });
+  });
+
+  test("accepts GraphQL MoveValue Base64 vectors and rejects malformed encodings", () => {
+    const base64 = btoa(CURRENCY);
+    const sale = (purchase_currency: unknown) => findRecordSale([{
+      eventType: eventType(),
+      bcs: new Uint8Array(),
+      json: {
+        listing_id: IDS.listing,
+        record_id: IDS.record,
+        release_id: IDS.release,
+        pressing_id: IDS.pressing,
+        edition: 2,
+        number: 7,
+        purchase_currency,
+        purchase_price: "123",
+        purchased_by: IDS.buyer,
+        purchased_timestamp_ms: "5678",
+        pricing_is_fixed: false,
+        price: "100",
+      },
+    }], SHOP_PACKAGE, IDS.record);
+    expect(sale(base64)?.purchaseCurrency).toContain("::sui::SUI");
+    expect(() => sale(`${base64.slice(0, -1)}!`)).toThrow(MalformedRecordSoldEventError);
+    expect(() => sale(CURRENCY)).toThrow(MalformedRecordSoldEventError);
   });
 
   test("rejects values that cannot represent Move unsigned integers", () => {
@@ -124,11 +166,12 @@ describe("Record Shop sale receipts", () => {
       pressing_id: IDS.pressing,
       edition: 2,
       number: 7,
-      purchase_currency: { name: CURRENCY },
+      purchase_currency: Array.from(new TextEncoder().encode(CURRENCY)),
       purchase_price: 123,
       purchased_by: IDS.buyer,
       purchased_timestamp_ms: 5678,
-      pricing: { Floor: 100 },
+      pricing_is_fixed: false,
+      price: 100,
     };
     const sale = (overrides: Record<string, unknown>) => findRecordSale([{
       eventType: eventType(),
@@ -151,5 +194,113 @@ describe("Record Shop sale receipts", () => {
     expect(() => sale({ purchased_timestamp_ms: -1 })).toThrow(
       MalformedRecordSoldEventError,
     );
+  });
+
+  test("rejects malformed rich pricing and byte-vector JSON at the GraphQL boundary", () => {
+    const json = {
+      listing_id: IDS.listing,
+      record_id: IDS.record,
+      release_id: IDS.release,
+      pressing_id: IDS.pressing,
+      edition: 2,
+      number: 7,
+      purchase_currency: btoa(CURRENCY),
+      purchase_price: "123",
+      purchased_by: IDS.buyer,
+      purchased_timestamp_ms: "5678",
+      pricing_is_fixed: true,
+      price: "123",
+    };
+    const sale = (overrides: Record<string, unknown>) => findRecordSale([{
+      eventType: eventType(),
+      bcs: new Uint8Array(),
+      json: { ...json, ...overrides },
+    }], SHOP_PACKAGE, IDS.record);
+    expect(() => sale({ pricing_is_fixed: "true" })).toThrow(MalformedRecordSoldEventError);
+    expect(() => sale({ price: -1 })).toThrow(MalformedRecordSoldEventError);
+    expect(() => sale({ purchase_currency: [1, 256] })).toThrow(MalformedRecordSoldEventError);
+    expect(() => sale({ purchase_currency: "YWJj=".replace("=", "==") })).toThrow(MalformedRecordSoldEventError);
+  });
+
+  test("uses the real GraphQL fallback after fullnode pruning", async () => {
+    const config = misoConfig("testnet");
+    const recordSales = config.recordSales;
+    if (recordSales.status !== "available") throw new Error("test fixture requires Record sales");
+    const calls: unknown[] = [];
+    const graphql = {
+      query: async (request: unknown) => {
+        calls.push(request);
+        return {
+          data: {
+            transaction: {
+              effects: {
+                status: "SUCCESS",
+                events: { nodes: [{ contents: {
+                  type: { repr: eventType(recordSales.recordShopPackageId, config.money.usdCoinType) },
+                  json: {
+                    listing_id: IDS.listing,
+                    record_id: IDS.record,
+                    release_id: IDS.release,
+                    pressing_id: IDS.pressing,
+                    edition: 2,
+                    number: 7,
+                    purchase_currency: btoa(config.money.usdCoinType),
+                    purchase_price: "123",
+                    purchased_by: IDS.buyer,
+                    purchased_timestamp_ms: "5678",
+                    pricing_is_fixed: true,
+                    price: "123",
+                  },
+                } }] },
+              },
+            },
+          },
+        };
+      },
+    };
+    const fullnode = {
+      core: {
+        waitForTransaction: async () => { throw new Error("pruned"); },
+        getObject: async () => ({ object: { content: undefined } }),
+      },
+    } as unknown as ClientWithCoreApi;
+    const result = await Effect.runPromise(
+      getPurchaseReceipt("digest", IDS.record, config).pipe(
+        Effect.provide(Layer.mergeAll(SuiClient.layer(fullnode), SuiGraphQL.layer(graphql as any))),
+      ),
+    );
+    expect(result).toBeNull();
+    expect((calls[0] as any).variables).toEqual({ digest: "digest" });
+  });
+
+  test("surfaces malformed GraphQL sale JSON from the fallback path", async () => {
+    const config = misoConfig("testnet");
+    const recordSales = config.recordSales;
+    if (recordSales.status !== "available") throw new Error("test fixture requires Record sales");
+    const graphql = {
+      query: async () => ({
+        data: {
+          transaction: {
+            effects: {
+              status: "SUCCESS",
+              events: { nodes: [{ contents: {
+                type: { repr: eventType(recordSales.recordShopPackageId, config.money.usdCoinType) },
+                json: { listing_id: IDS.listing, record_id: IDS.record, release_id: IDS.release, pressing_id: IDS.pressing,
+                  edition: 2, number: 7, purchase_currency: "not-base64", purchase_price: "123", purchased_by: IDS.buyer,
+                  purchased_timestamp_ms: "5678", pricing_is_fixed: true, price: "123" },
+              } }] },
+            },
+          },
+        },
+      }),
+    };
+    const fullnode = { core: { waitForTransaction: async () => { throw new Error("pruned"); } } } as unknown as ClientWithCoreApi;
+    const error = await Effect.runPromise(
+      getPurchaseReceipt("digest", IDS.record, config).pipe(
+        Effect.provide(Layer.mergeAll(SuiClient.layer(fullnode), SuiGraphQL.layer(graphql as any))),
+        Effect.flip,
+      ),
+    );
+    expect(error._tag).toBe("MalformedRecordSoldEventError");
   });
 });
