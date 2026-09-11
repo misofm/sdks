@@ -161,9 +161,9 @@ the two union aliases above.
 `PARTYOS_DEPLOYMENTS` bundles the verified testnet deployment: a single key, `partyos`.
 Pass `partyos({ deployment, chainId })` for another network — `chainId` is required
 outside `mainnet`/`testnet` because `partyos()` registers `warm` (see "Promise
-consumers" above): without it, `client.$extend(partyos({ deployment }))` throws
-`PartyosDeploymentError` **synchronously**, from inside `$extend` itself, rather
-than rejecting the first call. A manifest with any other shape is rejected before
+consumers" above): without it, `client.$extend(partyos({ deployment }))` throws a plain
+`Error` (from sui-effect's `warm` registration) **synchronously**, from inside
+`$extend` itself, rather than rejecting the first call. A manifest with any other shape is rejected before
 a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
 throw synchronously; `validatePartyDeployment` is the Effect-returning counterpart, now
 failing with `PartyosDeploymentError`, for callers composing a config-loading pipeline
