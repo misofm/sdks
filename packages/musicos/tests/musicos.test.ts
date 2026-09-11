@@ -357,6 +357,13 @@ describe("Musicos: Share Currency", () => {
     expect(error).toBeInstanceOf(MusicosTreasuryCapNotFound);
     expect((error as MusicosTreasuryCapNotFound).outcome).toBe("not_applied");
   });
+
+  test("getShareCurrencyTreasuryCap is DecodeError, not a thrown defect, for a malformed shareType", async () => {
+    const error = await provide(
+      Effect.flatMap(Musicos, (m) => Effect.flip(m.getShareCurrencyTreasuryCap("not a valid type", SuiAddress.make(OWNER)))),
+    );
+    expect(error._tag).toBe("DecodeError");
+  });
 });
 
 describe("Musicos: view.deriveTargetReleaseId", () => {
