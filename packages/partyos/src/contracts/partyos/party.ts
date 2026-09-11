@@ -56,56 +56,87 @@ export const Membership = new MoveStruct({ name: `${$moduleName}::Membership`, f
         since_epoch: bcs.u64()
     } });
 export const PartyCreatedEvent = new MoveStruct({ name: `${$moduleName}::PartyCreatedEvent`, fields: {
-        /** ID of the newly created party. */
         party_id: bcs.Address,
-        /** Name of the party. */
+        admin_cap_id: bcs.Address,
         name: bcs.string(),
-        /** Kind of the party. */
-        kind: bcs.string(),
-        /** Unix ms when the party was created. */
-        created_at_ms: bcs.u64()
+        /** Kind discriminant: 0 for an individual and 1 for a group. */
+        kind: bcs.u8(),
+        /**
+         * Group member IDs in `VecSet` insertion order, or an empty vector for an
+         * individual.
+         */
+        member_ids: bcs.vector(bcs.Address),
+        creator: bcs.Address,
+        created_at_ms: bcs.u64(),
+        /** Epoch in which the party was created. */
+        created_epoch: bcs.u64()
+    } });
+export const PartySharedEvent = new MoveStruct({ name: `${$moduleName}::PartySharedEvent`, fields: {
+        party_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        name: bcs.string(),
+        kind: bcs.u8(),
+        member_ids: bcs.vector(bcs.Address),
+        created_at_ms: bcs.u64(),
+        is_shared: bcs.bool()
     } });
 export const PartyNameSetEvent = new MoveStruct({ name: `${$moduleName}::PartyNameSetEvent`, fields: {
-        /** ID of the party. */
         party_id: bcs.Address,
-        /** Name of the party. */
+        admin_cap_id: bcs.Address,
+        old_name: bcs.string(),
         name: bcs.string()
     } });
-export const PartyInvitedEvent = new MoveStruct({ name: `${$moduleName}::PartyInvitedEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupInviteCreatedEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupInviteCreatedEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the invited member party. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        group_admin_cap_id: bcs.Address,
+        group_member_count: bcs.u64(),
+        pending_invite: bcs.bool(),
+        pending_membership: bcs.bool()
     } });
-export const PartyJoinedGroupEvent = new MoveStruct({ name: `${$moduleName}::PartyJoinedGroupEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupMembershipAcceptedEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupMembershipAcceptedEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the party that joined. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        member_admin_cap_id: bcs.Address,
+        group_member_count: bcs.u64(),
+        pending_invite: bcs.bool(),
+        pending_membership: bcs.bool(),
+        group_contains_member: bcs.bool(),
+        membership_present: bcs.bool(),
+        since_epoch: bcs.u64(),
+        accepted_by: bcs.Address
     } });
-export const PartyInviteDeclinedEvent = new MoveStruct({ name: `${$moduleName}::PartyInviteDeclinedEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupInviteDeclinedEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupInviteDeclinedEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the party that declined. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        member_admin_cap_id: bcs.Address,
+        pending_invite: bcs.bool(),
+        pending_membership: bcs.bool()
     } });
-export const PartyInviteRevokedEvent = new MoveStruct({ name: `${$moduleName}::PartyInviteRevokedEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupInviteRevokedEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupInviteRevokedEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the party whose invite was revoked. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        group_admin_cap_id: bcs.Address,
+        pending_invite: bcs.bool(),
+        pending_membership: bcs.bool()
     } });
-export const PartyRemovedFromGroupEvent = new MoveStruct({ name: `${$moduleName}::PartyRemovedFromGroupEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupMembershipLeftEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupMembershipLeftEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the party removed from the group. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        member_admin_cap_id: bcs.Address,
+        group_member_count: bcs.u64(),
+        group_contains_member: bcs.bool(),
+        membership_present: bcs.bool(),
+        removed_since_epoch: bcs.option(bcs.u64())
     } });
-export const PartyLeftGroupEvent = new MoveStruct({ name: `${$moduleName}::PartyLeftGroupEvent`, fields: {
-        /** ID of the group. */
+export const PartyGroupMembershipRemovedEvent = new MoveStruct({ name: `${$moduleName}::PartyGroupMembershipRemovedEvent`, fields: {
         group_id: bcs.Address,
-        /** ID of the party that left the group. */
-        member_id: bcs.Address
+        member_id: bcs.Address,
+        group_admin_cap_id: bcs.Address,
+        group_member_count: bcs.u64(),
+        group_contains_member: bcs.bool(),
+        membership_present: bcs.bool(),
+        removed_since_epoch: bcs.option(bcs.u64())
     } });
 export interface NewArguments {
     kind: TransactionArgument;

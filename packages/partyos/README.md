@@ -77,6 +77,31 @@ const program = getPartyById("0x...", "0xPARTYOS_PACKAGE");
 const party = await Effect.runPromise(program.pipe(Effect.provide(SuiClient.layer(client))));
 ```
 
+### Event decoding
+
+Use the pure decoders from `@misofm/partyos/events` after routing an event to
+its known on-chain type:
+
+```ts
+import { partyEventParsers } from "@misofm/partyos/events";
+
+const rawEventBcs: Uint8Array = getRawEventBytes();
+const event = partyEventParsers.core.partyCreated(rawEventBcs);
+// event.kind is 0 (individual) or 1 (group)
+// event.created_at_ms and event.created_epoch are decimal strings
+```
+
+`partyEventParsers` targets the v1 PartyOS event ABI and preserves generated
+snake_case fields. Its canonical events are `partyCreated`, `partyShared`,
+`partyNameSet`, `partyGroupInviteCreated`, `partyGroupMembershipAccepted`,
+`partyGroupInviteDeclined`, `partyGroupInviteRevoked`,
+`partyGroupMembershipLeft`, and `partyGroupMembershipRemoved`. `u64` values
+are decimal strings, and `removed_since_epoch` is `string | null`, preserving
+the difference between an absent value and epoch `"0"`. The registry does not
+discover an event type or verify its deployment; callers choose the matching
+codec after routing. Generated codecs, including the event codecs, remain
+available from `contracts.party`.
+
 ## Errors
 
 Reads fail with the shared `@misofm/effect` vocabulary: `ObjectNotFoundError { objectId }`,
@@ -98,6 +123,6 @@ callers composing a config-loading pipeline out of Effects).
 
 ## Subpaths
 
-`@misofm/partyos` (everything), `/client`, `/deployments`, `/errors`, `/queries`,
-`/transactions`, `/types`, `/contracts` (curated bindings), `/contracts/*` (raw
-generated modules).
+`@misofm/partyos` (everything), `/client`, `/deployments`, `/errors`, `/events`,
+`/queries`, `/transactions`, `/types`, `/contracts` (curated bindings),
+`/contracts/*` (raw generated modules).

@@ -11,6 +11,7 @@ export * from "./queries.ts";
 export * from "./client.ts";
 export * from "./deployments.ts";
 export * from "./errors.ts";
+export * from "./events.ts";
 
 // Generated, ABI-bound bindings (BCS structs + type-safe Move calls).
 export * as contracts from "./contracts.ts";

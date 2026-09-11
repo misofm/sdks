@@ -54,6 +54,10 @@
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
     },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
+    },
     "./queries": {
       "types": "./dist/queries.d.ts",
       "default": "./dist/queries.js"
