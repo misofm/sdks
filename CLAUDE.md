@@ -34,9 +34,9 @@ This is a Bun workspace of publishable packages under `packages/*`:
   group membership).
 - `packages/platform` — `@misofm/platform`, everything Miso builds on top of the object
   models (work and Party extensions, royalty primitives, Vault, Actions, product workflows).
-- `packages/effect` — `@misofm/effect`, the shared Effect v4 foundation (one `SuiClient`
-  service, the tagged error vocabulary, read/execute primitives). Every other package
-  depends on it.
+- `packages/effect` — `@misofm/effect`, **deprecated**: superseded by `sui-effect` (the
+  Effect v4 foundation every package is being converted to; see the migration table in
+  `packages/effect/README.md`). Do not add new code here.
 - `packages/streaming`, `packages/transcoding` — the streaming transcode contract and
   transcoder.
 

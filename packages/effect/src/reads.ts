@@ -14,22 +14,42 @@ import type { SuiClientTypes } from "@mysten/sui/client";
 import { BcsDecodeError, ObjectNotFoundError, ObjectTypeMismatchError, SuiRpcError } from "./errors.ts";
 import { SuiClient } from "./sui-client.ts";
 
-/** One object's BCS content, on-chain type, and version. */
+/**
+ * One object's BCS content, on-chain type, and version.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. `sui.getObject` returns a `SuiObject<Uint8Array>`
+ * instead (`version` is `bigint`) — see the migration table in this package's README.
+ */
 export interface ObjectContent {
   readonly content: Uint8Array;
   readonly type: string;
   readonly version: string;
 }
 
-/** A dynamic field entry as returned by `listDynamicFields` (name + value type, not the decoded value). */
+/**
+ * A dynamic field entry as returned by `listDynamicFields` (name + value type, not the decoded value).
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use `sui.streamDynamicFields` instead — see the
+ * migration table in this package's README.
+ */
 export type DynamicField = SuiClientTypes.DynamicFieldEntry;
 
-/** Any generated BCS codec with a `parse` method — the shape every `src/contracts/**` struct exports. */
+/**
+ * Any generated BCS codec with a `parse` method — the shape every `src/contracts/**` struct exports.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect and this type is dropped. `SuiSchema.bcs` takes a
+ * `@mysten/bcs` `BcsType` instead — see the migration table in this package's README.
+ */
 export interface BcsParser<T> {
   parse(bytes: Uint8Array): T;
 }
 
-/** Identifies the object/type a `decodeBcs` failure is reported against. */
+/**
+ * Identifies the object/type a `decodeBcs` failure is reported against.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. This is folded into `SuiSchema.decode(..., { objectId,
+ * expectedType })` instead — see the migration table in this package's README.
+ */
 export interface DecodeBcsContext {
   /** Fully-qualified Move type (or domain type name) being decoded. */
   readonly type: string;
@@ -37,7 +57,12 @@ export interface DecodeBcsContext {
   readonly objectId?: string;
 }
 
-/** Fetches one object's BCS content by id; fails with `ObjectNotFoundError` if it does not exist. */
+/**
+ * Fetches one object's BCS content by id; fails with `ObjectNotFoundError` if it does not exist.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use `sui.getObject(id)` instead — with no schema,
+ * `content` is the raw bytes — see the migration table in this package's README.
+ */
 export const getObjectContent = Effect.fn("getObjectContent")(function* (
   objectId: string,
 ): Effect.fn.Return<ObjectContent, ObjectNotFoundError | SuiRpcError, SuiClient> {
@@ -52,7 +77,12 @@ export const getObjectContent = Effect.fn("getObjectContent")(function* (
   return { content: object.content, type: object.type, version: object.version };
 });
 
-/** Like {@link getObjectContent}, but a missing object resolves to `Option.none()` instead of failing. */
+/**
+ * Like {@link getObjectContent}, but a missing object resolves to `Option.none()` instead of failing.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use `sui.getObjectOption` instead — see the
+ * migration table in this package's README.
+ */
 export const getOptionalObjectContent = Effect.fn("getOptionalObjectContent")(function* (
   objectId: string,
 ): Effect.fn.Return<Option.Option<ObjectContent>, SuiRpcError, SuiClient> {
@@ -62,7 +92,13 @@ export const getOptionalObjectContent = Effect.fn("getOptionalObjectContent")(fu
   );
 });
 
-/** Fetches many objects' BCS content in one Core request; ids that are missing or errored are omitted from the map. */
+/**
+ * Fetches many objects' BCS content in one Core request; ids that are missing or errored are omitted from the map.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use `sui.getObjects` instead — chunked,
+ * integrity-checked, and returning a per-item `Result` instead of silently dropping errored ids — see the
+ * migration table in this package's README.
+ */
 export const getObjectsContent = Effect.fn("getObjectsContent")(function* (
   objectIds: readonly string[],
 ): Effect.fn.Return<ReadonlyMap<string, { content: Uint8Array; type: string }>, SuiRpcError, SuiClient> {
@@ -81,7 +117,12 @@ export const getObjectsContent = Effect.fn("getObjectsContent")(function* (
   return out;
 });
 
-/** Pages every dynamic field under `parentId` through `client.core.listDynamicFields`, following the cursor. */
+/**
+ * Pages every dynamic field under `parentId` through `client.core.listDynamicFields`, following the cursor.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use `sui.streamDynamicFields` instead — see the
+ * migration table in this package's README.
+ */
 export function listDynamicFields(parentId: string): Stream.Stream<DynamicField, SuiRpcError, SuiClient> {
   return Stream.paginate<string | null, DynamicField, SuiRpcError, SuiClient>(null, (cursor) =>
     Effect.gen(function* () {
@@ -96,7 +137,13 @@ export function listDynamicFields(parentId: string): Stream.Stream<DynamicField,
   );
 }
 
-/** Runs a generated BCS codec's `.parse`, then decodes the result into a domain `Schema` type; both failure paths become `BcsDecodeError`. */
+/**
+ * Runs a generated BCS codec's `.parse`, then decodes the result into a domain `Schema` type; both failure paths become `BcsDecodeError`.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. Use
+ * `SuiSchema.decode(SuiSchema.bcs(Struct, type).pipe(Schema.decodeTo(Class, ...)), bytes, { objectId })`, or
+ * `sui.getObject(id, { schema })`, instead — see the migration table in this package's README.
+ */
 export const decodeBcs = Effect.fn("decodeBcs")(function* <A>(
   codec: BcsParser<unknown>,
   schema: Schema.Codec<A, any, never, never>,
@@ -112,7 +159,13 @@ export const decodeBcs = Effect.fn("decodeBcs")(function* <A>(
   );
 });
 
-/** Fails with `ObjectTypeMismatchError` unless `actual` is exactly `expected`. */
+/**
+ * Fails with `ObjectTypeMismatchError` unless `actual` is exactly `expected`.
+ *
+ * @deprecated `@misofm/effect` is superseded by sui-effect. This is folded into the bridge's tag check
+ * (`sui.getObject(id, { schema })`, `SuiSchema.decode({ expectedType })`) instead — see the migration table in
+ * this package's README.
+ */
 export const assertObjectType = Effect.fn("assertObjectType")(function* (
   objectId: string,
   actual: string,
