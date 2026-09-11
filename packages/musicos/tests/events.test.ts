@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "bun:test";
+import { Effect } from "effect";
+import { ObjectId, SuiAddress, type DecodeError } from "sui-effect";
 import { eventParsers } from "../src/events.ts";
 import * as wire from "./event-fixtures.ts";
 
@@ -22,7 +24,7 @@ test("core raw event decoders preserve the complete composition creation layout"
     share_decimals: 6,
     share_supply_fixed_after: true,
   }).toBytes();
-  expect(eventParsers.core.compositionCreated(bytes)).toEqual({
+  expect(Effect.runSync(eventParsers.core.compositionCreated(bytes))).toEqual({
     composition_id: id(0x11),
     composition_admin_cap_id: id(0x12),
     share_currency_id: id(0x13),
@@ -47,7 +49,7 @@ test("core raw event decoders preserve publication and legacy recording layouts"
     published_at_ms: 9876543210123456n,
     shared_after: false,
   }).toBytes();
-  expect(eventParsers.core.recordingPublished(published)).toEqual({
+  expect(Effect.runSync(eventParsers.core.recordingPublished(published))).toEqual({
     recording_id: id(0x21),
     composition_id: id(0x22),
     recording_admin_cap_id: id(0x23),
@@ -63,7 +65,7 @@ test("core raw event decoders preserve publication and legacy recording layouts"
     rate_bps: 125,
     granted_by: id(0x27),
   }).toBytes();
-  expect(eventParsers.core.compositionSharesGranted(legacy)).toEqual({
+  expect(Effect.runSync(eventParsers.core.compositionSharesGranted(legacy))).toEqual({
     recording_id: id(0x25),
     composition_id: id(0x26),
     value: "33",
@@ -89,7 +91,7 @@ test("core raw event decoders preserve recording creation fields including zero 
     share_supply_fixed_after: false,
     composition_funds_sent: false,
   }).toBytes();
-  expect(eventParsers.core.recordingCreated(bytes)).toEqual({
+  expect(Effect.runSync(eventParsers.core.recordingCreated(bytes))).toEqual({
     recording_id: id(0x31),
     composition_id: id(0x32),
     recording_admin_cap_id: id(0x33),
@@ -120,7 +122,7 @@ test("core raw event decoders preserve release creation and ordered arrays", () 
     track_split_bps: [1111n, 8889n],
     track_count: 2n,
   }).toBytes();
-  expect(eventParsers.core.releaseCreated(bytes)).toEqual({
+  expect(Effect.runSync(eventParsers.core.releaseCreated(bytes))).toEqual({
     registry_id: id(0x41),
     release_id: id(0x42),
     release_admin_cap_id: id(0x43),
@@ -144,7 +146,7 @@ test("core raw event decoders preserve every publication and registry field", ()
     published_at_ms: 123n,
     shared_after: true,
   }).toBytes();
-  expect(eventParsers.core.compositionPublished(composition)).toEqual({
+  expect(Effect.runSync(eventParsers.core.compositionPublished(composition))).toEqual({
     composition_id: id(0x51),
     composition_admin_cap_id: id(0x52),
     clock_id: id(0x53),
@@ -166,7 +168,7 @@ test("core raw event decoders preserve every publication and registry field", ()
     assigned_track_count: 2n,
     shared_after: false,
   }).toBytes();
-  expect(eventParsers.core.releasePublished(release)).toEqual({
+  expect(Effect.runSync(eventParsers.core.releasePublished(release))).toEqual({
     release_id: id(0x54),
     release_admin_cap_id: id(0x55),
     clock_id: id(0x56),
@@ -184,15 +186,15 @@ test("core raw event decoders preserve every publication and registry field", ()
     created_by: id(0x5c),
     shared_after: true,
   }).toBytes();
-  expect(eventParsers.core.releaseRegistryCreated(registry)).toEqual({
+  expect(Effect.runSync(eventParsers.core.releaseRegistryCreated(registry))).toEqual({
     registry_id: id(0x5b),
     created_by: id(0x5c),
     shared_after: true,
   });
 });
 
-test("core rich event decoders reject truncated BCS bytes", () => {
-  const fixtures = [
+test("core event decoders fail with DecodeError, not a thrown Error, on truncated BCS bytes", () => {
+  const fixtures: ReadonlyArray<readonly [(bytes: Uint8Array) => Effect.Effect<unknown, DecodeError>, Uint8Array]> = [
     [
       eventParsers.core.compositionCreated,
       wire.compositionCreatedWire.serialize({
@@ -247,6 +249,37 @@ test("core rich event decoders reject truncated BCS bytes", () => {
   ] as const;
 
   for (const [decode, bytes] of fixtures) {
-    expect(() => decode(bytes.slice(0, -1))).toThrow();
+    const error = Effect.runSync(Effect.flip(decode(bytes.slice(0, -1))));
+    expect(error._tag).toBe("DecodeError");
   }
+});
+
+test("a decoder fed a different event's bytes fails with DecodeError (the re-serialize length check, independent of any type tag)", () => {
+  const releaseRegistryBytes = wire.releaseRegistryCreatedWire.serialize({
+    registry_id: id(0x71),
+    created_by: id(0x72),
+    shared_after: true,
+  }).toBytes();
+  const error = Effect.runSync(Effect.flip(eventParsers.core.compositionCreated(releaseRegistryBytes)));
+  expect(error._tag).toBe("DecodeError");
+});
+
+test("the second overload decodes a sui-effect Event's .bcs bytes", () => {
+  const bytes = wire.releaseRegistryCreatedWire.serialize({
+    registry_id: id(0x81),
+    created_by: id(0x82),
+    shared_after: false,
+  }).toBytes();
+  const event = {
+    packageId: ObjectId.make(id(0x01)),
+    module: "release",
+    sender: SuiAddress.make(id(0x02)),
+    eventType: `${id(0x01)}::release::ReleaseRegistryCreatedEvent`,
+    bcs: bytes,
+  };
+  expect(Effect.runSync(eventParsers.core.releaseRegistryCreated(event))).toEqual({
+    registry_id: id(0x81),
+    created_by: id(0x82),
+    shared_after: false,
+  });
 });
