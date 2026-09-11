@@ -12,45 +12,43 @@
 //
 // It also carries the resolved `MisoConfig`, so a read function takes ONE argument
 // and never has a package id threaded through its signature.
-//
-// Party now shares the same network SDK registration and deployment as protocol
-// core, so every read hangs off one `sui.miso` namespace.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { miso, type MisoProtocolClient } from "@misofm/musicos/client";
-import { PartyosClient } from "@misofm/partyos";
-import { PartyPlatformClient } from "../party/index.ts";
+import { Layer } from "effect";
+import { Sui, SuiGraphQL, type NetworkMismatch, type TransportError } from "sui-effect";
 import { misoConfig, networkFrom, type MisoConfig, type MisoConfigOverrides, type Network } from "./config.ts";
 
 function definedOverrides<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Partial<T>;
 }
 
-/**
- * The transport slice every `@misofm/platform/read` function needs to run its
- * `Effect`: `Effect.provide(SuiClient.layer(client.protocol))`. `sui` (below)
- * satisfies this structurally, since it is a real `ClientWithCoreApi`.
- */
-export type ProtocolClient = ClientWithCoreApi;
-
-/** A GraphQL client in the shape `@misofm/effect`'s `SuiGraphQL` service wants. */
-export type ProtocolGraphQLClient = SuiGraphQLClient;
-
 export interface MisoClient {
   config: MisoConfig;
-  /** gRPC data plane (object-model core only; Party is `client.party`). */
-  sui: SuiGrpcClient & { miso: MisoProtocolClient };
-  /** The same client, for `Effect.provide(SuiClient.layer(client.protocol))`. */
-  protocol: ProtocolClient;
+  /**
+   * gRPC data plane. TODO(stage 2/3, WP6 "facade derivation"): the
+   * predecessor's `.sui` was `$extend`-registered with `miso()`, giving
+   * `sui.miso.*` and `client.party`; those land once `Miso`'s
+   * `SuiExtension.fromService` registration and the richer `MisoPartyService`
+   * (WP3) exist. Until then this is the bare `SuiGrpcClient` and the
+   * standalone `read/*` functions this package exports are the supported
+   * path — see `docs/CONVERSION-STATUS.md`.
+   */
+  sui: SuiGrpcClient;
   /** GraphQL RPC, for `Effect.provide(SuiGraphQL.layer(client.graphql))`. */
-  graphql: ProtocolGraphQLClient;
+  graphql: SuiGraphQLClient;
   /** The raw GraphQL client — identical to `graphql`; both names are kept for
    * source compatibility with callers migrating from the pre-Effect client. */
   graphqlRaw: SuiGraphQLClient;
-  /** Party identity and profile reads/builders, bound to `config.partyos`/`config.party`. */
-  party: PartyPlatformClient;
+  /**
+   * `Sui | SuiGraphQL`, ready to provide to any of this package's standalone
+   * `read/*` functions: `Effect.provide(getReleaseDetail(id, config), client.layer)`.
+   * TODO(stage 2/3): widen to `Miso | Sui | SuiCore | SuiGraphQL` once
+   * `MisoConfig` carries a complete `MisoPlatformDeployment` (today it only
+   * carries the package-id subset `Miso.layer` would need) — the issue's
+   * target shape for this helper.
+   */
+  layer: Layer.Layer<Sui | SuiGraphQL, NetworkMismatch | TransportError>;
 }
 
 export interface CreateMisoClientOptions extends MisoConfigOverrides {
@@ -77,18 +75,19 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
     );
   }
 
-  const grpc = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
+  const sui = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
   const graphqlRaw = new SuiGraphQLClient({ url: config.graphqlUrl, network: config.network });
 
-  const sui = grpc.$extend(miso({ deployment: config.deployment }));
-  const party = new PartyPlatformClient(sui, new PartyosClient(sui, config.partyos), config.party);
+  const layer = Layer.mergeAll(
+    Sui.layer({ network: config.network, baseUrl: config.grpcUrl }),
+    SuiGraphQL.layer(graphqlRaw),
+  );
 
   return {
     config,
     sui,
-    protocol: sui,
     graphql: graphqlRaw,
     graphqlRaw,
-    party,
+    layer,
   };
 }
