@@ -127,9 +127,19 @@ export const PARTYOS_TEST_DEPLOYMENT: PartyDeployment = normalizePartyDeployment
 });
 
 /**
+ * `normalizeStructTag` throws on anything that is not a struct tag —
+ * `"u64"`, `"bool"`, `"address"`, `"vector<u8>"`, all legal dynamic-field key
+ * types a foreign extension can put beside PartyOS's own keys on the same
+ * parent. Lifted to `Option` so a primitive-typed key is "does not match",
+ * never a defect.
+ */
+const safeNormalizeStructTag = Option.liftThrowable(normalizeStructTag);
+
+/**
  * Every id named by a dynamic field of `parent` whose key type is exactly
  * `tag` (no other key type on the same parent is touched, so a `Party`
- * extension's own dynamic fields never reach this decode).
+ * extension's own dynamic fields — struct-typed or not — never reach this
+ * decode).
  */
 function collectKeyIds(
   sui: SuiService,
@@ -138,7 +148,7 @@ function collectKeyIds(
   codec: Schema.Codec<readonly [string], Uint8Array>,
 ): Effect.Effect<ReadonlyArray<ObjectId>, DecodeError | TransportError> {
   return sui.streamDynamicFields(parent).pipe(
-    Stream.filter((entry) => normalizeStructTag(entry.name.type) === tag),
+    Stream.filter((entry) => Option.contains(safeNormalizeStructTag(entry.name.type), tag)),
     Stream.mapEffect((entry) => SuiSchema.decode(codec, entry.name.bcs, { actualType: entry.name.type })),
     Stream.map(([id]) => ObjectId.make(id)),
     Stream.runCollect,
@@ -150,17 +160,24 @@ const make = (deployment: PartyDeployment): Effect.Effect<PartyosService, never,
   Effect.gen(function* () {
     const sui = yield* Sui;
     const packageId = deployment.partyos;
-    const content = partyContent(packageId);
-    const expectedType = normalizeStructTag(`${packageId}::party::Party`);
-    const membershipKeyTag = normalizeStructTag(`${packageId}::party::MembershipKey`);
-    const pendingInviteKeyTag = normalizeStructTag(`${packageId}::party::PendingInviteKey`);
-    const pendingMembershipKeyTag = normalizeStructTag(`${packageId}::party::PendingMembershipKey`);
+    // The package a Move type name actually carries. Defaults to `packageId`
+    // and is right until the first upgrade — sui-effect's
+    // `docs/extensions.md` §3: `packageId` is for `moveCall` targets (the 9
+    // `tx` builders below all use it directly), `typeOrigin` is for codecs,
+    // dynamic-field key tags and expected types.
+    const typeOrigin = deployment.typeOrigin ?? packageId;
+    const content = partyContent(typeOrigin);
+    const membershipKeyTag = normalizeStructTag(`${typeOrigin}::party::MembershipKey`);
+    const pendingInviteKeyTag = normalizeStructTag(`${typeOrigin}::party::PendingInviteKey`);
+    const pendingMembershipKeyTag = normalizeStructTag(`${typeOrigin}::party::PendingMembershipKey`);
     const membershipKeyCodec = SuiSchema.bcs(party.MembershipKey, membershipKeyTag);
     const pendingInviteKeyCodec = SuiSchema.bcs(party.PendingInviteKey, pendingInviteKeyTag);
     const pendingMembershipKeyCodec = SuiSchema.bcs(party.PendingMembershipKey, pendingMembershipKeyTag);
 
     const getPartyById = Effect.fn("Partyos.getPartyById")(function* (partyId: ObjectId) {
-      return yield* sui.getObject(partyId, { schema: content, expectedType }).pipe(
+      // No `expectedType` option: `content` (`partyContent(typeOrigin)`)
+      // already carries the expected tag, and `getObject` checks it.
+      return yield* sui.getObject(partyId, { schema: content }).pipe(
         Effect.map((object) => object.content),
         Effect.catchTag(["ObjectNotFound", "ObjectDeleted"], () => Effect.fail(new PartyNotFound({ partyId }))),
         Effect.catchTag("ObjectUnavailable", (error) =>
@@ -175,7 +192,7 @@ const make = (deployment: PartyDeployment): Effect.Effect<PartyosService, never,
       // `Result` twice). This service's own contract is one `Result` per
       // *distinct* id, so the dedup happens here, before the call.
       const distinct = [...new Set(partyIds)];
-      const results = yield* sui.getObjects(distinct, { schema: content, expectedType });
+      const results = yield* sui.getObjects(distinct, { schema: content });
       return results.map((result) =>
         Result.mapBoth(result, {
           onSuccess: (object) => object.content,
@@ -281,9 +298,12 @@ export class Partyos extends Context.Service<Partyos, PartyosService>()("@misofm
     Layer.unwrap(
       Effect.gen(function* () {
         const packageId = yield* Config.nonEmptyString("PACKAGE_ID").pipe(Config.option, Config.nested("PARTYOS"));
-        return Partyos.layer(
-          Option.isSome(packageId) ? { deployment: normalizePartyDeployment({ partyos: packageId.value }) } : {},
-        );
+        // The raw config value is handed to `layer` unvalidated: `layer`
+        // itself runs it through `validatePartyDeployment` (a typed Effect
+        // failure), so a malformed `PARTYOS_PACKAGE_ID` is a
+        // `PartyosDeploymentError`, not a defect from calling the throwing
+        // `normalizePartyDeployment` here.
+        return Partyos.layer(Option.isSome(packageId) ? { deployment: { partyos: packageId.value } } : {});
       }),
     );
 
