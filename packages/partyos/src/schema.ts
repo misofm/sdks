@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The BCS bridge for `party::Party`, built once per deployment because the
-// expected type carries the deployment's package id (`docs/extensions.md`
-// §3, "Generic Move types" — `Party` itself has no type parameters, but its
-// struct tag is still per-package). `mapParty` / `unmapParty` are the total,
-// synchronous field mapping `Schema.decodeTo` composes on top of the bridge;
-// see §3, "What the bridge takes, and where domain mapping goes".
+// expected type carries the deployment's *type origin* — the package a
+// `party::Party` name actually names, which stays fixed across a Move
+// upgrade even as `partyos` (the `moveCall`-target package) moves
+// (`docs/extensions.md` §3, "Every type-shaped constant is a function of the
+// package id"). `mapParty` / `unmapParty` are the total, synchronous field
+// mapping `Schema.decodeTo` composes on top of the bridge; see §3, "What the
+// bridge takes, and where domain mapping goes".
 
 import { Schema, SchemaTransformation } from "effect";
 import { SuiSchema } from "sui-effect";
@@ -65,12 +67,13 @@ function unmapParty(fields: PartyParts): PartyFields {
 }
 
 /**
- * The BCS bridge for `${packageId}::party::Party`, composed with `Party`
+ * The BCS bridge for `${typeOrigin}::party::Party`, composed with `Party`
  * through `Schema.decodeTo` per `docs/extensions.md` §3. Built once per
- * layer, because the expected type carries the deployment's package id.
+ * layer, because the expected type carries the deployment's type origin —
+ * `deployment.typeOrigin`, defaulting to `deployment.partyos`.
  */
-export function partyContent(packageId: string): Schema.Codec<Party, Uint8Array> {
-  return SuiSchema.bcs(party.Party, partyType(packageId)).pipe(
+export function partyContent(typeOrigin: string): Schema.Codec<Party, Uint8Array> {
+  return SuiSchema.bcs(party.Party, partyType(typeOrigin)).pipe(
     Schema.decodeTo(Party, SchemaTransformation.transform({ decode: mapParty, encode: unmapParty })),
   );
 }

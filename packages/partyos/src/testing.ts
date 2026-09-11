@@ -3,6 +3,7 @@
  * against `sui-effect/testing`'s harness, with no network.
  */
 import type { SuiClientTypes } from "@mysten/sui/client";
+import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { FakeObject } from "sui-effect/testing";
 import * as party from "./contracts/partyos/party.ts";
 import { PARTYOS_TEST_DEPLOYMENT } from "./Partyos.ts";
@@ -46,11 +47,15 @@ export function fakeParty(input: {
  * key type the entry claims to be, for `Partyos`'s exact-tag filter.
  */
 export function fakeMembershipField(parent: string, keyTag: string, id: string): SuiClientTypes.DynamicFieldEntry {
+  const bytes = party.MembershipKey.serialize([id]).toBytes();
   return {
     $kind: "DynamicField",
-    fieldId: id,
+    // The same derivation a real node's field id would have: `parent` +
+    // `keyTag` + the key's own BCS bytes, matching `sui.getDynamicFieldOption`
+    // and `deriveObjectID`'s convention elsewhere in this package.
+    fieldId: deriveDynamicFieldID(parent, keyTag, bytes),
     type: `0x2::dynamic_field::Field<${keyTag}, bool>`,
-    name: { type: keyTag, bcs: party.MembershipKey.serialize([id]).toBytes() },
+    name: { type: keyTag, bcs: bytes },
     valueType: "bool",
   };
 }
