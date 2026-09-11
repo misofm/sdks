@@ -49,13 +49,31 @@ export class Composition extends Schema.Class<Composition>("@misofm/musicos/Comp
   royaltyRate: BPS,
 }) {}
 
-/**
- * Emitted once when a composition is published. A pure pointer carrying only the
- * composition's identity — an indexer fetches the full immutable object by
- * `compositionId`.
- */
+/** Emitted when a composition and its share currency are created. */
+export interface CompositionCreatedEvent {
+  compositionId: string;
+  compositionAdminCapId: string;
+  shareCurrencyId: string;
+  consumedTreasuryCapId: string;
+  createdBy: string;
+  titleBytes: number[];
+  royaltyRateBps: number;
+  shareSupplyBefore: string;
+  shareSupplyAfter: string;
+  sharesReturned: string;
+  shareDecimals: number;
+  shareSupplyFixedAfter: boolean;
+}
+
+/** Emitted once when a composition is published, with its immutable payload. */
 export interface CompositionPublishedEvent {
   compositionId: string;
+  compositionAdminCapId: string;
+  clockId: string;
+  titleBytes: number[];
+  royaltyRateBps: number;
+  publishedAtMs: string;
+  sharedAfter: boolean;
 }
 
 /**
@@ -105,18 +123,38 @@ export class Recording extends Schema.Class<Recording>("@misofm/musicos/Recordin
   compositionId: Schema.String,
 }) {}
 
-/**
- * Emitted once when a recording is published. A pure pointer carrying only the
- * recording's identity — an indexer fetches the full immutable object by
- * `recordingId`.
- */
+/** Emitted when a recording and its share currency are created. */
+export interface RecordingCreatedEvent {
+  recordingId: string;
+  compositionId: string;
+  recordingAdminCapId: string;
+  shareCurrencyId: string;
+  consumedTreasuryCapId: string;
+  createdBy: string;
+  compositionRoyaltyRateBps: number;
+  shareSupplyBefore: string;
+  sharesBeforeGrant: string;
+  compositionSharesGranted: string;
+  sharesReturned: string;
+  shareDecimals: number;
+  shareSupplyFixedAfter: boolean;
+  compositionFundsSent: boolean;
+}
+
+/** Emitted once when a recording is published, with its immutable payload. */
 export interface RecordingPublishedEvent {
   recordingId: string;
+  compositionId: string;
+  recordingAdminCapId: string;
+  clockId: string;
+  publishedAtMs: string;
+  sharedAfter: boolean;
 }
 
 /**
- * Emitted when recording creation grants the composition its immutable royalty
- * rate's share of the new recording currency.
+ * Legacy event emitted by older recording creation flows. It remains decodable
+ * for historical data, but current recording creation emits
+ * `RecordingCreatedEvent` instead.
  */
 export interface CompositionSharesGrantedEvent {
   recordingId: string;
@@ -199,19 +237,39 @@ export class Release extends Schema.Class<Release>("@misofm/musicos/Release")({
   tracks: Schema.Array(Track),
 }) {}
 
-/**
- * Emitted once when a release is published. A pure pointer carrying only the
- * release's identity — an indexer fetches the full immutable object by
- * `releaseId`.
- */
+/** Emitted when a release is created under the canonical registry. */
+export interface ReleaseCreatedEvent {
+  registryId: string;
+  releaseId: string;
+  releaseAdminCapId: string;
+  titleBytes: number[];
+  releaseDigest: number[];
+  nonce: string;
+  compositionIds: string[];
+  recordingIds: string[];
+  trackSplitBps: string[];
+  trackCount: string;
+}
+
+/** Emitted once when a release is published, with its immutable payload. */
 export interface ReleasePublishedEvent {
   releaseId: string;
+  releaseAdminCapId: string;
+  clockId: string;
+  titleBytes: number[];
+  publishedAtMs: string;
+  compositionIds: string[];
+  recordingIds: string[];
+  trackSplitBps: string[];
+  assignedTrackCount: string;
+  sharedAfter: boolean;
 }
 
 /** Emitted when package initialization shares the canonical release registry. */
 export interface ReleaseRegistryCreatedEvent {
   registryId: string;
   createdBy: string;
+  sharedAfter: boolean;
 }
 
 /** The shared canonical core `miso::release::ReleaseRegistry`. */

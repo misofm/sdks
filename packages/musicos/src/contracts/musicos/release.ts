@@ -111,12 +111,34 @@ export const ReleaseAdminCap = new MoveStruct({ name: `${$moduleName}::ReleaseAd
         release_id: bcs.Address
     } });
 export const ReleaseAdminCapKey = new MoveTuple({ name: `${$moduleName}::ReleaseAdminCapKey`, fields: [bcs.bool()] });
+export const ReleaseCreatedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCreatedEvent`, fields: {
+        registry_id: bcs.Address,
+        release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        title_bytes: bcs.vector(bcs.u8()),
+        release_digest: bcs.vector(bcs.u8()),
+        nonce: bcs.u256(),
+        composition_ids: bcs.vector(bcs.Address),
+        recording_ids: bcs.vector(bcs.Address),
+        track_split_bps: bcs.vector(bcs.u64()),
+        track_count: bcs.u64()
+    } });
 export const ReleasePublishedEvent = new MoveStruct({ name: `${$moduleName}::ReleasePublishedEvent`, fields: {
-        release_id: bcs.Address
+        release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        clock_id: bcs.Address,
+        title_bytes: bcs.vector(bcs.u8()),
+        published_at_ms: bcs.u64(),
+        composition_ids: bcs.vector(bcs.Address),
+        recording_ids: bcs.vector(bcs.Address),
+        track_split_bps: bcs.vector(bcs.u64()),
+        assigned_track_count: bcs.u64(),
+        shared_after: bcs.bool()
     } });
 export const ReleaseRegistryCreatedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRegistryCreatedEvent`, fields: {
         registry_id: bcs.Address,
-        created_by: bcs.Address
+        created_by: bcs.Address,
+        shared_after: bcs.bool()
     } });
 export interface NewArguments {
     self: RawTransactionArgument<string>;

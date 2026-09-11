@@ -65,8 +65,28 @@ export const CompositionAdminCap = new MoveStruct({ name: `${$moduleName}::Compo
         id: bcs.Address
     } });
 export const CompositionAdminCapKey = new MoveTuple({ name: `${$moduleName}::CompositionAdminCapKey`, fields: [bcs.bool()] });
+export const CompositionCreatedEvent = new MoveStruct({ name: `${$moduleName}::CompositionCreatedEvent<phantom CompositionShare>`, fields: {
+        composition_id: bcs.Address,
+        composition_admin_cap_id: bcs.Address,
+        share_currency_id: bcs.Address,
+        consumed_treasury_cap_id: bcs.Address,
+        created_by: bcs.Address,
+        title_bytes: bcs.vector(bcs.u8()),
+        royalty_rate_bps: bcs.u16(),
+        share_supply_before: bcs.u64(),
+        share_supply_after: bcs.u64(),
+        shares_returned: bcs.u64(),
+        share_decimals: bcs.u8(),
+        share_supply_fixed_after: bcs.bool()
+    } });
 export const CompositionPublishedEvent = new MoveStruct({ name: `${$moduleName}::CompositionPublishedEvent<phantom CompositionShare>`, fields: {
-        composition_id: bcs.Address
+        composition_id: bcs.Address,
+        composition_admin_cap_id: bcs.Address,
+        clock_id: bcs.Address,
+        title_bytes: bcs.vector(bcs.u8()),
+        royalty_rate_bps: bcs.u16(),
+        published_at_ms: bcs.u64(),
+        shared_after: bcs.bool()
     } });
 export interface NewArguments {
     title: RawTransactionArgument<string>;
@@ -122,13 +142,13 @@ export function _new(options: NewOptions) {
 }
 export interface PublishArguments {
     self: RawTransactionArgument<string>;
-    _: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface PublishOptions {
     package?: string;
     arguments: PublishArguments | [
         self: RawTransactionArgument<string>,
-        _: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -148,7 +168,7 @@ export function publish(options: PublishOptions) {
         null,
         '0x2::clock::Clock'
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "_"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'composition',

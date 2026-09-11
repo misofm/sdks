@@ -25,6 +25,15 @@ import { Recording } from "../src/contracts/musicos/recording.ts";
 import { ReleaseRegistry as ReleaseRegistryBcs } from "../src/contracts/musicos/release.ts";
 
 const PKG = "0x" + "cd".repeat(32);
+const COMPOSITION_PUBLISHED_VALUE = {
+  composition_id: PKG,
+  composition_admin_cap_id: "0x" + "11".repeat(32),
+  clock_id: "0x" + "22".repeat(32),
+  title_bytes: [0x52, 0xc3, 0xa9],
+  royalty_rate_bps: 1250,
+  published_at_ms: 12345678901234567n,
+  shared_after: true,
+} as const;
 
 function fakeCoreClient(core: Record<string, unknown>): ClientWithCoreApi {
   return { core } as unknown as ClientWithCoreApi;
@@ -154,9 +163,7 @@ test("getRecordingByShareType follows GraphQL pages before loading the matching 
 
 test("getExtensionField reads a fieldless ExtensionKey and resolves to None only for absence", async () => {
   const calls: unknown[] = [];
-  const value = CompositionPublishedEvent.serialize({
-    composition_id: PKG,
-  }).toBytes();
+  const value = CompositionPublishedEvent.serialize(COMPOSITION_PUBLISHED_VALUE).toBytes();
   const client = fakeCoreClient({
     getDynamicField: async (request: unknown) => {
       calls.push(request);
@@ -172,7 +179,15 @@ test("getExtensionField reads a fieldless ExtensionKey and resolves to None only
     }),
     client,
   );
-  expect(Option.getOrThrow(result)).toEqual({ composition_id: PKG });
+  expect(Option.getOrThrow(result)).toEqual({
+    composition_id: PKG,
+    composition_admin_cap_id: "0x" + "11".repeat(32),
+    clock_id: "0x" + "22".repeat(32),
+    title_bytes: [0x52, 0xc3, 0xa9],
+    royalty_rate_bps: 1250,
+    published_at_ms: "12345678901234567",
+    shared_after: true,
+  });
   expect(calls).toHaveLength(1);
   expect(calls[0]).toMatchObject({
     parentId: PKG,
@@ -202,9 +217,7 @@ test("getExtensionField reads a fieldless ExtensionKey and resolves to None only
 
 test("DSP fields use their platform-keyed dynamic-field names", async () => {
   const calls: unknown[] = [];
-  const value = CompositionPublishedEvent.serialize({
-    composition_id: PKG,
-  }).toBytes();
+  const value = CompositionPublishedEvent.serialize(COMPOSITION_PUBLISHED_VALUE).toBytes();
   const client = fakeCoreClient({
     getDynamicField: async (request: unknown) => {
       calls.push(request);

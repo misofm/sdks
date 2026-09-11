@@ -37,6 +37,26 @@ const program = Effect.gen(function* () {
 const { composition, release } = await Effect.runPromise(program);
 ```
 
+### Events
+
+The client exposes both camelCase event parsers and raw BCS decoders. CamelCase
+parsers preserve every event field, while `client.miso.parse.events.core` keeps
+the generated snake_case layout for indexers that need the ABI surface:
+
+```ts
+const created = client.miso.parse.compositionCreatedEvent(eventBytes);
+// { compositionId, titleBytes, shareSupplyBefore, ... }
+const raw = client.miso.parse.events.core.compositionCreated(eventBytes);
+// { composition_id, title_bytes, share_supply_before, ... }
+```
+
+Addresses and IDs are strings. `u64` and `u256` values are decimal strings;
+`u8`/`u16` values are numbers, byte vectors are `number[]`, and address and
+`u64` vectors preserve their order. Title and digest bytes remain undecoded.
+`CompositionSharesGrantedEvent` remains available for historical data and is
+dormant in the current recording creation flow, which emits
+`RecordingCreatedEvent`.
+
 `client.miso.*` methods already have `R = never` — the client extension
 provides `SuiClient` (and `SuiGraphQL`, when `graphqlClient` was passed to
 `miso()`) internally from the `ClientWithCoreApi` it was registered on.

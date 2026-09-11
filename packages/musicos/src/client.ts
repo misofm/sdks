@@ -296,9 +296,14 @@ export class MisoProtocolClient {
       Recording: recording.Recording,
       Release: release.Release,
       Track: track.Track,
+      CompositionCreatedEvent: composition.CompositionCreatedEvent,
       CompositionPublishedEvent: composition.CompositionPublishedEvent,
+      RecordingCreatedEvent: recording.RecordingCreatedEvent,
       RecordingPublishedEvent: recording.RecordingPublishedEvent,
+      CompositionSharesGrantedEvent: recording.CompositionSharesGrantedEvent,
+      ReleaseCreatedEvent: release.ReleaseCreatedEvent,
       ReleasePublishedEvent: release.ReleasePublishedEvent,
+      ReleaseRegistryCreatedEvent: release.ReleaseRegistryCreatedEvent,
     };
   }
 
@@ -306,10 +311,13 @@ export class MisoProtocolClient {
 
   get parse() {
     return {
+      compositionCreatedEvent: parsers.parseCompositionCreatedEvent,
       compositionPublishedEvent: parsers.parseCompositionPublishedEvent,
+      recordingCreatedEvent: parsers.parseRecordingCreatedEvent,
       recordingPublishedEvent: parsers.parseRecordingPublishedEvent,
       compositionSharesGrantedEvent:
         parsers.parseCompositionSharesGrantedEvent,
+      releaseCreatedEvent: parsers.parseReleaseCreatedEvent,
       releasePublishedEvent: parsers.parseReleasePublishedEvent,
       releaseRegistryCreatedEvent: parsers.parseReleaseRegistryCreatedEvent,
       events: eventParsers,

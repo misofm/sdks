@@ -6,6 +6,7 @@ import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { miso } from "../src/client.ts";
 import * as contracts from "../src/contracts.ts";
+import { ReleaseRegistryCreatedEvent } from "../src/contracts/musicos/release.ts";
 import {
   assertMisoDeployment,
   getMisoDeployment,
@@ -207,4 +208,44 @@ test("public contracts retain BCS but omit unsafe reference-returning calls", ()
   expect("uidMut" in contracts.release).toBeFalse();
   expect("title" in contracts.release).toBeFalse();
   expect("tracks" in contracts.release).toBeFalse();
+});
+
+test("client exposes rich camelCase parsers, raw event decoders, and all event codecs", () => {
+  const client = new SuiGrpcClient({
+    network: "testnet",
+    baseUrl: "https://fullnode.testnet.sui.io:443",
+  }).$extend(miso({ deployment: FULL_DEPLOYMENT }));
+
+  expect(typeof client.miso.parse.compositionCreatedEvent).toBe("function");
+  expect(typeof client.miso.parse.recordingCreatedEvent).toBe("function");
+  expect(typeof client.miso.parse.releaseCreatedEvent).toBe("function");
+  expect(typeof client.miso.parse.events.core.compositionCreated).toBe("function");
+  expect(typeof client.miso.parse.events.core.recordingCreated).toBe("function");
+  expect(typeof client.miso.parse.events.core.releaseCreated).toBe("function");
+
+  const registryBytes = ReleaseRegistryCreatedEvent.serialize({
+    registry_id: A,
+    created_by: MISO,
+    shared_after: true,
+  }).toBytes();
+  expect(client.miso.parse.events.core.releaseRegistryCreated(registryBytes)).toEqual({
+    registry_id: A,
+    created_by: MISO,
+    shared_after: true,
+  });
+
+  const bcs = client.miso.bcs;
+  expect("CompositionCreatedEvent" in bcs).toBeTrue();
+  expect("CompositionPublishedEvent" in bcs).toBeTrue();
+  expect("RecordingCreatedEvent" in bcs).toBeTrue();
+  expect("RecordingPublishedEvent" in bcs).toBeTrue();
+  expect("CompositionSharesGrantedEvent" in bcs).toBeTrue();
+  expect("ReleaseCreatedEvent" in bcs).toBeTrue();
+  expect("ReleasePublishedEvent" in bcs).toBeTrue();
+  expect("ReleaseRegistryCreatedEvent" in bcs).toBeTrue();
+
+  const packageBcs = client.miso.packages.bcs.core;
+  expect("CompositionCreatedEvent" in packageBcs.composition).toBeTrue();
+  expect("RecordingCreatedEvent" in packageBcs.recording).toBeTrue();
+  expect("ReleaseCreatedEvent" in packageBcs.release).toBeTrue();
 });

@@ -93,8 +93,29 @@ export const RecordingAdminCap = new MoveStruct({ name: `${$moduleName}::Recordi
         id: bcs.Address
     } });
 export const RecordingAdminCapKey = new MoveTuple({ name: `${$moduleName}::RecordingAdminCapKey`, fields: [bcs.bool()] });
+export const RecordingCreatedEvent = new MoveStruct({ name: `${$moduleName}::RecordingCreatedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        recording_admin_cap_id: bcs.Address,
+        share_currency_id: bcs.Address,
+        consumed_treasury_cap_id: bcs.Address,
+        created_by: bcs.Address,
+        composition_royalty_rate_bps: bcs.u16(),
+        share_supply_before: bcs.u64(),
+        shares_before_grant: bcs.u64(),
+        composition_shares_granted: bcs.u64(),
+        shares_returned: bcs.u64(),
+        share_decimals: bcs.u8(),
+        share_supply_fixed_after: bcs.bool(),
+        composition_funds_sent: bcs.bool()
+    } });
 export const RecordingPublishedEvent = new MoveStruct({ name: `${$moduleName}::RecordingPublishedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
-        recording_id: bcs.Address
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        recording_admin_cap_id: bcs.Address,
+        clock_id: bcs.Address,
+        published_at_ms: bcs.u64(),
+        shared_after: bcs.bool()
     } });
 export const CompositionSharesGrantedEvent = new MoveStruct({ name: `${$moduleName}::CompositionSharesGrantedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
@@ -172,13 +193,13 @@ export function _new(options: NewOptions) {
 }
 export interface PublishArguments {
     self: RawTransactionArgument<string>;
-    _: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface PublishOptions {
     package?: string;
     arguments: PublishArguments | [
         self: RawTransactionArgument<string>,
-        _: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -199,7 +220,7 @@ export function publish(options: PublishOptions) {
         null,
         '0x2::clock::Clock'
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "_"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording',
