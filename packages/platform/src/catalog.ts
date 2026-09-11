@@ -11,16 +11,18 @@
 // to fetch, and chooses a concurrency/rate-limit tradeoff. Those are platform
 // calls, not protocol facts.
 
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import {
   extractTypeParams2,
-  getOwnedRecordingAdminCaps,
-  getRecordingsByIds,
-  getReleaseById,
   getWorkAddressesByShareTypes,
+  Musicos,
+  type MusicosDeploymentInvalid,
+  type MusicosService,
+  type OwnedReadError,
+  type ReadError,
   type Recording,
 } from "@misofm/musicos";
-import { SuiClient, SuiGraphQL, SuiRpcError, type BcsDecodeError, type ObjectNotFoundError } from "@misofm/effect";
+import { ObjectId, Sui, SuiAddress, SuiGraphQL, type BatchItemError, type GraphQLUnavailable, type TransportError } from "sui-effect";
 import {
   getCompositionCreditsByIds,
   getRecordingCreditsByIds,
@@ -49,6 +51,25 @@ const EMPTY_RECORDING_CREDITS: RecordingCreditsView = {
 };
 
 /**
+ * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — sui-effect's "converting an existing
+ * facade" idiom (`docs/extensions.md`) applied at function granularity, so a
+ * standalone catalog read composes the sibling `@misofm/musicos` extension
+ * internally and its own requirement channel stays `Sui`, never
+ * `Sui | Musicos`. This is what a non-facade consumer (the crank service,
+ * this module itself) uses in place of a bound `Miso.protocol`.
+ */
+function withMusicos<A, E>(
+  packageId: string,
+  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  return Effect.gen(function* () {
+    const musicos = yield* Musicos;
+    return yield* effect(musicos);
+  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+}
+
+/**
  * Composition and recording credits for every track on a release, keyed by
  * recording id.
  *
@@ -63,10 +84,10 @@ export const getReleaseTrackCredits = Effect.fn("getReleaseTrackCredits")(functi
   options: GetReleaseTrackCreditsOptions,
 ): Effect.fn.Return<
   Record<string, ReleaseTrackCredits>,
-  ObjectNotFoundError | SuiRpcError | BcsDecodeError,
-  SuiClient | SuiGraphQL
+  ReadError | MusicosDeploymentInvalid | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
-  const release = yield* getReleaseById(releaseId);
+  const release = yield* withMusicos(options.misoPackageId, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
   return yield* getTrackCreditsByRecordingIds(
     release.tracks.map((track) => track.recordingId),
     options,
@@ -81,25 +102,27 @@ export const getReleaseTrackCredits = Effect.fn("getReleaseTrackCredits")(functi
 export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordingIds")(function* (
   recordingIdsInput: readonly string[],
   options: GetReleaseTrackCreditsOptions,
-): Effect.fn.Return<Record<string, ReleaseTrackCredits>, SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<
+  Record<string, ReleaseTrackCredits>,
+  BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
+> {
   const recordingIds = [...new Set(recordingIdsInput)];
   if (recordingIds.length === 0) return {};
 
-  const client = yield* SuiClient;
+  const sui = yield* Sui;
   const [recordingCreditsById, recordingObjects] = yield* Effect.all([
     getRecordingCreditsByIds(recordingIds, options.recordingCreditsPackageId),
-    Effect.tryPromise({
-      try: (signal) => client.core.getObjects({ objectIds: recordingIds, signal }),
-      catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
-    }),
+    // A hard read: every id must resolve, same as the predecessor's
+    // `object instanceof Error) throw object` — a typed BatchItemError now,
+    // not a defect (sui-effect's `getObjectsOrFail`).
+    sui.getObjectsOrFail(recordingIds.map((id) => ObjectId.make(id))),
   ]);
-  const recordingReads = recordingObjects.objects.map((object, index) => {
-    const recordingId = recordingIds[index]!;
-    if (object instanceof Error) throw object;
+  const recordingReads = recordingObjects.map((object) => {
     const [, compositionShareType] = extractTypeParams2(object.type);
     return {
-      recordingId,
-      recordingCredits: recordingCreditsById[recordingId] ?? null,
+      recordingId: object.id,
+      recordingCredits: recordingCreditsById[object.id] ?? null,
       compositionShareType,
     };
   });
@@ -149,25 +172,34 @@ export interface GetAdministeredRecordingsOptions {
  *
  * Three bounded stages: list the owner's `RecordingAdminCap`s, resolve every
  * share type in one aliased GraphQL query, then batch-fetch the recordings.
+ * A recording id that fails to resolve is dropped rather than failing the
+ * whole read (the predecessor's behaviour, now via `sui.getObjects`' per-item
+ * `Result` instead of a silently-dropping map).
  */
 export const getAdministeredRecordings = Effect.fn("getAdministeredRecordings")(function* (
   owner: string,
   misoPackageId: string,
   options: GetAdministeredRecordingsOptions = {},
-): Effect.fn.Return<Recording[], SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<
+  Recording[],
+  MusicosDeploymentInvalid | OwnedReadError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
+> {
   void options;
-  const caps = yield* getOwnedRecordingAdminCaps(owner, misoPackageId);
+  const caps = yield* withMusicos(misoPackageId, (musicos) => musicos.getOwnedRecordingAdminCaps(SuiAddress.make(owner)));
   if (caps.length === 0) return [];
   const addresses = yield* getWorkAddressesByShareTypes(
     { compositions: [], recordings: caps.map((cap) => cap.shareType) },
     misoPackageId,
   );
-  const byId = yield* getRecordingsByIds(
-    Object.values(addresses.recordings).filter((id): id is string => id !== undefined),
+  const ids = Object.values(addresses.recordings).filter((id): id is string => id !== undefined);
+  const results = yield* withMusicos(misoPackageId, (musicos) => musicos.getRecordingsByIds(ids.map((id) => ObjectId.make(id))));
+  const byId = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[ids[index]!, result.success] as const] : [])),
   );
   return caps.flatMap((cap) => {
     const id = addresses.recordings[cap.shareType];
-    const recording = id ? byId[id] : undefined;
+    const recording = id ? byId.get(id) : undefined;
     return recording ? [recording] : [];
   });
 });

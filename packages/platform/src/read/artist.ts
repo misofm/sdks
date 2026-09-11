@@ -10,9 +10,9 @@
 //
 // `roles` and `tags` are opt-in via `include`.
 
-import { Effect, Option } from "effect";
-import { getPartiesByIds, getPartyById } from "@misofm/partyos";
-import type { BcsDecodeError, ObjectNotFoundError, ObjectTypeMismatchError, SuiClient, SuiRpcError } from "@misofm/effect";
+import { Effect, Option, Result } from "effect";
+import { ObjectId, Sui, type TransportError } from "sui-effect";
+import { Partyos, type PartyosDeploymentError, type PartyReadError } from "@misofm/partyos";
 import { getCtas, getGenres, getLinks, getProfile, getRoles, getTags } from "../party/queries.ts";
 import { resolveGenreNames } from "./genres.ts";
 import type { MisoConfig } from "./config.ts";
@@ -35,6 +35,23 @@ export function partyAvatarUrl(apiBaseUrl: string, partyId: string): string {
 }
 
 /**
+ * Builds the bound `Partyos` for `config.partyos`, provides it, and hands
+ * back the effect it wraps — the "converting an existing facade" idiom from
+ * sui-effect's `docs/extensions.md`, applied at function granularity: a
+ * standalone read composes a sibling extension's own `layer(...)` internally
+ * so its own requirement channel stays `Sui`, not `Sui | Partyos`.
+ */
+function withPartyos<A, E>(
+  config: MisoConfig,
+  effect: (partyos: Partyos["Service"]) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | PartyosDeploymentError, Sui> {
+  return Effect.gen(function* () {
+    const partyos = yield* Partyos;
+    return yield* effect(partyos);
+  }).pipe(Effect.provide(Partyos.layer({ deployment: config.partyos })));
+}
+
+/**
  * An artist page, fully resolved. Fails only if the PARTY itself can't be read —
  * every extension is optional by design (a party with no profile set is a new
  * party, not a broken one), so each decoration read falls back to its empty value.
@@ -43,11 +60,7 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
   partyId: string,
   config: MisoConfig,
   options: GetArtistOptions = {},
-): Effect.fn.Return<
-  ArtistProfile,
-  ObjectNotFoundError | ObjectTypeMismatchError | BcsDecodeError | SuiRpcError,
-  SuiClient
-> {
+): Effect.fn.Return<ArtistProfile, PartyReadError | PartyosDeploymentError, Sui> {
   const include = new Set(options.include ?? []);
   const party = config.party;
 
@@ -62,13 +75,13 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
     include.has("tags")
       ? getTags(partyId, party.partyTags).pipe(Effect.catch(() => Effect.succeed([] as string[])))
       : Effect.succeed(undefined),
-    getPartyById(partyId, config.partyos.partyos),
+    withPartyos(config, (partyos) => partyos.getPartyById(ObjectId.make(partyId))),
   ]);
   const profile = Option.getOrNull(profileOpt);
 
   const [genres, members] = yield* Effect.all([
     resolveGenreNames(genreIds),
-    resolveMembers(entity.kind === "group" ? (entity.members ?? []) : [], config),
+    resolveMembers(entity.kind === "group" ? [...(entity.members ?? [])] : [], config),
   ]);
 
   return {
@@ -98,13 +111,16 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
 const resolveMembers = Effect.fn("resolveMembers")(function* (
   memberIds: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<PartyMember[], never, SuiClient> {
+): Effect.fn.Return<PartyMember[], never, Sui> {
   if (memberIds.length === 0) return [];
-  const parties = yield* getPartiesByIds([...memberIds], config.partyos.partyos).pipe(
-    Effect.catch(() => Effect.succeed({} as Record<string, undefined>)),
+  const results = yield* withPartyos(config, (partyos) => partyos.getPartiesByIds(memberIds.map((id) => ObjectId.make(id)))).pipe(
+    Effect.catch(() => Effect.succeed([] as ReadonlyArray<never>)),
+  );
+  const byId = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[memberIds[index]!, result.success] as const] : [])),
   );
   return memberIds.flatMap((id) => {
-    const p = parties[id];
+    const p = byId.get(id);
     return p ? [{ id, name: p.name }] : [];
   });
 });
@@ -113,11 +129,14 @@ const resolveMembers = Effect.fn("resolveMembers")(function* (
 export const getPartySummaries = Effect.fn("getPartySummaries")(function* (
   ids: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<PartySummary[], ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+): Effect.fn.Return<PartySummary[], TransportError | PartyosDeploymentError, Sui> {
   if (ids.length === 0) return [];
-  const parties = yield* getPartiesByIds([...ids], config.partyos.partyos);
+  const results = yield* withPartyos(config, (partyos) => partyos.getPartiesByIds(ids.map((id) => ObjectId.make(id))));
+  const byId = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[ids[index]!, result.success] as const] : [])),
+  );
   return ids.flatMap((id) => {
-    const p = parties[id];
+    const p = byId.get(id);
     return p ? [{ id, name: p.name, kind: p.kind }] : [];
   });
 });
