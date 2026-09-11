@@ -1,8 +1,8 @@
 {
   "name": "@misofm/musicos",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "packageManager": "bun@1.4.0",
-  "description": "Typed bindings, queries, event decoders, and PTB builders for the Miso object model (Composition, Recording, Release, Track) on Sui.",
+  "description": "A sui-effect extension for the Miso object model (Composition, Recording, Release, Track): the Musicos service, PTB fragments, event decoders, and BCS codecs.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -44,10 +44,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./client": {
-      "types": "./dist/client.d.ts",
-      "default": "./dist/client.js"
-    },
     "./deployments": {
       "types": "./dist/deployments.d.ts",
       "default": "./dist/deployments.js"
@@ -59,14 +55,6 @@
     "./transactions": {
       "types": "./dist/transactions.d.ts",
       "default": "./dist/transactions.js"
-    },
-    "./execute": {
-      "types": "./dist/execute.d.ts",
-      "default": "./dist/execute.js"
-    },
-    "./view": {
-      "types": "./dist/view.d.ts",
-      "default": "./dist/view.js"
     },
     "./types": {
       "types": "./dist/types.d.ts",
@@ -102,25 +90,33 @@
     "dist",
     "src",
     "README.md",
+    "AGENTS.md",
+    "LLMS.md",
     "LICENSE",
     "package.json"
   ],
-  "dependencies": {
-    "@misofm/effect": "0.2.0",
-    "@mysten/bcs": "^2.1.1"
-  },
   "devDependencies": {
+    "@effect/language-service": "0.87.2",
+    "@mysten/bcs": "2.1.1",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.4.0",
     "effect": "4.0.0-rc.112",
+    "sui-effect": "file:./vendor/sui-effect-0.1.0.tgz",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@mysten/sui": "2.29.0",
-    "effect": "4.0.0-rc.112",
+    "@mysten/bcs": "^2.1.1",
+    "@mysten/sui": "^2.28",
+    "effect": ">=4.0.0-rc.112 <4.1",
+    "sui-effect": "^0.1.0",
     "typescript": "^5.7 || ^6 || ^7"
+  },
+  "peerDependenciesMeta": {
+    "sui-effect": {
+      "optional": true
+    }
   },
   "main": "./dist/index.js"
 }

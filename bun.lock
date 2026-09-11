@@ -30,24 +30,28 @@
     },
     "packages/musicos": {
       "name": "@misofm/musicos",
-      "version": "0.3.1",
-      "dependencies": {
-        "@misofm/effect": "0.2.0",
-        "@mysten/bcs": "^2.1.1",
-      },
+      "version": "0.4.0",
       "devDependencies": {
+        "@effect/language-service": "0.87.2",
+        "@mysten/bcs": "2.1.1",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
         "effect": "4.0.0-rc.112",
+        "sui-effect": "file:./vendor/sui-effect-0.1.0.tgz",
         "typedoc": "^0.28.20",
         "typedoc-plugin-markdown": "^4.13.0",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
-        "@mysten/sui": "2.29.0",
-        "effect": "4.0.0-rc.112",
+        "@mysten/bcs": "^2.1.1",
+        "@mysten/sui": "^2.28",
+        "effect": ">=4.0.0-rc.112 <4.1",
+        "sui-effect": "^0.1.0",
         "typescript": "^5.7 || ^6 || ^7",
       },
+      "optionalPeers": [
+        "sui-effect",
+      ],
     },
     "packages/partyos": {
       "name": "@misofm/partyos",
@@ -75,7 +79,7 @@
       "version": "0.27.0",
       "dependencies": {
         "@misofm/effect": "0.2.0",
-        "@misofm/musicos": "0.3.1",
+        "@misofm/musicos": "0.4.0",
         "@misofm/partyos": "0.3.1",
         "@misofm/streaming": "0.3.0",
         "@mysten/bcs": "^2.1.1",
@@ -140,6 +144,8 @@
     "@0no-co/graphqlsp": ["@0no-co/graphqlsp@1.17.5", "", { "dependencies": { "@gql.tada/internal": "^1.2.1", "graphql": "^15.5.0 || ^16.0.0 || ^17.0.0" }, "peerDependencies": { "typescript": "^5.0.0 || ^6.0.0" } }, "sha512-wsygfTO3pdkz4idDw8BxdMdgB9AB8nuJDJTUwYy87BiZEZRXS4bEfn4oNl9VtxTo6j2lzX/gED+IvOgxsSy2Jg=="],
 
     "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
+
+    "@effect/language-service": ["@effect/language-service@0.87.2", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-CfiSoaVQO8pZgaMZGw5VvMvRGybsJ2LaSDoLYaqiVGvo/YYPYVR2GzUKY0h1NtIweq/+SQ5XLrvtzPIttWQ0GQ=="],
 
     "@effect/platform-node": ["@effect/platform-node@4.0.0-rc.112", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.112", "mime": "^4.1.0", "undici": "^8.10.0" }, "peerDependencies": { "effect": "^4.0.0-rc.112", "redis": ">=5.0.0 <7.0.0" } }, "sha512-/BMAcdNGQQskLmI0Zoa95KfTZkr9HV9N4NSxaSrusG6GeW6Ulp9KvZ+Rlaiw8lnOt43CXjFLdfll5/k5rxL4hQ=="],
 
@@ -358,6 +364,8 @@
     "pure-rand": ["pure-rand@8.4.2", "", {}, "sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng=="],
 
     "redis": ["redis@6.2.1", "", { "dependencies": { "@redis/bloom": "6.2.1", "@redis/client": "6.2.1", "@redis/json": "6.2.1", "@redis/search": "6.2.1", "@redis/time-series": "6.2.1" } }, "sha512-Z9VHtgYs48PiQC77X9O2Er8Hj4T+5BtFjT91/vi5Is1D04N72cA946ZslM1ImJw8ZctFBZWAVjM7S5wJNeHMpg=="],
+
+    "sui-effect": ["sui-effect@./vendor/sui-effect-0.1.0.tgz", { "peerDependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.28", "effect": ">=4.0.0-rc.112 <4.1" } }, "sha512-j040aZfq6pOku0q5b9y9nUUVX1UYvaH+9ogrWJD3CltRjNzSc4ynO8dvaYAE2S3+HFN5NHUEpVmJLg/pJonMQg=="],
 
     "toml": ["toml@5.0.0", "", {}, "sha512-bsqEd+g7fzlrw7LEynQ6W6aOK/lTOlepz5x1sJyIV9fTZVJS2Q76nuju6FK+gZhW5bUpvB7mCEqdR0u4WziMFw=="],
 
