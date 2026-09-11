@@ -1,9 +1,11 @@
 # @misofm/partyos
 
-Typed bindings, queries, and PTB builders for the PartyOS object model on Sui: the
-`Party` object, its `PartyAdminCap`, and consent-based group membership.
+A [sui-effect](https://github.com/unconfirmedlabs/sui-effect) extension for the
+PartyOS object model on Sui: the `Party` object, its `PartyAdminCap`, and
+consent-based group membership.
 
-> `@misofm/partyos` is the object model. Everything Miso offers on top of it is platform.
+> `@misofm/partyos` is the object model. Everything Miso offers on top of it is
+> platform.
 
 A Party's profile, media, roles, tags, genres, CTAs, platform links, and wallet are
 extensions someone chose to offer, so they ship from
@@ -14,67 +16,102 @@ this package. Which Move package generates into which SDK is decided by
 ## Install
 
 ```sh
-bun add @misofm/partyos @misofm/effect effect @mysten/sui
+bun add @misofm/partyos sui-effect effect @mysten/sui
 ```
 
-`@mysten/sui` and `effect` (exactly `4.0.0-rc.112`) are peer dependencies.
+`sui-effect`, `@mysten/sui` and `effect` (exactly `4.0.0-rc.112`) are peer
+dependencies.
 
 ## Use
 
-Every read returns an `Effect` that requires the `SuiClient` service instead of
-taking a client parameter — see [`@misofm/effect`](https://www.npmjs.com/package/@misofm/effect)
-for the shared `SuiClient` service and error vocabulary every `@misofm/*` package
-builds on.
+### Promise consumers: `client.$extend`
 
-### Through the client extension
-
-`client.partyos.*` provides `SuiClient` internally (bound to the client it was
-built from), so each method already returns `Effect<A, E>` with `R = never` —
-just `Effect.runPromise` it:
+`partyos()` registers `client.partyos`, built once from the client's own
+transport (one connection, one chain-identifier check shared with everything
+else on the client). Every rejection is the same tagged error instance an
+Effect caller would have caught, so a Promise consumer can still switch on
+`_tag`:
 
 ```ts
-import { Effect } from "effect";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Transaction } from "@mysten/sui/transactions";
-import { partyos } from "@misofm/partyos";
+import { partyos, PartyNotFound } from "@misofm/partyos";
+import { ObjectId } from "sui-effect";
 
-const client = new SuiGrpcClient({ network: "testnet" }).$extend(partyos());
+const client = new SuiGrpcClient({ network: "testnet", baseUrl }).$extend(partyos());
 
-const program = Effect.gen(function* () {
-  const party = yield* client.partyos.getPartyById("0x...");
-  const groups = yield* client.partyos.getMemberships(party.id);
-  return { party, groups };
-}).pipe(
-  Effect.catchTag("ObjectNotFoundError", (error) => Effect.succeed({ party: null, groups: [], missing: error })),
-);
+try {
+  const party = await client.partyos.getPartyById(ObjectId.make("0x..."));
+  const groups = await client.partyos.getMemberships(party.id);
+} catch (error) {
+  if (error instanceof PartyNotFound) {
+    // error.partyId
+  }
+  throw error;
+}
 
-const { party, groups } = await Effect.runPromise(program);
-
+// Recipe fragments are synchronous even on the Promise face (`warm` builds
+// the runtime inside `register`, so `tx` is real immediately).
 const tx = new Transaction();
-await client.partyos.tx.createIndividualParty({ name: "Ada", recipient: "0x..." })(tx);
+client.partyos.tx.createIndividualParty({ name: "Ada", recipient: "0x..." })(tx);
+
+await client.partyos.dispose();
 ```
 
-Every builder under `tx` appends commands to a caller-owned `Transaction` and never
-executes (`tx`/`call`/`bcs` stay synchronous). `call` exposes the generated,
-package-bound Move calls (minus the reference-returning views a PTB cannot use),
-and `bcs` the generated codecs.
+### Effect consumers: the service directly
+
+```ts
+import { Effect, Layer } from "effect";
+import { Sui, SuiCore } from "sui-effect";
+import { Partyos } from "@misofm/partyos";
+
+const program = Effect.gen(function* () {
+  const partyos = yield* Partyos;
+  const party = yield* partyos.getPartyById(partyId);
+  const groups = yield* partyos.getMemberships(party.id);
+  return { party, groups };
+}).pipe(
+  Effect.catchTag("partyos/PartyNotFound", (error) => Effect.succeed({ party: null, groups: [], missing: error })),
+);
+
+await Effect.runPromise(
+  program.pipe(
+    Effect.provide(Partyos.layer()), // or `.layerConfig` / `.layerTest()`
+    Effect.provide(Sui.layerNoDeps),
+    Effect.provide(SuiCore.layerFromClient(client)),
+  ),
+);
+```
+
+Every member's requirement channel is empty (`R = never` once you have a
+`Partyos`): the layer captures `Sui` once and provides it to every member
+internally.
+
+### PTB fragments
+
+`partyos.tx.*` (or the free functions in `./transactions`, each taking
+`partyPackageId` explicitly) are `Recipe`s — `(tx: Transaction) => void` — so
+a consumer composes PartyOS's commands with other extensions' fragments into
+one transaction and submits once:
+
+```ts
+import { Transaction } from "@mysten/sui/transactions";
+
+const tx = new Transaction();
+client.partyos.tx.setName({ partyId, capId, name: "New name" })(tx);
+someOtherExtension.claim(...)(tx);
+```
 
 ### Free functions
 
-The functions in `./queries` take no client parameter — they declare `SuiClient`
-in their Effect's requirements, so provide it once at your program's boundary:
+`derivePartyAdminCapId` and `partyType` (in `./queries`) are pure and
+synchronous — no `Sui` required — and stay exported for callers that only
+need them:
 
 ```ts
-import { Effect } from "effect";
-import { SuiGrpcClient } from "@mysten/sui/grpc";
-import { SuiClient } from "@misofm/effect";
-import { getPartyById } from "@misofm/partyos/queries";
+import { derivePartyAdminCapId } from "@misofm/partyos/queries";
 
-const client = new SuiGrpcClient({ network: "testnet" });
-
-const program = getPartyById("0x...", "0xPARTYOS_PACKAGE");
-
-const party = await Effect.runPromise(program.pipe(Effect.provide(SuiClient.layer(client))));
+const capId = derivePartyAdminCapId(partyId, packageId);
 ```
 
 ### Event decoding
@@ -104,25 +141,72 @@ available from `contracts.party`.
 
 ## Errors
 
-Reads fail with the shared `@misofm/effect` vocabulary: `ObjectNotFoundError { objectId }`,
-`ObjectTypeMismatchError { objectId, expected, actual }` (e.g. a `Party` object from a
-different partyos deployment, or an id that is not a `Party` at all), `BcsDecodeError`,
-and `SuiRpcError`. Recover from one with `Effect.catchTag("ObjectNotFoundError", ...)`
-rather than an `isNotFound(error)` predicate. `./errors` re-exports the full
-`@misofm/effect/errors` vocabulary plus `PartyNotFoundError { partyId }`, offered for
-callers that want a party-scoped tag instead of pattern-matching the generic one.
-`validatePartyDeployment` (in `./deployments`) fails with `DeploymentError { message }`.
+| Member | Fails with |
+|---|---|
+| `getPartyById` | `PartyNotFound` (missing or deleted), `DecodeError` (not a `Party` of this deployment), `TransportError` |
+| `getPartiesByIds` | `TransportError` (per-item failures — `PartyNotFound`, `DecodeError`, `ObjectUnavailable` — come back as a `Result` per distinct id) |
+| `getMemberships` / `getPendingInvites` / `getPendingMemberships` | `DecodeError`, `TransportError` |
+| `isMember` | `TransportError` |
+| `Partyos.layer` / `layerConfig` | `PartyosDeploymentError` (an explicit manifest did not validate, or this release bundles no deployment for the client's network), `ConfigError` (`layerConfig` only) |
+
+Every error is a `Schema.TaggedError` declaring `outcome: "applied" | "not_applied" | "unknown"`
+(sui-effect's `SuiError.outcome` and `Script.exitCode` read it). Recover with
+`Effect.catchTag("partyos/PartyNotFound", ...)` (the tag is prefixed with the
+package name, per `docs/extensions.md` §2) — never an `isNotFound(error)`
+predicate. `./errors` also exports `PartyReadError` and `PartyBatchItemError`,
+the two union aliases above.
 
 ## Deployment manifest
 
 `PARTYOS_DEPLOYMENTS` bundles the verified testnet deployment: a single key, `partyos`.
-Pass `partyos({ deployment })` for another network; a manifest with any other shape is
-rejected before a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
-throw synchronously; `validatePartyDeployment` is the Effect-returning counterpart for
-callers composing a config-loading pipeline out of Effects).
+Pass `partyos({ deployment, chainId })` for another network — `chainId` is required
+outside `mainnet`/`testnet` because `partyos()` registers `warm` (see "Promise
+consumers" above): without it, `client.$extend(partyos({ deployment }))` throws a plain
+`Error` (from sui-effect's `warm` registration) **synchronously**, from inside
+`$extend` itself, rather than rejecting the first call. A manifest with any other shape is rejected before
+a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
+throw synchronously; `validatePartyDeployment` is the Effect-returning counterpart, now
+failing with `PartyosDeploymentError`, for callers composing a config-loading pipeline
+out of Effects). `Partyos.layerConfig` reads `PARTYOS_PACKAGE_ID` from the environment;
+unset, it falls back to the bundled manifest for the client's network.
+
+**Move upgrades.** `PartyDeployment` carries an optional `typeOrigin`, the
+package the `party` module's **types** were first published in — what
+appears inside `pkg::party::Party`, `pkg::party::MembershipKey`, and every
+other type name this package compares against. It defaults to `partyos`
+(the package `tx` targets for `moveCall`s) and that default is correct until
+`partyos` is upgraded: an upgrade gives the package a new id for calls and
+leaves every type name pointing at the one it was first published under. Set
+`typeOrigin` explicitly once that happens, so `getPartyById`, the membership
+reads and every dynamic-field tag comparison keep checking the type that
+actually exists on chain, instead of failing every read with `DecodeError`
+the moment `partyos` no longer matches the id baked into the original
+publish.
+
+## Testing
+
+`@misofm/partyos/testing` ships `PARTYOS_TEST_DEPLOYMENT`, `fakeParty(...)` (a
+`Party` object with real BCS content), and `fakeMembershipField(...)` (a
+`MembershipKey` / `PendingInviteKey` / `PendingMembershipKey` dynamic-field
+entry) for building a `FakeScript` against `sui-effect/testing`'s harness —
+`layerExtensionTest(Partyos.layerTest(), script)` — with no network. See
+`tests/Partyos.test.ts` in this repo.
+
+## Migrating from `PartyosClient`
+
+`PartyosClient`, `PartyProtocolClient` and `bindModulePackage` are removed —
+they held either a rebuilt `Sui.layerNoDeps` per call or a `Layer.orDie`ed
+`NetworkMismatch`, so a compatibility shim would have been dishonest about
+its own failure modes as well as pointless: platform's own call sites are
+adapted in its conversion (misofm/sdks#35), not by a shim here. Only two
+source-compatible aliases remain, both `@deprecated`: `TxThunk` (`Recipe`,
+in `./transactions`) and `PartyNotFoundError` (`PartyNotFound`, in
+`./errors`) — the latter's runtime `_tag` is the new
+`"partyos/PartyNotFound"`, not the string `"PartyNotFoundError"` a
+predecessor caller may have matched on.
 
 ## Subpaths
 
-`@misofm/partyos` (everything), `/client`, `/deployments`, `/errors`, `/events`,
-`/queries`, `/transactions`, `/types`, `/contracts` (curated bindings),
-`/contracts/*` (raw generated modules).
+`@misofm/partyos` (everything), `/client` (`Partyos`, `partyos`), `/deployments`,
+`/errors`, `/events`, `/queries`, `/testing`, `/transactions`, `/types`,
+`/contracts` (curated bindings), `/contracts/*` (raw generated modules).

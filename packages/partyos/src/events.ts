@@ -7,8 +7,12 @@
  * boundary for indexers and other event consumers.
  */
 
-import type { BcsParser } from "@misofm/effect";
 import * as party from "./contracts/partyos/party.ts";
+
+/** A generated codec's `parse`, the only part a raw-BCS event decoder needs. */
+export interface BcsParser<T> {
+  parse(bytes: Uint8Array): T;
+}
 
 /** Decode raw event BCS with the corresponding generated codec. */
 export function decodeEvent<T>(codec: BcsParser<T>, bytes: Uint8Array): T {
