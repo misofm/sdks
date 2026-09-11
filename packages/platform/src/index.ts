@@ -24,6 +24,12 @@
 // extensions a `&mut UID` hook and stops there; every opinion about what to hang
 // off it is business logic, and business logic ships from the platform package.
 
+// The `Miso` sui-effect service (misofm/sdks#35). WP1 skeleton only — see
+// docs/CONVERSION-STATUS.md for what stage 2/3 still adds before this
+// replaces the class-based `miso()`/`MisoPlatformClient` below as the
+// recommended entry point.
+export { Miso, type MisoLayerError, type MisoService } from "./Miso.ts";
+
 // The recommended entry point is the client extension (see ./client.ts); the bare
 // builders and readers stay exported for callers that hold ids themselves.
 export {
