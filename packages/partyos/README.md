@@ -70,7 +70,9 @@ const program = Effect.gen(function* () {
   const party = yield* partyos.getPartyById(partyId);
   const groups = yield* partyos.getMemberships(party.id);
   return { party, groups };
-}).pipe(Effect.catchTag("PartyNotFound", (error) => Effect.succeed({ party: null, groups: [], missing: error })));
+}).pipe(
+  Effect.catchTag("partyos/PartyNotFound", (error) => Effect.succeed({ party: null, groups: [], missing: error })),
+);
 
 await Effect.runPromise(
   program.pipe(
@@ -149,19 +151,37 @@ available from `contracts.party`.
 
 Every error is a `Schema.TaggedError` declaring `outcome: "applied" | "not_applied" | "unknown"`
 (sui-effect's `SuiError.outcome` and `Script.exitCode` read it). Recover with
-`Effect.catchTag("PartyNotFound", ...)` — never an `isNotFound(error)`
+`Effect.catchTag("partyos/PartyNotFound", ...)` (the tag is prefixed with the
+package name, per `docs/extensions.md` §2) — never an `isNotFound(error)`
 predicate. `./errors` also exports `PartyReadError` and `PartyBatchItemError`,
 the two union aliases above.
 
 ## Deployment manifest
 
 `PARTYOS_DEPLOYMENTS` bundles the verified testnet deployment: a single key, `partyos`.
-Pass `partyos({ deployment })` for another network; a manifest with any other shape is
-rejected before a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
+Pass `partyos({ deployment, chainId })` for another network — `chainId` is required
+outside `mainnet`/`testnet` because `partyos()` registers `warm` (see "Promise
+consumers" above): without it, `client.$extend(partyos({ deployment }))` throws
+`PartyosDeploymentError` **synchronously**, from inside `$extend` itself, rather
+than rejecting the first call. A manifest with any other shape is rejected before
+a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
 throw synchronously; `validatePartyDeployment` is the Effect-returning counterpart, now
 failing with `PartyosDeploymentError`, for callers composing a config-loading pipeline
 out of Effects). `Partyos.layerConfig` reads `PARTYOS_PACKAGE_ID` from the environment;
 unset, it falls back to the bundled manifest for the client's network.
+
+**Move upgrades.** `PartyDeployment` carries an optional `typeOrigin`, the
+package the `party` module's **types** were first published in — what
+appears inside `pkg::party::Party`, `pkg::party::MembershipKey`, and every
+other type name this package compares against. It defaults to `partyos`
+(the package `tx` targets for `moveCall`s) and that default is correct until
+`partyos` is upgraded: an upgrade gives the package a new id for calls and
+leaves every type name pointing at the one it was first published under. Set
+`typeOrigin` explicitly once that happens, so `getPartyById`, the membership
+reads and every dynamic-field tag comparison keep checking the type that
+actually exists on chain, instead of failing every read with `DecodeError`
+the moment `partyos` no longer matches the id baked into the original
+publish.
 
 ## Testing
 
@@ -174,12 +194,16 @@ entry) for building a `FakeScript` against `sui-effect/testing`'s harness —
 
 ## Migrating from `PartyosClient`
 
-`PartyosClient`, `PartyProtocolClient`, `bindModulePackage` and `TxThunk` are
-deprecated (still exported from the package root, not `/client`) and superseded
-by `Partyos` / `partyos()` / `Recipe`. `PartyosClient`'s methods now fail with
-this package's own taxonomy (see the error table above) instead of
-`@misofm/effect`'s `ObjectNotFoundError` / `ObjectTypeMismatchError` /
-`BcsDecodeError` / `SuiRpcError`.
+`PartyosClient`, `PartyProtocolClient` and `bindModulePackage` are removed —
+they held either a rebuilt `Sui.layerNoDeps` per call or a `Layer.orDie`ed
+`NetworkMismatch`, so a compatibility shim would have been dishonest about
+its own failure modes as well as pointless: platform's own call sites are
+adapted in its conversion (misofm/sdks#35), not by a shim here. Only two
+source-compatible aliases remain, both `@deprecated`: `TxThunk` (`Recipe`,
+in `./transactions`) and `PartyNotFoundError` (`PartyNotFound`, in
+`./errors`) — the latter's runtime `_tag` is the new
+`"partyos/PartyNotFound"`, not the string `"PartyNotFoundError"` a
+predecessor caller may have matched on.
 
 ## Subpaths
 
