@@ -23,7 +23,7 @@ import { SuiClient } from "./sui-client.ts";
  * A function that appends commands to a caller-owned `Transaction`; may be async.
  *
  * @deprecated `@misofm/effect` is superseded by sui-effect. Use `Recipe = (tx) => void` instead — every existing
- * thunk is already synchronous — see the migration table in this package's README.
+ * thunk inside these SDKs is synchronous; a consumer's async thunk hoists its `await` before the recipe — see the migration table in this package's README.
  */
 export type TxThunk = (tx: Transaction) => void | Promise<void>;
 

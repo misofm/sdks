@@ -72,7 +72,7 @@ export class TransactionFailedError extends Schema.TaggedError<TransactionFailed
 /**
  * A `SuiGraphQL` read was requested but no GraphQL client is configured for this context.
  *
- * @deprecated `@misofm/effect` is superseded by sui-effect. sui-effect has no GraphQL layer; this stays a
+ * @deprecated `@misofm/effect` is superseded by sui-effect. use sui-effect's `GraphQLUnavailable` raised by `SuiGraphQL.layerUnavailable`; until then this stays a
  * platform-owned concern — see the migration table in this package's README.
  */
 export class GraphQLUnavailableError extends Schema.TaggedError<GraphQLUnavailableError>()(

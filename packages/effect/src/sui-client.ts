@@ -27,7 +27,7 @@ export class SuiClient extends Context.Service<SuiClient, ClientWithCoreApi>()("
 /**
  * The optional GraphQL client, required only by type-discovery reads.
  *
- * @deprecated `@misofm/effect` is superseded by sui-effect, which has no GraphQL layer. This stays a
+ * @deprecated `@misofm/effect` is superseded by sui-effect; use its `SuiGraphQL` service tag (one shared tag across packages). Until then this stays a
  * platform-owned concern — see the migration table in this package's README.
  */
 export class SuiGraphQL extends Context.Service<SuiGraphQL, SuiGraphQLClient>()("@misofm/effect/SuiGraphQL") {

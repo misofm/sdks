@@ -16,7 +16,7 @@ for how to build against it.
 |---|---|---|
 | `SuiClient.layer(client)` | `Sui.layerNoDeps.pipe(Layer.provideMerge(SuiCore.layerFromClient(client)))` | build reads `getChainIdentifier`; fails `NetworkMismatch \| TransportError` on mainnet/testnet mismatch |
 | `SuiClient` (raw reach-through: `yield* SuiClient; client.core.x()`) | `sui.core.x()` or `sui.core.use((client, signal) => ...)` | errors mapped, signal forwarded |
-| `SuiGraphQL` | stays yours; sui-effect has no GraphQL layer | none — this is a platform-owned concern now |
+| `SuiGraphQL` | sui-effect's `SuiGraphQL` service tag (`layer(client)`, `layerConfig`, `layerUnavailable`); sui-effect does not wrap the GraphQL API itself | one shared tag across musicos and platform |
 | `getObjectContent(id)` | `sui.getObject(ObjectId.make(id))` → `SuiObject<Uint8Array>` | `version` is `bigint`; fails `ObjectNotFound \| ObjectDeleted \| ObjectUnavailable`; ids and addresses are branded |
 | `getOptionalObjectContent` | `sui.getObjectOption` | deleted → `None`; `ObjectUnavailable` still fails |
 | `getObjectsContent(ids)` → `ReadonlyMap` | `sui.getObjects(ids)` → `ReadonlyArray<Result<SuiObject, BatchItemError>>` | **per-item `Result`** — errored ids are no longer silently dropped; chunked by 50, deduped, integrity-checked |
@@ -30,13 +30,13 @@ for how to build against it.
 | `BcsDecodeError` | `DecodeError { objectId?, expectedType?, issue }` | |
 | `SuiRpcError { operation, cause }` | `TransportError { method, retryable, status?, cause }` | callers that construct it directly must supply `retryable` |
 | `SuiReadError` | `GetObjectError` | |
-| `GraphQLUnavailableError` | dropped from this package — define your own platform-owned equivalent alongside `SuiGraphQL` | |
+| `GraphQLUnavailableError` | sui-effect's `GraphQLUnavailable` (outcome `not_applied`), raised by `SuiGraphQL.layerUnavailable` | |
 | `DeploymentError` | dropped from this package — define an equivalent tag-prefixed `Schema.TaggedError` (e.g. `musicos/DeploymentError`) in each consumer's own `errors.ts`, with `outcome: "not_applied"` | |
-| `TxThunk = (tx) => void \| Promise<void>` | `Recipe = (tx) => void` | **async thunks are gone** — every thunk in these SDKs is already synchronous |
+| `TxThunk = (tx) => void \| Promise<void>` | `Recipe = (tx) => void` | **async thunks are gone** — every thunk inside these SDKs is synchronous; a consumer's `async (tx) => ...` hoists its `await` before the recipe |
 | `buildTx(...thunks)` → `Transaction` | compose recipes — `(tx) => { a(tx); b(tx) }` — then `Tx.build(recipe, { sender })` for bytes, or `const tx = new Transaction(); recipe(tx)` when the builder object itself is needed | `Tx.build` simulates and sets a `ValidDuring` expiration |
-| `signAndExecute` / `execThunks` | `Tx.run(recipe, { signer: Signer.fromKeypair(kp) })` → `Executed` | **no redundant `waitForTransaction`** — `Tx.run` does not submit-then-poll the way `signAndExecute` did; sender lock and journal apply to every write |
+| `signAndExecute` / `execThunks` | `Tx.run(recipe, { signer: Signer.fromKeypair(kp) })` → `Executed` | **no redundant `waitForTransaction`** — `signAndExecute` sent once and then polled; `Tx.run` returns the execution result directly, holds the sender lock, journals the signed bytes, and re-sends the identical bytes on retryable transport failures |
 | `TransactionFailedError { digest, status }` | `ExecutionFailed { digest, reason, command?, effects }` | **on-chain (aborted/reverted) failure is `ExecutionFailed`**, not a bare thrown status; `reason` is the `$kind`-tagged `ExecutionReason`, `outcome` is `"applied"` |
-| a transport failure after bytes may already have been submitted | `SubmissionUnknown` | **carries the bytes that were sent**, so a caller can reconcile instead of blindly resubmitting — replaces the old retry-until-success loop inside `signAndExecute` |
+| a transport failure after bytes may already have been submitted | `SubmissionUnknown` | **carries the bytes that were sent**, so a caller can reconcile instead of blindly resubmitting; `signAndExecute` surfaced the same situation as an opaque `SuiRpcError` |
 | `ExecResult` | `Executed` | see the extractors below |
 | `ExecResult.gasUsed: number` | `executed.gasUsedTotal` | **`bigint`, not `number`** |
 | `balanceDelta(r, addr, coin): string` | `executed.balanceChange(addr, coin)` | **`bigint`, not a decimal string** |
@@ -55,16 +55,16 @@ The conversion is mechanical except for these five, worth calling out on their o
    returned collection the way `getObjectsContent` dropped them from its `ReadonlyMap`.
 2. **Balances and gas are `bigint`, not `number` or a decimal `string`.** `executed.gasUsedTotal` and
    `executed.balanceChange(...)` both return `bigint`.
-3. **No redundant `waitForTransaction`.** `signAndExecute` submitted and then separately waited for
-   finality; `Tx.run` does not have that second round-trip built the same way — read its docs before
-   assuming a wait still happens after the call returns.
+3. **No redundant `waitForTransaction`.** `signAndExecute` sent the transaction once and then called
+   `waitForTransaction`; `Tx.submit` never calls it, returns the execution result directly, and instead
+   re-sends the identical signed bytes on retryable transport failures before reconciling by digest.
 4. **On-chain execution failure is `ExecutionFailed`.** A transaction that reached the chain and aborted or
    reverted fails with `ExecutionFailed { digest, reason, command?, effects }`, not the old
    `TransactionFailedError { digest, status }` shape.
 5. **An unknown outcome is `SubmissionUnknown`, carrying bytes.** If a transport failure happens after the
    transaction may already have been sent, sui-effect fails with `SubmissionUnknown` and the bytes that were
-   submitted, so a caller can reconcile deliberately — it does not retry-resubmit under the hood the way
-   `signAndExecute` did.
+   submitted, so a caller can reconcile deliberately. `signAndExecute` never retried; it surfaced the same
+   situation as an opaque `SuiRpcError` with no bytes to reconcile from.
 
 ## Errors (0.1.1 reference)
 
