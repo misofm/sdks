@@ -69,7 +69,7 @@ function pin() {
   readonly getShareCurrencyTreasuryCap: (
     shareType: string,
     owner: SuiAddress,
-  ) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | TransportError, never>;
+  ) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | DecodeError | TransportError, never>;
 
   readonly view: {
     readonly deriveTargetReleaseId: (params: {

@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
 import { Effect } from "effect";
-import { ObjectId, SuiAddress } from "sui-effect";
+import { ExtensionNotReady, ObjectId, SuiAddress } from "sui-effect";
 import { FakeOutcome, SuiCoreFake } from "sui-effect/testing";
 import * as release from "../src/contracts/musicos/release.ts";
 import { musicos } from "../src/extension.ts";
@@ -72,6 +72,34 @@ describe("musicos(): the derived Promise face", () => {
     await expect(client.musicos.getReleaseById(ObjectId.make(MISSING_ID))).rejects.toMatchObject({
       _tag: "ObjectNotFound",
     });
+
+    await client.musicos.dispose();
+  });
+});
+
+describe("musicos(): synchronous members before and after $ready()", () => {
+  test("packageId and deployment are placeholders cold; $ready() makes both real", async () => {
+    const fake = await Effect.runPromise(Effect.provide(SuiCoreFake, SuiCoreFake.layer(script)));
+    const client = fake.client.$extend(musicos({ deployment: { packageId: PACKAGE_ID } }));
+
+    // Before the runtime exists, the face does not yet know what a member
+    // *is*: both `packageId` (a leaf string) and `deployment` (a plain
+    // object, mapped as a namespace) come back as placeholder functions —
+    // not their real shapes, and not `undefined` either.
+    expect(typeof client.musicos.packageId).toBe("function");
+    expect(typeof client.musicos.deployment).toBe("function");
+
+    // Used as the string it is typed to be, the placeholder throws
+    // `ExtensionNotReady`, naming itself, instead of quietly returning
+    // something that is not a string.
+    expect(() => String(client.musicos.packageId)).toThrow(ExtensionNotReady);
+
+    await client.musicos.$ready();
+
+    // Real from here on: a plain string and a plain object, not functions.
+    expect(typeof client.musicos.packageId).not.toBe("function");
+    expect(String(client.musicos.packageId)).toBe(PACKAGE_ID);
+    expect(client.musicos.deployment.packageId).toBe(PACKAGE_ID);
 
     await client.musicos.dispose();
   });

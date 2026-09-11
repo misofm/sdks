@@ -43,6 +43,7 @@ const RELEASE_REGISTRY_ID = padded("fa1");
 const RELEASE_ADMIN_CAP_ID = padded("fc1");
 const SHARE_CURRENCY_ID = padded("5c1");
 const TARGET_RELEASE_ID = padded("de1");
+const PARAMETERLESS_COMPOSITION_ID = padded("c02");
 
 const script = {
   objects: [
@@ -76,6 +77,23 @@ const script = {
       version: 3n,
       owner,
       content: composition.CompositionAdminCap.serialize({ id: COMPOSITION_ADMIN_CAP_ID }).toBytes(),
+    },
+    {
+      // A malformed on-chain type: no type parameter at all. `getCompositionById`
+      // still matches it (a bare expected tag compares address::module::name
+      // only, so it is agnostic to whether the actual type carries
+      // parameters), but `getCompositionShareType`'s `extractTypeParam` has
+      // nothing to extract and must fail typed, not throw a defect.
+      objectId: PARAMETERLESS_COMPOSITION_ID,
+      type: `${PACKAGE_ID}::composition::Composition`,
+      version: 1n,
+      owner,
+      content: composition.Composition.serialize({
+        id: PARAMETERLESS_COMPOSITION_ID,
+        state: { Initialized: true },
+        title: "No Share Type",
+        royalty_rate: [1000],
+      }).toBytes(),
     },
     {
       objectId: RECORDING_ID,
@@ -203,6 +221,20 @@ describe("Musicos: Composition", () => {
   test("getCompositionShareType extracts the share type off the object's own tag", async () => {
     const shareType = await provide(Effect.flatMap(Musicos, (m) => m.getCompositionShareType(ObjectId.make(COMPOSITION_ID))));
     expect(shareType).toBe(CS);
+  });
+
+  test("getCompositionById reads a parameterless Composition tag fine (a bare expected tag is agnostic to it)", async () => {
+    const result = await provide(
+      Effect.flatMap(Musicos, (m) => m.getCompositionById(ObjectId.make(PARAMETERLESS_COMPOSITION_ID))),
+    );
+    expect(result.title).toBe("No Share Type");
+  });
+
+  test("getCompositionShareType is DecodeError, not a thrown defect, for a parameterless Composition tag", async () => {
+    const error = await provide(
+      Effect.flatMap(Musicos, (m) => Effect.flip(m.getCompositionShareType(ObjectId.make(PARAMETERLESS_COMPOSITION_ID)))),
+    );
+    expect(error._tag).toBe("DecodeError");
   });
 
   test("getCompositionAdminCapById reads { id } from content and shareType from the object's tag", async () => {
