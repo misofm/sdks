@@ -29,11 +29,14 @@
  *   track's split there). The address is a pure function of
  *   `(parent_id, Share, Currency)`, so senders need the pool neither shared nor
  *   even created yet; a later `new` claims exactly that ID — and can only be the
- *   correctly-typed, shared pool. `receive_and_deposit` and `sweep_and_deposit`
- *   fold such funds into the accumulator, permissionlessly: anyone can complete
- *   the delivery. Both run through `deposit`, which aborts while no shares are
- *   staked — and the pool has no other withdrawal path — so funds at the pool's
- *   address wait, locked, until the pool exists and a stake registers.
+ *   correctly-typed, shared pool. `recover_coins` and `settle` fold such funds
+ *   into the accumulator, permissionlessly: anyone can complete the delivery. Both
+ *   are total — a crank-facing call never aborts for having nothing to do.
+ *   `settle` folds in what is settled at the pool's own address once stakers
+ *   exist; while `staked_shares == 0` it returns 0 and reads nothing, so funds at
+ *   the pool's address wait, unredeemed, until a stake registers. `recover_coins`
+ *   never deposits — it only converts coin objects into funds at the same address
+ *   for a later `settle` to redeem.
  *
  * ### No activation delay (deliberate)
  *
@@ -95,26 +98,95 @@ export const RoyaltyPool = new MoveStruct({ name: `${$moduleName}::RoyaltyPool<p
 export const RoyaltyPoolKey = new MoveTuple({ name: `${$moduleName}::RoyaltyPoolKey<phantom Share, phantom Currency>`, fields: [bcs.bool()] });
 export const RoyaltyPoolCreatedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolCreatedEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
-        parent_id: bcs.Address
+        parent_id: bcs.Address,
+        precision: bcs.u128(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
+    } });
+export const RoyaltyPoolSharedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolSharedEvent<phantom Share, phantom Currency>`, fields: {
+        pool_id: bcs.Address,
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
     } });
 export const RoyaltyDepositedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyDepositedEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
-        value: bcs.u64()
+        value: bcs.u64(),
+        cumulative_reward_per_share_before: bcs.u256(),
+        carry_before: bcs.u128(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
+    } });
+export const RoyaltyPoolFundsSettledEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolFundsSettledEvent<phantom Share, phantom Currency>`, fields: {
+        pool_id: bcs.Address,
+        source_address: bcs.Address,
+        accumulator_root_id: bcs.Address,
+        value: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
+    } });
+export const RoyaltyPoolCoinsRecoveredEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolCoinsRecoveredEvent<phantom Share, phantom Currency>`, fields: {
+        pool_id: bcs.Address,
+        coin_ids: bcs.vector(bcs.Address),
+        coin_count: bcs.u64(),
+        funds_recipient: bcs.Address,
+        value: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
     } });
 export const StakeRegisteredEvent = new MoveStruct({ name: `${$moduleName}::StakeRegisteredEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
         stake_id: bcs.Address,
-        staked_amount: bcs.u64()
+        staked_amount: bcs.u64(),
+        registration_debt_after: bcs.u256(),
+        stake_registration_count_after: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
     } });
 export const StakeUnregisteredEvent = new MoveStruct({ name: `${$moduleName}::StakeUnregisteredEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
         stake_id: bcs.Address,
-        unstaked_amount: bcs.u64()
+        unstaked_amount: bcs.u64(),
+        removed_registration_debt: bcs.u256(),
+        forfeited_reward_numerator: bcs.u256(),
+        stake_registration_count_after: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
     } });
 export const RoyaltyClaimedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyClaimedEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
         stake_id: bcs.Address,
-        reward_amount: bcs.u64()
+        staked_amount: bcs.u64(),
+        reward_amount: bcs.u64(),
+        registration_debt_before: bcs.u256(),
+        registration_debt_after: bcs.u256(),
+        reward_residue_after: bcs.u256(),
+        stake_registration_count_after: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares_after: bcs.u64(),
+        cumulative_reward_per_share_after: bcs.u256(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
     } });
 export interface NewArguments {
     parent: RawTransactionArgument<string>;
@@ -219,47 +291,12 @@ export function deposit(options: DepositOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface ReceiveAndDepositArguments {
-    self: RawTransactionArgument<string>;
-    coins: TransactionArgument;
-}
-export interface ReceiveAndDepositOptions {
-    package?: string;
-    arguments: ReceiveAndDepositArguments | [
-        self: RawTransactionArgument<string>,
-        coins: TransactionArgument
-    ];
-    typeArguments: [
-        string,
-        string
-    ];
-}
-/**
- * Receive `Coin<Currency>` objects sent directly to this pool's address and fold
- * them into the accumulator. Recovery path for funds delivered to the pool's
- * address rather than via the canonical extension path.
- */
-export function receiveAndDeposit(options: ReceiveAndDepositOptions) {
-    const packageAddress = options.package ?? '@local-pkg/royalty_pool';
-    const argumentsTypes = [
-        null,
-        'vector<null>'
-    ] satisfies (string | null)[];
-    const parameterNames = ["self", "coins"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'pool',
-        function: 'receive_and_deposit',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-        typeArguments: options.typeArguments
-    });
-}
-export interface SweepAndDepositArguments {
+export interface SettleArguments {
     self: RawTransactionArgument<string>;
 }
-export interface SweepAndDepositOptions {
+export interface SettleOptions {
     package?: string;
-    arguments: SweepAndDepositArguments | [
+    arguments: SettleArguments | [
         self: RawTransactionArgument<string>
     ];
     typeArguments: [
@@ -268,15 +305,13 @@ export interface SweepAndDepositOptions {
     ];
 }
 /**
- * Redeem the pool's funds settled at the start of the current consensus commit and
- * fold them into the royalty accumulator. Recovery path for funds delivered via
- * Sui's `send_funds` mechanism rather than via the canonical extension path.
- *
- * The framework returns at most `u64::MAX` per call. Any excess, along with funds
- * sent later in the current commit, remains for a subsequent sweep. Aborts with
- * `ENoSettledFunds` when no positive amount is currently eligible.
+ * Redeem everything settled at this pool's own address and fold it into the
+ * accumulator. Recovery path for funds a routed sweep parked here while the pool
+ * had no stakers. Returns the value deposited. Returns 0 and changes nothing when
+ * nothing is settled or when `staked_shares == 0` (the funds stay at the pool's
+ * address until a stake registers). Permissionless.
  */
-export function sweepAndDeposit(options: SweepAndDepositOptions) {
+export function settle(options: SettleOptions) {
     const packageAddress = options.package ?? '@local-pkg/royalty_pool';
     const argumentsTypes = [
         null,
@@ -286,7 +321,42 @@ export function sweepAndDeposit(options: SweepAndDepositOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'pool',
-        function: 'sweep_and_deposit',
+        function: 'settle',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface RecoverCoinsArguments {
+    self: RawTransactionArgument<string>;
+    coins: TransactionArgument;
+}
+export interface RecoverCoinsOptions {
+    package?: string;
+    arguments: RecoverCoinsArguments | [
+        self: RawTransactionArgument<string>,
+        coins: TransactionArgument
+    ];
+    typeArguments: [
+        string,
+        string
+    ];
+}
+/**
+ * Convert `Coin` objects sent to this pool's address into funds at the same
+ * address, so `settle` can fold them in next commit. Deposits nothing. Returns the
+ * value converted; 0 for an empty vector. Permissionless.
+ */
+export function recoverCoins(options: RecoverCoinsOptions) {
+    const packageAddress = options.package ?? '@local-pkg/royalty_pool';
+    const argumentsTypes = [
+        null,
+        'vector<null>'
+    ] satisfies (string | null)[];
+    const parameterNames = ["self", "coins"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'pool',
+        function: 'recover_coins',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
@@ -565,6 +635,38 @@ export function cumulativeDeposits(options: CumulativeDepositsOptions) {
         package: packageAddress,
         module: 'pool',
         function: 'cumulative_deposits',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface SettledValueArguments {
+    self: RawTransactionArgument<string>;
+}
+export interface SettledValueOptions {
+    package?: string;
+    arguments: SettledValueArguments | [
+        self: RawTransactionArgument<string>
+    ];
+    typeArguments: [
+        string,
+        string
+    ];
+}
+/**
+ * Funds of `Currency` settled at this pool's own address as of the start of the
+ * current consensus commit — what `settle` would redeem right now.
+ */
+export function settledValue(options: SettledValueOptions) {
+    const packageAddress = options.package ?? '@local-pkg/royalty_pool';
+    const argumentsTypes = [
+        null,
+        '0x2::accumulator::AccumulatorRoot'
+    ] satisfies (string | null)[];
+    const parameterNames = ["self"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'pool',
+        function: 'settled_value',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

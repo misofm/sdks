@@ -31,9 +31,16 @@ export const Genre = new MoveStruct({ name: `${$moduleName}::Genre`, fields: {
         name: bcs.string()
     } });
 export const GenreKey = new MoveTuple({ name: `${$moduleName}::GenreKey`, fields: [bcs.string()] });
+export const GenreRegistryCreatedEvent = new MoveStruct({ name: `${$moduleName}::GenreRegistryCreatedEvent`, fields: {
+        registry_id: bcs.Address,
+        initializer: bcs.Address,
+        is_shared: bcs.bool()
+    } });
 export const GenreCreatedEvent = new MoveStruct({ name: `${$moduleName}::GenreCreatedEvent`, fields: {
+        registry_id: bcs.Address,
         genre_id: bcs.Address,
-        name: bcs.string()
+        name: bcs.vector(bcs.u8()),
+        is_frozen: bcs.bool()
     } });
 export interface NewArguments {
     registry: RawTransactionArgument<string>;

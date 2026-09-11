@@ -79,16 +79,60 @@ import type {} from "@mysten/bcs";
 import { type Transaction } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/recording_genre::recording_genre';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const GenreAddedEvent = new MoveStruct({ name: `${$moduleName}::GenreAddedEvent`, fields: {
+export const RecordingGenreAddedEvent = new MoveStruct({ name: `${$moduleName}::RecordingGenreAddedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        genre_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_name: bcs.vector(bcs.u8()),
+        genre_index: bcs.u64(),
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
-export const GenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::GenreRemovedEvent`, fields: {
+export const RecordingGenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::RecordingGenreRemovedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        genre_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_index: bcs.u64(),
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
-export const GenresClearedEvent = new MoveStruct({ name: `${$moduleName}::GenresClearedEvent`, fields: {
-        recording_id: bcs.Address
+export const RecordingGenresClearedEvent = new MoveStruct({ name: `${$moduleName}::RecordingGenresClearedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        clear_cause: bcs.u8(),
+        trigger_genre_id: bcs.Address,
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
 export interface AddGenreArguments {
     self: RawTransactionArgument<string>;
@@ -149,8 +193,8 @@ export interface RemoveGenreOptions {
 /**
  * Removes a genre by id. If it was the primary, the next genre in the list becomes
  * primary. Removing the last remaining genre drops the field entirely and
- * additionally emits `GenresClearedEvent`. Aborts `EGenreNotPresent` if the genre
- * is not assigned — including when nothing is attached at all.
+ * additionally emits `RecordingGenresClearedEvent`. Aborts `EGenreNotPresent` if
+ * the genre is not assigned — including when nothing is attached at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_genre';
@@ -185,7 +229,7 @@ export interface ClearGenresOptions {
 }
 /**
  * Removes the recording's entire genre list. A no-op when nothing is attached.
- * Emits `GenresClearedEvent` only when a list was actually removed.
+ * Emits `RecordingGenresClearedEvent` only when a list was actually removed.
  */
 export function clearGenres(options: ClearGenresOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_genre';

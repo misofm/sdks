@@ -35,12 +35,27 @@ import type {} from "@mysten/bcs";
 import { type Transaction } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/release_kind::release_kind';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const KindSetEvent = new MoveStruct({ name: `${$moduleName}::KindSetEvent`, fields: {
+export const ReleaseKindSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseKindSetEvent`, fields: {
         release_id: bcs.Address,
-        kind: bcs.string()
+        release_admin_cap_id: bcs.Address,
+        kind_record_existed_before: bcs.bool(),
+        previous_kind: bcs.vector(bcs.u8()),
+        previous_kind_length: bcs.u64(),
+        kind: bcs.vector(bcs.u8()),
+        kind_length: bcs.u64(),
+        kind_record_exists_after: bcs.bool(),
+        kind_changed: bcs.bool()
     } });
-export const KindUnsetEvent = new MoveStruct({ name: `${$moduleName}::KindUnsetEvent`, fields: {
-        release_id: bcs.Address
+export const ReleaseKindUnsetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseKindUnsetEvent`, fields: {
+        release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        kind_record_existed_before: bcs.bool(),
+        previous_kind: bcs.vector(bcs.u8()),
+        previous_kind_length: bcs.u64(),
+        kind: bcs.vector(bcs.u8()),
+        kind_length: bcs.u64(),
+        kind_record_exists_after: bcs.bool(),
+        kind_changed: bcs.bool()
     } });
 export interface SetKindArguments {
     self: RawTransactionArgument<string>;

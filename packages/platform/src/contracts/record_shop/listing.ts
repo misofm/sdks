@@ -15,7 +15,6 @@ import { MoveTuple, MoveEnum, MoveStruct, normalizeMoveArguments, type RawTransa
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as type_name from './deps/std/type_name.ts';
 const $moduleName = '@local-pkg/record_shop::listing';
 export const ListingKey = new MoveTuple({ name: `${$moduleName}::ListingKey<phantom Currency>`, fields: [bcs.bool()] });
 /** Payment rule for a Listing. */
@@ -49,22 +48,66 @@ export const ListingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Listi
         release_id: bcs.Address,
         /** The Pressing sold by the Listing. */
         pressing_id: bcs.Address,
-        /** The Listing's initial payment rule. */
-        pricing: Pricing,
-        /** The Listing's initial state. */
-        state: State
+        /** The admin capability used to create the Listing. */
+        pressing_admin_cap_id: bcs.Address,
+        /** Whether the Listing's initial payment rule requires exact payment. */
+        pricing_is_fixed: bcs.bool(),
+        /** The Listing's initial configured amount. */
+        price: bcs.u64(),
+        /** Whether the Listing initially accepts purchases. */
+        enabled: bcs.bool()
+    } });
+export const ListingSharedEvent = new MoveStruct({ name: `${$moduleName}::ListingSharedEvent<phantom Currency>`, fields: {
+        /** The shared Listing. */
+        listing_id: bcs.Address,
+        /** The release that receives Listing payments. */
+        release_id: bcs.Address,
+        /** The Pressing sold by the Listing. */
+        pressing_id: bcs.Address,
+        /** Whether the Listing's payment rule requires exact payment. */
+        pricing_is_fixed: bcs.bool(),
+        /** The Listing's configured amount. */
+        price: bcs.u64(),
+        /** Whether the Listing accepts purchases. */
+        enabled: bcs.bool()
     } });
 export const ListingPriceChangedEvent = new MoveStruct({ name: `${$moduleName}::ListingPriceChangedEvent<phantom Currency>`, fields: {
         /** The updated Listing. */
         listing_id: bcs.Address,
-        /** The new payment rule. */
-        pricing: Pricing
+        /** The release that receives Listing payments. */
+        release_id: bcs.Address,
+        /** The Pressing sold by the Listing. */
+        pressing_id: bcs.Address,
+        /** The admin capability used to change the Listing. */
+        pressing_admin_cap_id: bcs.Address,
+        /** Whether the prior payment rule required exact payment. */
+        pricing_is_fixed_before: bcs.bool(),
+        /** The prior configured amount. */
+        price_before: bcs.u64(),
+        /** Whether the new payment rule requires exact payment. */
+        pricing_is_fixed_after: bcs.bool(),
+        /** The new configured amount. */
+        price_after: bcs.u64(),
+        /** Whether the Listing accepts purchases. */
+        enabled: bcs.bool()
     } });
 export const ListingStateChangedEvent = new MoveStruct({ name: `${$moduleName}::ListingStateChangedEvent<phantom Currency>`, fields: {
         /** The updated Listing. */
         listing_id: bcs.Address,
-        /** The new Listing state. */
-        state: State
+        /** The release that receives Listing payments. */
+        release_id: bcs.Address,
+        /** The Pressing sold by the Listing. */
+        pressing_id: bcs.Address,
+        /** The admin capability used to change the Listing. */
+        pressing_admin_cap_id: bcs.Address,
+        /** Whether the current payment rule requires exact payment. */
+        pricing_is_fixed: bcs.bool(),
+        /** The current configured amount. */
+        price: bcs.u64(),
+        /** Whether the Listing accepted purchases before the change. */
+        enabled_before: bcs.bool(),
+        /** Whether the Listing accepts purchases after the change. */
+        enabled_after: bcs.bool()
     } });
 export const RecordSoldEvent = new MoveStruct({ name: `${$moduleName}::RecordSoldEvent<phantom Currency>`, fields: {
         /** The Listing that completed the sale. */
@@ -79,16 +122,36 @@ export const RecordSoldEvent = new MoveStruct({ name: `${$moduleName}::RecordSol
         edition: bcs.u16(),
         /** The Record's number within its edition. */
         number: bcs.u32(),
-        /** The defining type of the purchase currency. */
-        purchase_currency: type_name.TypeName,
+        /** The defining type of the purchase currency, as raw UTF-8 bytes. */
+        purchase_currency: bcs.vector(bcs.u8()),
         /** The amount paid for the Record. */
         purchase_price: bcs.u64(),
         /** The transaction sender who purchased the Record. */
         purchased_by: bcs.Address,
         /** The purchase time in Unix milliseconds from Sui's Clock. */
         purchased_timestamp_ms: bcs.u64(),
-        /** The payment rule accepted for the sale. */
-        pricing: Pricing
+        /** Whether the accepted payment rule required exact payment. */
+        pricing_is_fixed: bcs.bool(),
+        /** The configured amount of the accepted payment rule. */
+        price: bcs.u64(),
+        /** Whether the Listing accepted purchases. */
+        enabled: bcs.bool(),
+        /** The defining type of the distributor that authorized the mint. */
+        distributor: bcs.vector(bcs.u8()),
+        /** Supply immediately before this mint. */
+        supply_before: bcs.u32(),
+        /** Supply delta applied by this mint. */
+        supply_delta: bcs.u32(),
+        /** Supply immediately after this mint. */
+        supply_after: bcs.u32(),
+        /** Whether the Pressing has a maximum supply. */
+        has_max_supply: bcs.bool(),
+        /** The maximum supply, or zero when uncapped. */
+        max_supply: bcs.u32(),
+        /** The Release address receiving payment. */
+        payment_recipient: bcs.Address,
+        /** The complete amount paid, including accepted Floor overpayment. */
+        proceeds_amount: bcs.u64()
     } });
 export interface FixedArguments {
     price: RawTransactionArgument<number | bigint>;

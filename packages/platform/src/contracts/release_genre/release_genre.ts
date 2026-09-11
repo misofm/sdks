@@ -45,7 +45,7 @@
  * `recording_language` for its `vector<LanguageCode>`. The list is non-empty by
  * construction: `remove_genre` drops the field the moment the last entry leaves,
  * so "the field exists" and "there is a primary" are the same fact and no reader
- * has to handle an attached-but-empty case. Every write takes `&Genre`, so only an
+ * has to handle an attached-but-empty case. Every add takes `&Genre`, so only an
  * id that the shared vocabulary actually minted can ever enter the list; removal
  * takes a bare `ID` because nothing about proving membership is needed to take an
  * entry back out.
@@ -66,16 +66,57 @@ import type {} from "@mysten/bcs";
 import { type Transaction } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/release_genre::release_genre';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const GenreAddedEvent = new MoveStruct({ name: `${$moduleName}::GenreAddedEvent`, fields: {
+export const ReleaseGenreAddedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseGenreAddedEvent`, fields: {
         release_id: bcs.Address,
-        genre_id: bcs.Address
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_name: bcs.vector(bcs.u8()),
+        genre_index: bcs.u64(),
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
-export const GenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::GenreRemovedEvent`, fields: {
+export const ReleaseGenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseGenreRemovedEvent`, fields: {
         release_id: bcs.Address,
-        genre_id: bcs.Address
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_index: bcs.u64(),
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
-export const GenresClearedEvent = new MoveStruct({ name: `${$moduleName}::GenresClearedEvent`, fields: {
-        release_id: bcs.Address
+export const ReleaseGenresClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseGenresClearedEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        clear_cause: bcs.u8(),
+        trigger_genre_id: bcs.Address,
+        genres_before: bcs.vector(bcs.Address),
+        genres_after: bcs.vector(bcs.Address),
+        genre_count_before: bcs.u64(),
+        genre_count_after: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        had_primary_before: bcs.bool(),
+        has_primary_after: bcs.bool(),
+        primary_genre_id_before: bcs.Address,
+        primary_genre_id_after: bcs.Address,
+        primary_changed: bcs.bool()
     } });
 export interface AddGenreArguments {
     self: RawTransactionArgument<string>;
@@ -127,9 +168,9 @@ export interface RemoveGenreOptions {
 /**
  * Removes a genre from the release by id. If it was the primary, the next entry
  * (if any) becomes primary by virtue of now sitting at index 0. Removing the last
- * genre drops the field entirely and additionally emits `GenresClearedEvent`.
- * Aborts `EGenreNotPresent` if the genre is not currently assigned, including when
- * the release has no genres at all.
+ * genre drops the field entirely and additionally emits
+ * `ReleaseGenresClearedEvent`. Aborts `EGenreNotPresent` if the genre is not
+ * currently assigned, including when the release has no genres at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';
@@ -159,7 +200,7 @@ export interface ClearGenresOptions {
 }
 /**
  * Removes the release's entire genre list. A no-op when nothing is attached. Emits
- * `GenresClearedEvent` only when a list was actually removed.
+ * `ReleaseGenresClearedEvent` only when a list was actually removed.
  */
 export function clearGenres(options: ClearGenresOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_genre';

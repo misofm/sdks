@@ -20,12 +20,13 @@ import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/party_wallet::party_wallet';
-export const ObjectReceivedEvent = new MoveStruct({ name: `${$moduleName}::ObjectReceivedEvent`, fields: {
+export const ObjectReceivedEvent = new MoveStruct({ name: `${$moduleName}::ObjectReceivedEvent<phantom T>`, fields: {
         party_id: bcs.Address,
         object_id: bcs.Address
     } });
 export const CoinsReceivedEvent = new MoveStruct({ name: `${$moduleName}::CoinsReceivedEvent<phantom Currency>`, fields: {
         party_id: bcs.Address,
+        coin_ids: bcs.vector(bcs.Address),
         amount: bcs.u64(),
         coins: bcs.u64()
     } });

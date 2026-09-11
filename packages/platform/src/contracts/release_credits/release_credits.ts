@@ -34,15 +34,29 @@ export const ReleaseCredits = new MoveStruct({ name: `${$moduleName}::ReleaseCre
         /** Map of party IDs to their credit (display name + role). */
         credits: vec_map.VecMap(bcs.Address, credit.Credit(release_party_role.ReleasePartyRole))
     } });
-export const CreditAddedEvent = new MoveStruct({ name: `${$moduleName}::CreditAddedEvent`, fields: {
+export const ReleaseCreditAddedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCreditAddedEvent`, fields: {
         release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(release_party_role.ReleasePartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kind: bcs.u8(),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        credit_index: bcs.u64(),
+        credits_record_existed_before: bcs.bool(),
+        credits_record_exists_after: bcs.bool()
     } });
-export const CreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::CreditRemovedEvent`, fields: {
+export const ReleaseCreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCreditRemovedEvent`, fields: {
         release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(release_party_role.ReleasePartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kind: bcs.u8(),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        credit_index: bcs.u64(),
+        credits_record_existed_before: bcs.bool(),
+        credits_record_exists_after: bcs.bool()
     } });
 export interface AddCreditArguments {
     self: RawTransactionArgument<string>;

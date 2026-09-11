@@ -54,11 +54,14 @@ export const Stake = new MoveStruct({ name: `${$moduleName}::Stake<phantom Share
     } });
 export const StakeCreatedEvent = new MoveStruct({ name: `${$moduleName}::StakeCreatedEvent<phantom Share>`, fields: {
         stake_id: bcs.Address,
-        amount: bcs.u64()
+        transaction_sender: bcs.Address,
+        amount: bcs.u64(),
+        registration_count_after: bcs.u64()
     } });
 export const StakeDestroyedEvent = new MoveStruct({ name: `${$moduleName}::StakeDestroyedEvent<phantom Share>`, fields: {
         stake_id: bcs.Address,
-        amount: bcs.u64()
+        amount: bcs.u64(),
+        registration_count_before: bcs.u64()
     } });
 export interface NewArguments {
     balance: TransactionArgument;

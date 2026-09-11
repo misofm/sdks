@@ -28,13 +28,86 @@
  * the `ReleaseAdminCap` via `uid_mut`; views are permissionless.
  */
 
-import { MoveTuple, MoveEnum, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { MoveTuple, MoveStruct, MoveEnum, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/release_dsp_link::release_dsp_link';
 export const ReleaseLinkKey = new MoveTuple({ name: `${$moduleName}::ReleaseLinkKey`, fields: [bcs.u8()] });
 export const TrackLinksKey = new MoveTuple({ name: `${$moduleName}::TrackLinksKey`, fields: [bcs.u8()] });
+export const ReleaseDspLinkSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDspLinkSetEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        platform: bcs.u8(),
+        track_count: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        previous_present: bcs.bool(),
+        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
+        current_present: bcs.bool(),
+        current_fields: bcs.vector(bcs.vector(bcs.u8()))
+    } });
+export const ReleaseDspLinkClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDspLinkClearedEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        platform: bcs.u8(),
+        track_count: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        previous_present: bcs.bool(),
+        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
+        current_present: bcs.bool(),
+        current_fields: bcs.vector(bcs.vector(bcs.u8()))
+    } });
+export const ReleaseTrackDspLinkSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinkSetEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        platform: bcs.u8(),
+        track_count: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        track_index: bcs.u64(),
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        previous_present: bcs.bool(),
+        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
+        current_present: bcs.bool(),
+        current_fields: bcs.vector(bcs.vector(bcs.u8())),
+        album_present: bcs.bool(),
+        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+    } });
+export const ReleaseTrackDspLinkClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinkClearedEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        platform: bcs.u8(),
+        track_count: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        track_index: bcs.u64(),
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        previous_present: bcs.bool(),
+        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
+        current_present: bcs.bool(),
+        current_fields: bcs.vector(bcs.vector(bcs.u8())),
+        album_present: bcs.bool(),
+        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+    } });
+export const ReleaseTrackDspLinksClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinksClearedEvent`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        platform: bcs.u8(),
+        track_count: bcs.u64(),
+        field_existed_before: bcs.bool(),
+        field_exists_after: bcs.bool(),
+        removed_link_count: bcs.u64(),
+        removed_track_indices: bcs.vector(bcs.u64()),
+        removed_recording_ids: bcs.vector(bcs.Address),
+        removed_composition_ids: bcs.vector(bcs.Address),
+        removed_link_fields: bcs.vector(bcs.vector(bcs.vector(bcs.u8()))),
+        album_present: bcs.bool(),
+        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+    } });
 /**
  * A link to a release (or one of its tracks) on a single DSP, one variant per
  * platform. Which slot a value is stored in — the album-level slot or a per-track
@@ -129,24 +202,6 @@ export const DspLinkData = new MoveEnum({ name: `${$moduleName}::DspLinkData`, f
         YouTubeMusic: new MoveStruct({ name: `DspLinkData.YouTubeMusic`, fields: {
                 id: bcs.string()
             } })
-    } });
-export const ReleaseLinkSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseLinkSetEvent`, fields: {
-        release_id: bcs.Address,
-        link: DspLinkData
-    } });
-export const ReleaseLinkClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseLinkClearedEvent`, fields: {
-        release_id: bcs.Address,
-        platform: bcs.u8()
-    } });
-export const TrackLinkSetEvent = new MoveStruct({ name: `${$moduleName}::TrackLinkSetEvent`, fields: {
-        release_id: bcs.Address,
-        platform: bcs.u8(),
-        track_index: bcs.u64(),
-        link: bcs.option(DspLinkData)
-    } });
-export const TrackLinksClearedEvent = new MoveStruct({ name: `${$moduleName}::TrackLinksClearedEvent`, fields: {
-        release_id: bcs.Address,
-        platform: bcs.u8()
     } });
 export interface PlatformArguments {
     self: TransactionArgument;

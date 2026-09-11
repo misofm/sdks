@@ -47,10 +47,18 @@ export const PressingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Pres
         pressing_id: bcs.Address,
         /** The parent release. */
         release_id: bcs.Address,
+        /** The Pressing's admin capability. */
+        pressing_admin_cap_id: bcs.Address,
+        /** The Release admin capability used to create this Pressing. */
+        release_admin_cap_id: bcs.Address,
         /** The Pressing's edition number. */
         edition: bcs.u16(),
+        /** The number of Records issued by this Pressing. */
+        supply: bcs.u32(),
         /** The immutable supply ceiling, if one exists. */
-        max_supply: bcs.option(bcs.u32())
+        max_supply: bcs.option(bcs.u32()),
+        /** Defining type names of distributors currently permitted to mint. */
+        distributors: bcs.vector(bcs.string())
     } });
 export const DistributorAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::DistributorAuthorizedEvent`, fields: {
         /** The configured Pressing. */
@@ -64,7 +72,7 @@ export const DistributorRevokedEvent = new MoveStruct({ name: `${$moduleName}::D
         /** The revoked distributor's defining type. */
         distributor: type_name.TypeName
     } });
-export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::RecordPurchasedEvent`, fields: {
+export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::RecordPurchasedEvent<phantom Distributor, phantom Currency>`, fields: {
         /** The purchased Record. */
         record_id: bcs.Address,
         /** The release represented by the Record. */
@@ -76,7 +84,7 @@ export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::Reco
         /** The Record's number within its edition. */
         number: bcs.u32(),
         /** The defining type of the purchase currency. */
-        purchase_currency: type_name.TypeName,
+        purchase_currency: bcs.string(),
         /** The amount paid for the Record. */
         purchase_price: bcs.u64(),
         /** The transaction sender who purchased the Record. */
@@ -84,7 +92,45 @@ export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::Reco
         /** The purchase time in Unix milliseconds from Sui's Clock. */
         purchased_timestamp_ms: bcs.u64(),
         /** The defining type of the distributor that authorized the mint. */
-        distributor: type_name.TypeName
+        distributor: bcs.string(),
+        /** Supply immediately before this mint. */
+        supply_before: bcs.u32(),
+        /** Supply delta applied by this mint. */
+        supply_delta: bcs.u32(),
+        /** Supply immediately after this mint. */
+        supply_after: bcs.u32(),
+        /** The immutable supply ceiling, if one exists. */
+        max_supply: bcs.option(bcs.u32())
+    } });
+export const PressingSharedEvent = new MoveStruct({ name: `${$moduleName}::PressingSharedEvent`, fields: {
+        pressing_id: bcs.Address,
+        release_id: bcs.Address,
+        edition: bcs.u16(),
+        supply: bcs.u32(),
+        max_supply: bcs.option(bcs.u32()),
+        distributors: bcs.vector(bcs.string())
+    } });
+export const PressingDistributorAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PressingDistributorAuthorizedEvent<phantom Distributor>`, fields: {
+        pressing_id: bcs.Address,
+        release_id: bcs.Address,
+        edition: bcs.u16(),
+        pressing_admin_cap_id: bcs.Address,
+        distributor: bcs.string(),
+        authorized_before: bcs.bool(),
+        authorized_after: bcs.bool(),
+        distributor_count_before: bcs.u64(),
+        distributor_count_after: bcs.u64()
+    } });
+export const PressingDistributorRevokedEvent = new MoveStruct({ name: `${$moduleName}::PressingDistributorRevokedEvent<phantom Distributor>`, fields: {
+        pressing_id: bcs.Address,
+        release_id: bcs.Address,
+        edition: bcs.u16(),
+        pressing_admin_cap_id: bcs.Address,
+        distributor: bcs.string(),
+        authorized_before: bcs.bool(),
+        authorized_after: bcs.bool(),
+        distributor_count_before: bcs.u64(),
+        distributor_count_after: bcs.u64()
     } });
 export interface NewArguments {
     release: RawTransactionArgument<string>;

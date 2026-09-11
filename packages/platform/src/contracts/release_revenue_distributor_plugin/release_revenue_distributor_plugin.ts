@@ -5,8 +5,45 @@
 
 /** Vault adapter for Release revenue-distribution Actions. */
 
+import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { bcs } from '@mysten/sui/bcs';
+import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+const $moduleName = '@local-pkg/release_revenue_distributor_plugin::release_revenue_distributor_plugin';
+export const ReleaseRevenueDistributorPluginInstalledEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRevenueDistributorPluginInstalledEvent<phantom Cap, phantom Plugin>`, fields: {
+        vault_id: bcs.Address,
+        vault_admin_cap_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        vault_active: bcs.bool(),
+        authorized_before: bcs.bool(),
+        authorized_after: bcs.bool(),
+        authorized_plugin_count_before: bcs.u64(),
+        authorized_plugin_count_after: bcs.u64()
+    } });
+export const ReleaseRevenueDistributorPluginUninstalledEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRevenueDistributorPluginUninstalledEvent<phantom Cap, phantom Plugin>`, fields: {
+        vault_id: bcs.Address,
+        vault_admin_cap_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        vault_active: bcs.bool(),
+        authorized_before: bcs.bool(),
+        authorized_after: bcs.bool(),
+        authorized_plugin_count_before: bcs.u64(),
+        authorized_plugin_count_after: bcs.u64()
+    } });
+export const ReleaseRevenueCoinsDistributedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRevenueCoinsDistributedEvent<phantom Currency, phantom Cap, phantom Plugin>`, fields: {
+        vault_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        release_id: bcs.Address,
+        input_coin_count: bcs.u64(),
+        input_coin_ids: bcs.vector(bcs.Address)
+    } });
+export const ReleaseRevenueFundsDistributedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRevenueFundsDistributedEvent<phantom Currency, phantom Cap, phantom Plugin>`, fields: {
+        vault_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        release_id: bcs.Address,
+        accumulator_root_id: bcs.Address,
+        settled_input: bcs.u64()
+    } });
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;

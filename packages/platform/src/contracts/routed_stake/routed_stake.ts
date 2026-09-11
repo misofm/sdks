@@ -50,21 +50,84 @@ export const RoutedStakeKey = new MoveTuple({ name: `${$moduleName}::RoutedStake
 export const RoutedStakeCreatedEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeCreatedEvent<phantom StakeShare, phantom PoolShare>`, fields: {
         routed_stake_id: bcs.Address,
         parent_id: bcs.Address,
+        stake_id: bcs.Address,
         staked_value: bcs.u64()
+    } });
+export const RoutedStakeSharedEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeSharedEvent<phantom StakeShare, phantom PoolShare>`, fields: {
+        routed_stake_id: bcs.Address,
+        has_stake: bcs.bool(),
+        stake_id: bcs.Address,
+        staked_value: bcs.u64(),
+        registration_count: bcs.u64()
+    } });
+export const RoutedStakeRegisteredEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeRegisteredEvent<phantom StakeShare, phantom PoolShare, phantom Currency>`, fields: {
+        routed_stake_id: bcs.Address,
+        parent_id: bcs.Address,
+        stake_id: bcs.Address,
+        stake_pool_id: bcs.Address,
+        staked_value: bcs.u64(),
+        registration_count_before: bcs.u64(),
+        registration_count_after: bcs.u64(),
+        pool_staked_shares_before: bcs.u64(),
+        pool_staked_shares_after: bcs.u64(),
+        pool_cumulative_reward_per_share: bcs.u256(),
+        registration_debt_after: bcs.u256()
+    } });
+export const RoutedStakeUnregisteredEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeUnregisteredEvent<phantom StakeShare, phantom PoolShare, phantom Currency>`, fields: {
+        routed_stake_id: bcs.Address,
+        parent_id: bcs.Address,
+        stake_id: bcs.Address,
+        stake_pool_id: bcs.Address,
+        staked_value: bcs.u64(),
+        registration_count_before: bcs.u64(),
+        registration_count_after: bcs.u64(),
+        pool_staked_shares_before: bcs.u64(),
+        pool_staked_shares_after: bcs.u64(),
+        pool_cumulative_reward_per_share: bcs.u256(),
+        registration_debt_before: bcs.u256()
     } });
 export const RoutedStakeSweptEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeSweptEvent<phantom StakeShare, phantom PoolShare, phantom Currency>`, fields: {
         routed_stake_id: bcs.Address,
         parent_id: bcs.Address,
-        value: bcs.u64()
+        stake_id: bcs.Address,
+        stake_pool_id: bcs.Address,
+        routed_pool_id: bcs.Address,
+        value: bcs.u64(),
+        /**
+         * `true` when the reward was sent to the routed pool's own address because it had
+         * no stakers to attribute the deposit to; `false` when it was deposited into the
+         * accumulator directly.
+         */
+        parked: bcs.bool(),
+        staked_value: bcs.u64(),
+        source_balance_before: bcs.u64(),
+        source_balance_after: bcs.u64(),
+        source_staked_shares: bcs.u64(),
+        source_index: bcs.u256(),
+        source_carry: bcs.u128(),
+        source_cumulative_deposits: bcs.u128(),
+        registration_debt_before: bcs.u256(),
+        registration_debt_after: bcs.u256(),
+        destination_balance_before: bcs.u64(),
+        destination_balance_after: bcs.u64(),
+        destination_staked_shares: bcs.u64(),
+        destination_index_before: bcs.u256(),
+        destination_index_after: bcs.u256(),
+        destination_carry_before: bcs.u128(),
+        destination_carry_after: bcs.u128(),
+        destination_cumulative_deposits_before: bcs.u128(),
+        destination_cumulative_deposits_after: bcs.u128()
     } });
 export const RoutedStakeUnstakedEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeUnstakedEvent<phantom StakeShare, phantom PoolShare>`, fields: {
         routed_stake_id: bcs.Address,
         parent_id: bcs.Address,
+        stake_id: bcs.Address,
         unstaked_value: bcs.u64()
     } });
 export const RoutedStakeRestakedEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeRestakedEvent<phantom StakeShare, phantom PoolShare>`, fields: {
         routed_stake_id: bcs.Address,
         parent_id: bcs.Address,
+        stake_id: bcs.Address,
         staked_value: bcs.u64()
     } });
 export interface NewArguments {
@@ -311,15 +374,24 @@ export interface SweepOptions {
  * Claim the wrapped stake's accrued rewards from `stake_pool` and commit them to
  * `routed_pool` — the parent's own pool. Permissionless: the caller supplies
  * `parent_id`, but cannot lie, because both the wrapper's own address and
- * `routed_pool`'s address must derive from it. A zero reward is a no-op (no
- * event), so the call composes safely into batch PTBs.
+ * `routed_pool`'s address must derive from it (checked first, and always — these
+ * are wrong-object asserts, not "nothing to do"). Returns the value moved,
+ * deposited or parked.
+ *
+ * A crank-facing call never aborts for having nothing to do: `sweep` is a total
+ * no-op — 0 returned, no event — in each of these cases, checked in this order
+ * before touching either pool: the wrapper is empty (`has_stake` false); the
+ * wrapped stake has no registration for `Currency`; or its registration names a
+ * pool other than `stake_pool`. Only once all three pass does it claim from
+ * `stake_pool` — where a zero reward is, again, a no-op.
  *
  * A pool deposit needs a registered stake to attribute to. While `routed_pool` has
  * none, the reward is instead sent to the pool's own address — ordinary
- * address-delivered funds, folded in permissionlessly by `pool::sweep_and_deposit`
- * once a stake registers. Either way the money is committed to the parent's pool,
- * so the route stays fixed and this call — and therefore `unregister`/`unstake` —
- * can never be blocked by the destination's state.
+ * address-delivered funds, folded in permissionlessly by `pool::settle` once a
+ * stake registers (`parked: true` in the emitted event). Either way the money is
+ * committed to the parent's pool, so the route stays fixed and this call — and
+ * therefore `unregister`/`unstake` — can never be blocked by the destination's
+ * state.
  */
 export function sweep(options: SweepOptions) {
     const packageAddress = options.package ?? '@local-pkg/routed_stake';

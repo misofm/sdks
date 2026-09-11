@@ -14,7 +14,9 @@
  * validation, the capacity, and the typed events. Duplicate / not-present /
  * over-max aborts come from `typed_set` with its own error codes. Tags are stored
  * as given (exact dedupe); normalization for search/display is a client concern.
- * Gated by the `PartyAdminCap`; views are permissionless.
+ * Gated by the `PartyAdminCap`; views are permissionless. Mutation events carry
+ * the party and cap addresses, the raw tag bytes, and before/after counts; a
+ * populated clear also carries the ordered raw tag snapshots.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -25,14 +27,24 @@ const $moduleName = '@local-pkg/party_tags::party_tags';
 export const TagsKey = new MoveTuple({ name: `${$moduleName}::TagsKey`, fields: [bcs.bool()] });
 export const TagAddedEvent = new MoveStruct({ name: `${$moduleName}::TagAddedEvent`, fields: {
         party_id: bcs.Address,
-        tag: bcs.string()
+        admin_cap_id: bcs.Address,
+        tag: bcs.vector(bcs.u8()),
+        tag_count_before: bcs.u64(),
+        tag_count_after: bcs.u64()
     } });
 export const TagRemovedEvent = new MoveStruct({ name: `${$moduleName}::TagRemovedEvent`, fields: {
         party_id: bcs.Address,
-        tag: bcs.string()
+        admin_cap_id: bcs.Address,
+        tag: bcs.vector(bcs.u8()),
+        tag_count_before: bcs.u64(),
+        tag_count_after: bcs.u64()
     } });
 export const TagsClearedEvent = new MoveStruct({ name: `${$moduleName}::TagsClearedEvent`, fields: {
-        party_id: bcs.Address
+        party_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        removed_tags: bcs.vector(bcs.vector(bcs.u8())),
+        tag_count_before: bcs.u64(),
+        tag_count_after: bcs.u64()
     } });
 export interface AddTagArguments {
     self: RawTransactionArgument<string>;

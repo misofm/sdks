@@ -49,21 +49,72 @@ export const VaultAdminCap = new MoveStruct({ name: `${$moduleName}::VaultAdminC
 export const VaultKey = new MoveTuple({ name: `${$moduleName}::VaultKey<phantom Cap>`, fields: [bcs.Address] });
 export const VaultAdminCapKey = new MoveTuple({ name: `${$moduleName}::VaultAdminCapKey`, fields: [bcs.bool()] });
 export const AuthorizedPluginKey = new MoveTuple({ name: `${$moduleName}::AuthorizedPluginKey<phantom Witness>`, fields: [bcs.bool()] });
+export const VaultRegistryCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultRegistryCreatedEvent`, fields: {
+        registry_id: bcs.Address,
+        shared: bcs.bool()
+    } });
 export const VaultCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultCreatedEvent<phantom Cap>`, fields: {
+        registry_id: bcs.Address,
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        authorized_plugins_id: bcs.Address,
+        authorized_plugin_count: bcs.u64(),
+        active: bcs.bool(),
+        capability_available: bcs.bool()
+    } });
+export const VaultSharedEvent = new MoveStruct({ name: `${$moduleName}::VaultSharedEvent<phantom Cap>`, fields: {
         vault_id: bcs.Address,
         cap_id: bcs.Address
     } });
 export const PluginAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PluginAuthorizedEvent<phantom Cap, phantom Witness>`, fields: {
-        vault_id: bcs.Address
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        authorized_plugins_id: bcs.Address,
+        authorized_plugin_count: bcs.u64(),
+        authorized: bcs.bool()
     } });
 export const PluginRevokedEvent = new MoveStruct({ name: `${$moduleName}::PluginRevokedEvent<phantom Cap, phantom Witness>`, fields: {
-        vault_id: bcs.Address
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        authorized_plugins_id: bcs.Address,
+        authorized_plugin_count: bcs.u64(),
+        authorized: bcs.bool()
     } });
 export const VaultCapabilityWithdrawnEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityWithdrawnEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
     } });
 export const VaultCapabilityRestoredEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityRestoredEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
+    } });
+export const VaultCapabilityBorrowedByPluginEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityBorrowedByPluginEvent<phantom Cap, phantom Witness>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
+    } });
+export const VaultCapabilityBorrowedByAdminEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityBorrowedByAdminEvent<phantom Cap>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
+    } });
+export const VaultCapabilityReturnedEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityReturnedEvent<phantom Cap>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
     } });
 export interface NewArguments<Cap extends BcsType<any>> {
     registry: RawTransactionArgument<string>;

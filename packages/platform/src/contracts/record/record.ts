@@ -52,8 +52,22 @@ export const RecordCreatedEvent = new MoveStruct({ name: `${$moduleName}::Record
 export const RecordDestroyedEvent = new MoveStruct({ name: `${$moduleName}::RecordDestroyedEvent`, fields: {
         /** The destroyed Record. */
         record_id: bcs.Address,
+        /** The release represented by the Record. */
+        release_id: bcs.Address,
         /** The Pressing that issued the Record. */
-        pressing_id: bcs.Address
+        pressing_id: bcs.Address,
+        /** The edition represented by the Pressing. */
+        edition: bcs.u16(),
+        /** The Record's number within its edition. */
+        number: bcs.u32(),
+        /** The defining type of the purchase currency. */
+        purchase_currency: bcs.string(),
+        /** The amount paid for the Record. */
+        purchase_price: bcs.u64(),
+        /** The transaction sender who purchased the Record. */
+        purchased_by: bcs.Address,
+        /** When this Record was purchased, in Unix milliseconds from Sui's Clock. */
+        purchased_timestamp_ms: bcs.u64()
     } });
 export interface DestroyArguments {
     self: RawTransactionArgument<string>;

@@ -16,14 +16,29 @@ import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/release_revenue_distributor::release_revenue_distributor';
+export const ReleaseCoinsReceivedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCoinsReceivedEvent<phantom Currency>`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        coin_ids: bcs.vector(bcs.Address),
+        amount: bcs.u64()
+    } });
+export const ReleaseFundsRedeemedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseFundsRedeemedEvent<phantom Currency>`, fields: {
+        release_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        amount: bcs.u64()
+    } });
 export const ReleaseTrackRevenueDistributedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackRevenueDistributedEvent<phantom Currency>`, fields: {
         release_id: bcs.Address,
         track_index: bcs.u64(),
+        composition_id: bcs.Address,
         recording_id: bcs.Address,
+        split_bps: bcs.u16(),
+        total_input: bcs.u64(),
         amount: bcs.u64()
     } });
 export const ReleaseRevenueDistributedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRevenueDistributedEvent<phantom Currency>`, fields: {
         release_id: bcs.Address,
+        track_count: bcs.u64(),
         total_input: bcs.u64(),
         total_distributed: bcs.u64(),
         remainder: bcs.u64()

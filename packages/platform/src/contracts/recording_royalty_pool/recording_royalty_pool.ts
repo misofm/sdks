@@ -10,8 +10,55 @@
  * canonical pool remains derived from the Recording and is returned unshared.
  */
 
+import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { bcs } from '@mysten/sui/bcs';
+import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+const $moduleName = '@local-pkg/recording_royalty_pool::recording_royalty_pool';
+export const RecordingRoyaltyPoolCreatedEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolCreatedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        pool_id: bcs.Address,
+        pool_balance: bcs.u64(),
+        staked_shares: bcs.u64(),
+        cumulative_reward_per_share: bcs.u256(),
+        carry: bcs.u128(),
+        cumulative_deposits: bcs.u128()
+    } });
+export const RecordingCoinsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingCoinsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        pool_id: bcs.Address,
+        amount: bcs.u64(),
+        pool_balance_before: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares: bcs.u64(),
+        reward_per_share_before: bcs.u256(),
+        reward_per_share_after: bcs.u256(),
+        carry_before: bcs.u128(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_before: bcs.u128(),
+        cumulative_deposits_after: bcs.u128(),
+        coin_ids: bcs.vector(bcs.Address)
+    } });
+export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingFundsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        pool_id: bcs.Address,
+        amount: bcs.u64(),
+        pool_balance_before: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares: bcs.u64(),
+        reward_per_share_before: bcs.u256(),
+        reward_per_share_after: bcs.u256(),
+        carry_before: bcs.u128(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_before: bcs.u128(),
+        cumulative_deposits_after: bcs.u128()
+    } });
 export interface NewPoolArguments {
     recording: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;
@@ -28,7 +75,10 @@ export interface NewPoolOptions {
         string
     ];
 }
-/** Create and return the canonical unshared pool derived from `recording`. */
+/**
+ * Create and return the canonical unshared pool derived from `recording`. Emits
+ * `RecordingRoyaltyPoolCreatedEvent` after successful creation.
+ */
 export function newPool(options: NewPoolOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool';
     const argumentsTypes = [
@@ -66,7 +116,8 @@ export interface ReceiveAndDepositOptions {
 }
 /**
  * Receive selected coins sent to the Recording and deposit their balance into the
- * canonical pool derived from that same Recording.
+ * canonical pool derived from that same Recording. Emits
+ * `RecordingCoinsDepositedEvent` after successful deposit.
  */
 export function receiveAndDeposit(options: ReceiveAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool';
@@ -107,7 +158,8 @@ export interface RedeemAndDepositOptions {
 }
 /**
  * Redeem `value` from the Recording's funds accumulator and deposit it into the
- * canonical pool derived from that same Recording.
+ * canonical pool derived from that same Recording. Emits
+ * `RecordingFundsDepositedEvent` after successful deposit.
  */
 export function redeemAndDeposit(options: RedeemAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool';

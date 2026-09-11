@@ -27,12 +27,19 @@ export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`
 export const StreamingTranscode = new MoveStruct({ name: `${$moduleName}::StreamingTranscode`, fields: {
         quilt: data.WalrusQuilt
     } });
-export const StreamingTranscodeSetEvent = new MoveStruct({ name: `${$moduleName}::StreamingTranscodeSetEvent`, fields: {
+export const RecordingStreamingTranscodeSetEvent = new MoveStruct({ name: `${$moduleName}::RecordingStreamingTranscodeSetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        transcode: StreamingTranscode
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        had_transcode: bcs.bool(),
+        previous_quilt_id: bcs.u256(),
+        quilt_id: bcs.u256()
     } });
-export const StreamingTranscodeUnsetEvent = new MoveStruct({ name: `${$moduleName}::StreamingTranscodeUnsetEvent`, fields: {
-        recording_id: bcs.Address
+export const RecordingStreamingTranscodeClearedEvent = new MoveStruct({ name: `${$moduleName}::RecordingStreamingTranscodeClearedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        quilt_id: bcs.u256()
     } });
 export interface NewArguments {
     quilt: TransactionArgument;

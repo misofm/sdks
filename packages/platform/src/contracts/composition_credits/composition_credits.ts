@@ -31,15 +31,31 @@ export const CompositionCredits = new MoveStruct({ name: `${$moduleName}::Compos
         /** Map of party IDs to their credit (display name + roles). */
         credits: vec_map.VecMap(bcs.Address, credit.Credit(composition_party_role.CompositionPartyRole))
     } });
-export const CreditAddedEvent = new MoveStruct({ name: `${$moduleName}::CreditAddedEvent`, fields: {
+export const CompositionCreditAddedEvent = new MoveStruct({ name: `${$moduleName}::CompositionCreditAddedEvent<phantom CompositionShare>`, fields: {
         composition_id: bcs.Address,
+        composition_admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(composition_party_role.CompositionPartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kinds: bcs.vector(bcs.u8()),
+        role_custom_names: bcs.vector(bcs.vector(bcs.u8())),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        credit_index: bcs.u64(),
+        credits_record_existed_before: bcs.bool(),
+        credits_record_exists_after: bcs.bool()
     } });
-export const CreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::CreditRemovedEvent`, fields: {
+export const CompositionCreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::CompositionCreditRemovedEvent<phantom CompositionShare>`, fields: {
         composition_id: bcs.Address,
+        composition_admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(composition_party_role.CompositionPartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kinds: bcs.vector(bcs.u8()),
+        role_custom_names: bcs.vector(bcs.vector(bcs.u8())),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        credit_index: bcs.u64(),
+        credits_record_existed_before: bcs.bool(),
+        credits_record_exists_after: bcs.bool()
     } });
 export interface AddCreditArguments {
     self: RawTransactionArgument<string>;

@@ -31,15 +31,28 @@ import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgum
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as language_code from './deps/language_code/language_code.ts';
 const $moduleName = '@local-pkg/recording_language::recording_language';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const LanguagesSetEvent = new MoveStruct({ name: `${$moduleName}::LanguagesSetEvent`, fields: {
+export const RecordingLanguagesSetEvent = new MoveStruct({ name: `${$moduleName}::RecordingLanguagesSetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        languages: bcs.vector(language_code.LanguageCode)
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        had_languages: bcs.bool(),
+        previous_languages: bcs.vector(bcs.vector(bcs.u8())),
+        languages: bcs.vector(bcs.vector(bcs.u8())),
+        language_count_before: bcs.u64(),
+        language_count_after: bcs.u64(),
+        was_instrumental: bcs.bool(),
+        is_instrumental: bcs.bool(),
+        max_languages: bcs.u64()
     } });
-export const LanguagesUnsetEvent = new MoveStruct({ name: `${$moduleName}::LanguagesUnsetEvent`, fields: {
-        recording_id: bcs.Address
+export const RecordingLanguagesClearedEvent = new MoveStruct({ name: `${$moduleName}::RecordingLanguagesClearedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        removed_languages: bcs.vector(bcs.vector(bcs.u8())),
+        language_count_before: bcs.u64(),
+        was_instrumental: bcs.bool()
     } });
 export interface SetLanguagesArguments {
     self: RawTransactionArgument<string>;

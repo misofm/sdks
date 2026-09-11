@@ -5,8 +5,74 @@
 
 /** Vault adapter for Recording royalty-pool Actions. */
 
+import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { bcs } from '@mysten/sui/bcs';
+import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+const $moduleName = '@local-pkg/recording_royalty_pool_plugin::recording_royalty_pool_plugin';
+export const RecordingRoyaltyPoolPluginInstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginInstalledEvent<phantom RecordingShare>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        vault_admin_cap_id: bcs.Address,
+        authorized_plugins_id: bcs.Address,
+        authorized_plugin_count: bcs.u64(),
+        installed: bcs.bool()
+    } });
+export const RecordingRoyaltyPoolPluginUninstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginUninstalledEvent<phantom RecordingShare>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        vault_admin_cap_id: bcs.Address,
+        authorized_plugins_id: bcs.Address,
+        authorized_plugin_count: bcs.u64(),
+        installed: bcs.bool()
+    } });
+export const RecordingVaultCapabilityBorrowedEvent = new MoveStruct({ name: `${$moduleName}::RecordingVaultCapabilityBorrowedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        pool_id: bcs.Address,
+        active: bcs.bool(),
+        capability_available: bcs.bool()
+    } });
+export const RecordingCoinsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingCoinsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        pool_id: bcs.Address,
+        pool_balance_before: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares: bcs.u64(),
+        reward_per_share_before: bcs.u256(),
+        reward_per_share_after: bcs.u256(),
+        carry_before: bcs.u128(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_before: bcs.u128(),
+        cumulative_deposits_after: bcs.u128(),
+        active: bcs.bool(),
+        capability_available: bcs.bool(),
+        coin_ids: bcs.vector(bcs.Address)
+    } });
+export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingFundsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        vault_id: bcs.Address,
+        cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        pool_id: bcs.Address,
+        pool_balance_before: bcs.u64(),
+        pool_balance_after: bcs.u64(),
+        staked_shares: bcs.u64(),
+        reward_per_share_before: bcs.u256(),
+        reward_per_share_after: bcs.u256(),
+        carry_before: bcs.u128(),
+        carry_after: bcs.u128(),
+        cumulative_deposits_before: bcs.u128(),
+        cumulative_deposits_after: bcs.u128(),
+        active: bcs.bool(),
+        capability_available: bcs.bool(),
+        amount: bcs.u64()
+    } });
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;

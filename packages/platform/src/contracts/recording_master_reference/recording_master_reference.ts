@@ -35,15 +35,28 @@ import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgum
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as data from './deps/ori/data.ts';
 const $moduleName = '@local-pkg/recording_master_reference::recording_master_reference';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const MasterReferenceSetEvent = new MoveStruct({ name: `${$moduleName}::MasterReferenceSetEvent`, fields: {
+export const RecordingMasterReferenceSetEvent = new MoveStruct({ name: `${$moduleName}::RecordingMasterReferenceSetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        reference: data.WalrusBlob
+        composition_id: bcs.Address,
+        had_master_reference: bcs.bool(),
+        previous_blob_id: bcs.u256(),
+        previous_is_encrypted: bcs.bool(),
+        previous_sealed_dek_length: bcs.u64(),
+        previous_sealed_dek_digest: bcs.vector(bcs.u8()),
+        blob_id: bcs.u256(),
+        is_encrypted: bcs.bool(),
+        sealed_dek_length: bcs.u64(),
+        sealed_dek_digest: bcs.vector(bcs.u8())
     } });
-export const MasterReferenceUnsetEvent = new MoveStruct({ name: `${$moduleName}::MasterReferenceUnsetEvent`, fields: {
-        recording_id: bcs.Address
+export const RecordingMasterReferenceClearedEvent = new MoveStruct({ name: `${$moduleName}::RecordingMasterReferenceClearedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        removed_blob_id: bcs.u256(),
+        removed_is_encrypted: bcs.bool(),
+        removed_sealed_dek_length: bcs.u64(),
+        removed_sealed_dek_digest: bcs.vector(bcs.u8())
     } });
 export interface SetMasterReferenceArguments {
     self: RawTransactionArgument<string>;

@@ -27,12 +27,26 @@
  * recording with nothing attached has simply said nothing.
  */
 
-import { MoveTuple, MoveEnum, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { MoveTuple, MoveStruct, MoveEnum, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/recording_advisory::recording_advisory';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
+export const RecordingAdvisoryRatingSetEvent = new MoveStruct({ name: `${$moduleName}::RecordingAdvisoryRatingSetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        had_rating: bcs.bool(),
+        previous_rating: bcs.u8(),
+        rating: bcs.u8()
+    } });
+export const RecordingAdvisoryRatingClearedEvent = new MoveStruct({ name: `${$moduleName}::RecordingAdvisoryRatingClearedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        previous_rating: bcs.u8()
+    } });
 /** A recording's parental advisory rating. */
 export const ExplicitRating = new MoveEnum({ name: `${$moduleName}::ExplicitRating`, fields: {
         /** Contains explicit content. */
@@ -41,13 +55,6 @@ export const ExplicitRating = new MoveEnum({ name: `${$moduleName}::ExplicitRati
         NotExplicit: null,
         /** An edited version of a recording that was originally explicit. */
         Cleaned: null
-    } });
-export const AdvisoryRatingSetEvent = new MoveStruct({ name: `${$moduleName}::AdvisoryRatingSetEvent`, fields: {
-        recording_id: bcs.Address,
-        rating: ExplicitRating
-    } });
-export const AdvisoryRatingUnsetEvent = new MoveStruct({ name: `${$moduleName}::AdvisoryRatingUnsetEvent`, fields: {
-        recording_id: bcs.Address
     } });
 export interface ExplicitOptions {
     package?: string;

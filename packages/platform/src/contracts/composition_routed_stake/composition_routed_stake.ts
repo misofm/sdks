@@ -11,8 +11,74 @@
  * this package adds only protocol-specific parent checks.
  */
 
+import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+import { bcs } from '@mysten/sui/bcs';
+import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
+const $moduleName = '@local-pkg/composition_routed_stake::composition_routed_stake';
+export const CompositionRoutedStakeCreatedEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoutedStakeCreatedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        routed_stake_id: bcs.Address,
+        stake_id: bcs.Address,
+        sender: bcs.Address,
+        principal_value: bcs.u64(),
+        registration_count: bcs.u64()
+    } });
+export const CompositionRoutedStakeRegisteredEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoutedStakeRegisteredEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        routed_stake_id: bcs.Address,
+        stake_id: bcs.Address,
+        pool_id: bcs.Address,
+        principal_value: bcs.u64(),
+        registration_count_before: bcs.u64(),
+        registration_count_after: bcs.u64(),
+        pool_staked_shares_before: bcs.u64(),
+        pool_staked_shares_after: bcs.u64(),
+        pool_balance: bcs.u64(),
+        pool_cumulative_reward_per_share: bcs.u256(),
+        registration_debt: bcs.u256(),
+        pool_carry: bcs.u128(),
+        pool_cumulative_deposits: bcs.u128()
+    } });
+export const CompositionRoutedStakeUnregisteredEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoutedStakeUnregisteredEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        recording_id: bcs.Address,
+        routed_stake_id: bcs.Address,
+        stake_id: bcs.Address,
+        pool_id: bcs.Address,
+        principal_value: bcs.u64(),
+        registration_count_before: bcs.u64(),
+        registration_count_after: bcs.u64(),
+        pool_staked_shares_before: bcs.u64(),
+        pool_staked_shares_after: bcs.u64(),
+        pool_balance: bcs.u64(),
+        pool_cumulative_reward_per_share: bcs.u256(),
+        registration_debt: bcs.u256(),
+        pool_carry: bcs.u128(),
+        pool_cumulative_deposits: bcs.u128(),
+        forfeited_scaled_reward: bcs.u256()
+    } });
+export const CompositionRoutedStakeUnstakedEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoutedStakeUnstakedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        routed_stake_id: bcs.Address,
+        stake_id: bcs.Address,
+        principal_value: bcs.u64()
+    } });
+export const CompositionRoutedStakeRestakedEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoutedStakeRestakedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        routed_stake_id: bcs.Address,
+        stake_id: bcs.Address,
+        sender: bcs.Address,
+        principal_value: bcs.u64(),
+        registration_count: bcs.u64()
+    } });
 export interface CreateStakeArguments {
     composition: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;

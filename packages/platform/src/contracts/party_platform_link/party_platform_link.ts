@@ -12,11 +12,11 @@
  * This one module serves every platform (social, music, anything) because it is
  * generic over `Data`; the payload types live in their own small packages
  * (`party_social`, `party_music`, …). All writes are gated by the `PartyAdminCap`
- * via `uid_mut`; views are permissionless. Events are phantom-typed per platform
- * so an indexer can see which platform changed — dynamic-field mutations are not
- * otherwise observable. These events carry no payload by convention: they are
- * change signals, and the indexer re-reads the field. (Small, stable payloads are
- * the exception elsewhere — `party_media`'s quilt id or a role or tag string.)
+ * via `uid_mut`; views are permissionless. Storage mutations emit the
+ * authoritative rich `platform_link::PlatformLinkSetEvent` or
+ * `platform_link::PlatformLinkRemovedEvent` from the primitive, so the event
+ * carries the parent, defining-ID-qualified payload type, existence transition,
+ * and bounded payload summaries. This module adds no replacement event.
  */
 
 import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -46,7 +46,11 @@ export interface SetLinkOptions {
         string
     ];
 }
-/** Sets (or replaces) a platform's link on the party. */
+/**
+ * Sets (or replaces) a platform's link on the party. The primitive emits one
+ * `PlatformLinkSetEvent<Data>` for every successful call, including an equal
+ * replacement.
+ */
 export function setLink(options: SetLinkOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_platform_link';
     const argumentsTypes = [
@@ -77,7 +81,11 @@ export interface ClearLinkOptions {
         string
     ];
 }
-/** Clears a platform's link from the party. No-op if unset. */
+/**
+ * Clears a platform's link from the party. Cap authorization is checked before the
+ * existence check. A present link delegates to the primitive, which emits one
+ * `PlatformLinkRemovedEvent<Data>`; absent and repeated clears are silent.
+ */
 export function clearLink(options: ClearLinkOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_platform_link';
     const argumentsTypes = [

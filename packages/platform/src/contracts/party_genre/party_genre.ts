@@ -27,14 +27,25 @@ const $moduleName = '@local-pkg/party_genre::party_genre';
 export const GenresKey = new MoveTuple({ name: `${$moduleName}::GenresKey`, fields: [bcs.bool()] });
 export const GenreAddedEvent = new MoveStruct({ name: `${$moduleName}::GenreAddedEvent`, fields: {
         party_id: bcs.Address,
-        genre_id: bcs.Address
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_name: bcs.vector(bcs.u8()),
+        genre_ids_before: bcs.vector(bcs.Address),
+        genre_ids_after: bcs.vector(bcs.Address),
+        max_genres: bcs.u64()
     } });
 export const GenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::GenreRemovedEvent`, fields: {
         party_id: bcs.Address,
-        genre_id: bcs.Address
+        admin_cap_id: bcs.Address,
+        genre_id: bcs.Address,
+        genre_ids_before: bcs.vector(bcs.Address),
+        genre_ids_after: bcs.vector(bcs.Address)
     } });
 export const GenresClearedEvent = new MoveStruct({ name: `${$moduleName}::GenresClearedEvent`, fields: {
-        party_id: bcs.Address
+        party_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        genre_ids_before: bcs.vector(bcs.Address),
+        genre_ids_after: bcs.vector(bcs.Address)
     } });
 export interface AddGenreArguments {
     self: RawTransactionArgument<string>;

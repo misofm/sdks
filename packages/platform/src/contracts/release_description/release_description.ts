@@ -46,12 +46,17 @@ import type {} from "@mysten/bcs";
 import { type Transaction } from '@mysten/sui/transactions';
 const $moduleName = '@local-pkg/release_description::release_description';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const DescriptionSetEvent = new MoveStruct({ name: `${$moduleName}::DescriptionSetEvent`, fields: {
+export const ReleaseDescriptionSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDescriptionSetEvent`, fields: {
         release_id: bcs.Address,
-        description: bcs.string()
+        release_admin_cap_id: bcs.Address,
+        description_existed_before: bcs.bool(),
+        description_before: bcs.vector(bcs.u8()),
+        description_after: bcs.vector(bcs.u8())
     } });
-export const DescriptionClearedEvent = new MoveStruct({ name: `${$moduleName}::DescriptionClearedEvent`, fields: {
-        release_id: bcs.Address
+export const ReleaseDescriptionClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDescriptionClearedEvent`, fields: {
+        release_id: bcs.Address,
+        release_admin_cap_id: bcs.Address,
+        description_before: bcs.vector(bcs.u8())
     } });
 export interface SetDescriptionArguments {
     self: RawTransactionArgument<string>;

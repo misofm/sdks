@@ -36,31 +36,82 @@ export const RecordingCredits = new MoveStruct({ name: `${$moduleName}::Recordin
         /** IDs of the featured artists. Always a subset of `credits`. */
         featured_artist_ids: vec_set.VecSet(bcs.Address)
     } });
-export const CreditAddedEvent = new MoveStruct({ name: `${$moduleName}::CreditAddedEvent`, fields: {
+export const CreditAddedEvent = new MoveStruct({ name: `${$moduleName}::CreditAddedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(recording_party_role.RecordingPartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kinds: bcs.vector(bcs.u8()),
+        role_names: bcs.vector(bcs.vector(bcs.u8())),
+        role_instruments: bcs.vector(bcs.vector(bcs.u8())),
+        role_levels: bcs.vector(bcs.u8()),
+        credit_index: bcs.u64(),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        credits_initialized: bcs.bool()
     } });
-export const CreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::CreditRemovedEvent`, fields: {
+export const CreditRemovedEvent = new MoveStruct({ name: `${$moduleName}::CreditRemovedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
         party_id: bcs.Address,
-        credit: credit.Credit(recording_party_role.RecordingPartyRole)
+        display_name: bcs.vector(bcs.u8()),
+        role_kinds: bcs.vector(bcs.u8()),
+        role_names: bcs.vector(bcs.vector(bcs.u8())),
+        role_instruments: bcs.vector(bcs.vector(bcs.u8())),
+        role_levels: bcs.vector(bcs.u8()),
+        credit_index: bcs.u64(),
+        credit_count_before: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        was_primary_artist: bcs.bool(),
+        was_featured_artist: bcs.bool()
     } });
-export const PrimaryArtistAddedEvent = new MoveStruct({ name: `${$moduleName}::PrimaryArtistAddedEvent`, fields: {
+export const PrimaryArtistAddedEvent = new MoveStruct({ name: `${$moduleName}::PrimaryArtistAddedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        party_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        party_id: bcs.Address,
+        display_name: bcs.vector(bcs.u8()),
+        primary_artist_index: bcs.u64(),
+        primary_artist_count_before: bcs.u64(),
+        primary_artist_count_after: bcs.u64(),
+        credit_count_after: bcs.u64()
     } });
-export const PrimaryArtistRemovedEvent = new MoveStruct({ name: `${$moduleName}::PrimaryArtistRemovedEvent`, fields: {
+export const PrimaryArtistRemovedEvent = new MoveStruct({ name: `${$moduleName}::PrimaryArtistRemovedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        party_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        party_id: bcs.Address,
+        display_name: bcs.vector(bcs.u8()),
+        primary_artist_index: bcs.u64(),
+        primary_artist_count_before: bcs.u64(),
+        primary_artist_count_after: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        caused_by_credit_removal: bcs.bool()
     } });
-export const FeaturedArtistAddedEvent = new MoveStruct({ name: `${$moduleName}::FeaturedArtistAddedEvent`, fields: {
+export const FeaturedArtistAddedEvent = new MoveStruct({ name: `${$moduleName}::FeaturedArtistAddedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        party_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        party_id: bcs.Address,
+        display_name: bcs.vector(bcs.u8()),
+        featured_artist_index: bcs.u64(),
+        featured_artist_count_before: bcs.u64(),
+        featured_artist_count_after: bcs.u64(),
+        credit_count_after: bcs.u64()
     } });
-export const FeaturedArtistRemovedEvent = new MoveStruct({ name: `${$moduleName}::FeaturedArtistRemovedEvent`, fields: {
+export const FeaturedArtistRemovedEvent = new MoveStruct({ name: `${$moduleName}::FeaturedArtistRemovedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
-        party_id: bcs.Address
+        composition_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        party_id: bcs.Address,
+        display_name: bcs.vector(bcs.u8()),
+        featured_artist_index: bcs.u64(),
+        featured_artist_count_before: bcs.u64(),
+        featured_artist_count_after: bcs.u64(),
+        credit_count_after: bcs.u64(),
+        caused_by_credit_removal: bcs.bool()
     } });
 export interface AddCreditArguments {
     self: RawTransactionArgument<string>;

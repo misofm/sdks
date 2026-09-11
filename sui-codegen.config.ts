@@ -56,7 +56,7 @@ export function generatedDirectoryName(packageConfig: MisoPackageConfig): string
 //   misofm/{musicos, musicos-extensions, musicos-actions,
 //           partyos, partyos-extensions, partyos-actions,
 //           royalty-pool, routed-stake, vault, vault-plugins, genre, cover-art,
-//           record, record-shop}
+//           record, record-shop, share, pay}
 const sourceRoot = process.env.MISO_SDK_CODEGEN_SOURCE_ROOT
   ? resolve(process.env.MISO_SDK_CODEGEN_SOURCE_ROOT)
   : fileURLToPath(new URL("../..", import.meta.url));
@@ -102,6 +102,9 @@ const config: MisoCodegenConfig = {
     platform("party_roles", "misofm/partyos-extensions/party_roles"),
     platform("party_social", "misofm/partyos-extensions/party_social"),
     platform("party_tags", "misofm/partyos-extensions/party_tags"),
+    // Generic platform-link primitive used by party_music, party_social, and
+    // party_pro_link. The party_platform_link wrapper is configured separately.
+    platform("platform_link", "misofm/partyos-extensions/lib/platform_link"),
     // Public, custody-agnostic Actions over Party — lives in partyos-actions,
     // not partyos-extensions.
     platform("party_wallet", "misofm/partyos-actions/party_wallet"),
@@ -128,6 +131,8 @@ const config: MisoCodegenConfig = {
     platform("vault", "misofm/vault"),
     platform("genre", "misofm/genre"),
     platform("cover_art", "misofm/cover-art"),
+    platform("share", "misofm/share"),
+    platform("miso_pay", "misofm/pay/move"),
 
     // Actions — public, custody-agnostic business logic over a work.
     platform("composition_royalty_pool", "misofm/musicos-actions/composition_royalty_pool"),

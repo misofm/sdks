@@ -15,7 +15,10 @@
  * The chain is deliberately role-agnostic: which patch is the avatar vs the header
  * is a client convention (quilt patch _identifiers_, e.g. "avatar" / "header"),
  * derived off-chain — never stored here. Updating any image means re-storing the
- * quilt and calling `set_media` with the new id.
+ * quilt and calling `set_media` with the new id. Every successful set emits the
+ * prior/resulting quilt ids and the authorizing cap address; a clear emits the
+ * removed id only when a field existed. All writes are cap-gated through
+ * `party::uid_mut`, and views are permissionless.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -34,10 +37,15 @@ export const Media = new MoveStruct({ name: `${$moduleName}::Media`, fields: {
     } });
 export const MediaSetEvent = new MoveStruct({ name: `${$moduleName}::MediaSetEvent`, fields: {
         party_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        existed_before: bcs.bool(),
+        previous_quilt: bcs.u256(),
         quilt: bcs.u256()
     } });
 export const MediaClearedEvent = new MoveStruct({ name: `${$moduleName}::MediaClearedEvent`, fields: {
-        party_id: bcs.Address
+        party_id: bcs.Address,
+        admin_cap_id: bcs.Address,
+        previous_quilt: bcs.u256()
     } });
 export interface SetMediaArguments {
     self: RawTransactionArgument<string>;
@@ -52,7 +60,11 @@ export interface SetMediaOptions {
         quilt: RawTransactionArgument<number | bigint>
     ];
 }
-/** Sets (or replaces) the party's media quilt. Aborts on a zero id. */
+/**
+ * Sets (or replaces) the party's media quilt. Aborts on a zero id before
+ * authorization. Every successful call, including an identical replacement, emits
+ * exactly one event with the complete prior/resulting quilt snapshot.
+ */
 export function setMedia(options: SetMediaOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_media';
     const argumentsTypes = [
@@ -79,7 +91,11 @@ export interface ClearMediaOptions {
         cap: RawTransactionArgument<string>
     ];
 }
-/** Removes the party's media. No-op if none is set. */
+/**
+ * Removes the party's media. Authorization happens before checking existence; an
+ * absent field is a silent no-op, while an existing field emits exactly one event
+ * containing the removed quilt id.
+ */
 export function clearMedia(options: ClearMediaOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_media';
     const argumentsTypes = [
