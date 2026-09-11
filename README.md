@@ -4,7 +4,7 @@ Monorepo for the Miso platform-layer TypeScript SDKs.
 
 | Package                                          | Description                                                                                                                          |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`packages/effect`](packages/effect/README.md) | `@misofm/effect` — the shared Effect v4 foundation: the `SuiClient` service, the tagged error vocabulary, and the object-read and execute primitives every other SDK is built on. |
+| [`packages/effect`](packages/effect/README.md) | `@misofm/effect` — **deprecated**, superseded by [`sui-effect`](https://github.com/unconfirmedlabs/sui-effect); 0.2.0 is a code-identical final release whose README carries the migration table. |
 | [`packages/musicos`](packages/musicos/README.md) | `@misofm/musicos` — typed bindings, queries, event decoders, and PTB builders for the works object model (Composition, Recording, Release, Track). |
 | [`packages/partyos`](packages/partyos/README.md) | `@misofm/partyos` — typed bindings, queries, and PTB builders for the Party object model (Party, admin cap, group membership). |
 | [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — the complete client SDK for the Miso platform layer: work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins. |

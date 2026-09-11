@@ -106,7 +106,7 @@
     "package.json"
   ],
   "dependencies": {
-    "@misofm/effect": "0.1.1",
+    "@misofm/effect": "0.2.0",
     "@mysten/bcs": "^2.1.1"
   },
   "devDependencies": {

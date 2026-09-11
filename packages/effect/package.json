@@ -1,8 +1,8 @@
 {
   "name": "@misofm/effect",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "packageManager": "bun@1.4.0",
-  "description": "Shared Effect foundation for the Miso SDKs: one SuiClient service, one error vocabulary, and the read/execute primitives every package builds on.",
+  "description": "DEPRECATED: superseded by sui-effect. Code-identical final release of the shared Effect foundation for the Miso SDKs; see README.md for the migration table.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
