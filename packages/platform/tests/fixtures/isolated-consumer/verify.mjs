@@ -5,8 +5,11 @@ import * as effectRoot from "@misofm/effect";
 import * as effectErrors from "@misofm/effect/errors";
 
 import * as musicosRoot from "@misofm/musicos";
-import * as musicosClient from "@misofm/musicos/client";
-import * as musicosQueries from "@misofm/musicos/queries";
+import * as musicosDeployments from "@misofm/musicos/deployments";
+import * as musicosTransactions from "@misofm/musicos/transactions";
+import * as musicosParsers from "@misofm/musicos/parsers";
+import * as musicosEvents from "@misofm/musicos/events";
+import * as musicosPackages from "@misofm/musicos/packages";
 import * as musicosContracts from "@misofm/musicos/contracts";
 import * as musicosErrors from "@misofm/musicos/errors";
 
@@ -50,16 +53,40 @@ invariant(hasExport(effectErrors, "SuiRpcError"), "@misofm/effect/errors missing
 invariant(hasExport(effectErrors, "ObjectNotFoundError"), "@misofm/effect/errors missing ObjectNotFoundError");
 
 invariant(Object.keys(musicosRoot).length > 0, "@misofm/musicos root export did not load");
-invariant(hasExport(musicosRoot, "MisoClient"), "@misofm/musicos root missing MisoClient");
+invariant(hasExport(musicosRoot, "Musicos"), "@misofm/musicos root missing the Musicos service");
+invariant(hasExport(musicosRoot, "musicos"), "@misofm/musicos root missing the musicos() registration");
 invariant(hasExport(musicosRoot, "contracts"), "@misofm/musicos root missing contracts namespace");
 
-invariant(Object.keys(musicosClient).length > 0, "@misofm/musicos/client export did not load");
-invariant(hasExport(musicosClient, "MisoProtocolClient"), "@misofm/musicos/client missing MisoProtocolClient");
+// `musicos()` builds a `SuiClientRegistration` synchronously — no network —
+// so it is safe to call here, proving `client.$extend(musicos())` (the
+// Definition of Done's own words) resolves and shapes correctly without this
+// fixture needing a real client.
+const registration = musicosRoot.musicos();
+invariant(registration.name === "musicos", "musicos() registration name is not \"musicos\"");
+invariant(typeof registration.register === "function", "musicos() registration has no register()");
 
-invariant(Object.keys(musicosQueries).length > 0, "@misofm/musicos/queries export did not load");
+invariant(Object.keys(musicosDeployments).length > 0, "@misofm/musicos/deployments export did not load");
+invariant(hasExport(musicosDeployments, "MISO_DEPLOYMENTS"), "@misofm/musicos/deployments missing MISO_DEPLOYMENTS");
+
+invariant(Object.keys(musicosTransactions).length > 0, "@misofm/musicos/transactions export did not load");
+invariant(hasExport(musicosTransactions, "createComposition"), "@misofm/musicos/transactions missing createComposition");
+
+invariant(Object.keys(musicosParsers).length > 0, "@misofm/musicos/parsers export did not load");
+invariant(
+  hasExport(musicosParsers, "parseCompositionCreatedEvent"),
+  "@misofm/musicos/parsers missing parseCompositionCreatedEvent",
+);
+
+invariant(Object.keys(musicosEvents).length > 0, "@misofm/musicos/events export did not load");
+invariant(hasExport(musicosEvents, "eventParsers"), "@misofm/musicos/events missing eventParsers");
+
+invariant(Object.keys(musicosPackages).length > 0, "@misofm/musicos/packages export did not load");
+invariant(hasExport(musicosPackages, "bindModulePackage"), "@misofm/musicos/packages missing bindModulePackage");
 
 invariant(Object.keys(musicosErrors).length > 0, "@misofm/musicos/errors export did not load");
-invariant(hasExport(musicosErrors, "ObjectNotFoundError"), "@misofm/musicos/errors missing ObjectNotFoundError");
+invariant(hasExport(musicosErrors, "ObjectNotFound"), "@misofm/musicos/errors missing ObjectNotFound");
+invariant(hasExport(musicosErrors, "MusicosDeploymentInvalid"), "@misofm/musicos/errors missing MusicosDeploymentInvalid");
+invariant(hasExport(musicosErrors, "MusicosTreasuryCapNotFound"), "@misofm/musicos/errors missing MusicosTreasuryCapNotFound");
 
 invariant(Object.keys(musicosContracts).length > 0, "@misofm/musicos/contracts export did not load");
 invariant(hasExport(musicosContracts, "composition"), "@misofm/musicos/contracts (curated) missing composition");
