@@ -22,9 +22,5 @@ export * from "./queries.ts";
 export * from "./deployments.ts";
 export * from "./events.ts";
 
-// Deprecated compatibility surface — see `./legacy-client.ts` / `./legacy-queries.ts` for why it is kept.
-export { bindModulePackage, PartyosClient, PartyProtocolClient } from "./legacy-client.ts";
-export { getPartiesByIds, getPartyById, getPendingMemberships } from "./legacy-queries.ts";
-
 // Generated, ABI-bound bindings (BCS structs + type-safe Move calls).
 export * as contracts from "./contracts.ts";

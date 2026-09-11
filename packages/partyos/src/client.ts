@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The `/client` subpath: `Partyos` and its derived Promise registration
-// `partyos()`. (The predecessor `PartyosClient` — still exported from the
-// package root for `@misofm/platform`, see `./legacy-client.ts` — is not
-// re-exported here: `/client` is the target shape's surface.)
+// `partyos()`. The predecessor `PartyosClient` is removed entirely (see
+// README's "Migrating from `PartyosClient`"), not merely absent from here.
 export { Partyos, type BoundBuilders, type PartyosService } from "./Partyos.ts";
 export { partyos, type PartyosOptions } from "./extension.ts";
