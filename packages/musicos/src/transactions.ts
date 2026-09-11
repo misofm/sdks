@@ -33,7 +33,6 @@ import {
   Transaction,
   type TransactionObjectArgument,
 } from "@mysten/sui/transactions";
-import type { TxThunk } from "@misofm/effect";
 
 import * as composition from "./contracts/musicos/composition.ts";
 import * as recording from "./contracts/musicos/recording.ts";
@@ -41,8 +40,12 @@ import * as release from "./contracts/musicos/release.ts";
 import { asU256, type UnsignedInput } from "./numeric.ts";
 import * as track from "./contracts/musicos/track.ts";
 
-/** A thunk that adds commands to a transaction. May be async (resolves at build time). */
-export type { TxThunk };
+// Every builder here is a `Recipe` fragment (`sui-effect`'s `(tx) => void`, or
+// `(tx) => A` for one that hands back by-value results to thread onward): a
+// caller-owned `Transaction` first, composed with other fragments and run
+// once with `Tx.run`. `TxThunk` is no longer exported — `Recipe` from
+// `sui-effect` is the type; see `index.ts` for a deprecated alias kept for
+// existing callers.
 
 // ============================================================================
 // Shared inputs

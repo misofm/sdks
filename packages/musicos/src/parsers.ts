@@ -1,24 +1,16 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Event parsers. The BCS layouts come from the codegen-generated structs (so
-// they track the on-chain ABI automatically); these functions parse raw event
-// bytes and map them to the public camelCase event types.
+// Event decoders, mapped to the public camelCase event shapes in `types.ts`.
+// Every decoder takes either the raw event bytes or a sui-effect `Event`
+// (whose `.bcs` is the same bytes), and fails with `DecodeError` instead of
+// throwing — bytes that do not decode are a boundary failure like any other
+// `SuiSchema.decode` caller sees, not a special case for events.
 
-import {
-  CompositionCreatedEvent as CompositionCreatedEventBcs,
-  CompositionPublishedEvent as CompositionPublishedEventBcs,
-} from "./contracts/musicos/composition.ts";
-import {
-  CompositionSharesGrantedEvent as CompositionSharesGrantedEventBcs,
-  RecordingCreatedEvent as RecordingCreatedEventBcs,
-  RecordingPublishedEvent as RecordingPublishedEventBcs,
-} from "./contracts/musicos/recording.ts";
-import {
-  ReleaseCreatedEvent as ReleaseCreatedEventBcs,
-  ReleasePublishedEvent as ReleasePublishedEventBcs,
-  ReleaseRegistryCreatedEvent as ReleaseRegistryCreatedEventBcs,
-} from "./contracts/musicos/release.ts";
+import { Effect, type Schema } from "effect";
+import { DecodeError, type Event } from "sui-effect";
+import { SuiSchema } from "sui-effect";
+import * as schema from "./schema.ts";
 import type {
   CompositionCreatedEvent,
   CompositionPublishedEvent,
@@ -26,15 +18,56 @@ import type {
   RecordingCreatedEvent,
   RecordingPublishedEvent,
   ReleaseCreatedEvent,
-  ReleaseRegistryCreatedEvent,
   ReleasePublishedEvent,
+  ReleaseRegistryCreatedEvent,
 } from "./types.ts";
+
+/** Decodes either raw event bytes, or a sui-effect `Event` (its `.bcs`). */
+export interface EventDecoder<T> {
+  (bytes: Uint8Array): Effect.Effect<T, DecodeError>;
+  (event: Event): Effect.Effect<T, DecodeError>;
+}
+
+/**
+ * A generated event codec's own `.name` is a `@local-pkg/…` source label,
+ * never resolved to a real address (see `schema.ts`), so it cannot be
+ * compared against a real event's `eventType` the way an object's tag can.
+ * What this CAN still check, given only the `Event` overload: the
+ * `module::EventName` suffix — package address and any generic type
+ * arguments aside — which is exactly `bareEventType` strips down to.
+ */
+export function bareEventType(eventType: string): string {
+  const generic = eventType.indexOf("<");
+  return generic === -1 ? eventType : eventType.slice(0, generic);
+}
+
+export function matchesEventSuffix(eventType: string, suffix: string): boolean {
+  return bareEventType(eventType).endsWith(`::${suffix}`);
+}
+
+function eventDecoder<Raw, T>(codec: Schema.Codec<Raw, Uint8Array>, suffix: string, map: (raw: Raw) => T): EventDecoder<T> {
+  return ((input: Uint8Array | Event) => {
+    if (input instanceof Uint8Array) {
+      return Effect.map(SuiSchema.decode(codec, input), map);
+    }
+    if (!matchesEventSuffix(input.eventType, suffix)) {
+      return Effect.fail(
+        new DecodeError({
+          expectedType: suffix,
+          issue: `event type ${input.eventType} does not name ${suffix}`,
+        }),
+      );
+    }
+    return Effect.map(SuiSchema.decode(codec, input.bcs, { actualType: input.eventType }), map);
+  }) as EventDecoder<T>;
+}
 
 // === Composition ===
 
-export function parseCompositionCreatedEvent(bytes: Uint8Array): CompositionCreatedEvent {
-  const e = CompositionCreatedEventBcs.parse(bytes);
-  return {
+export const parseCompositionCreatedEvent: EventDecoder<CompositionCreatedEvent> = eventDecoder(
+  schema.compositionCreatedEventContent,
+  "composition::CompositionCreatedEvent",
+  (e): CompositionCreatedEvent => ({
     compositionId: e.composition_id,
     compositionAdminCapId: e.composition_admin_cap_id,
     shareCurrencyId: e.share_currency_id,
@@ -47,12 +80,13 @@ export function parseCompositionCreatedEvent(bytes: Uint8Array): CompositionCrea
     sharesReturned: e.shares_returned,
     shareDecimals: e.share_decimals,
     shareSupplyFixedAfter: e.share_supply_fixed_after,
-  };
-}
+  }),
+);
 
-export function parseCompositionPublishedEvent(bytes: Uint8Array): CompositionPublishedEvent {
-  const e = CompositionPublishedEventBcs.parse(bytes);
-  return {
+export const parseCompositionPublishedEvent: EventDecoder<CompositionPublishedEvent> = eventDecoder(
+  schema.compositionPublishedEventContent,
+  "composition::CompositionPublishedEvent",
+  (e): CompositionPublishedEvent => ({
     compositionId: e.composition_id,
     compositionAdminCapId: e.composition_admin_cap_id,
     clockId: e.clock_id,
@@ -60,14 +94,15 @@ export function parseCompositionPublishedEvent(bytes: Uint8Array): CompositionPu
     royaltyRateBps: e.royalty_rate_bps,
     publishedAtMs: e.published_at_ms,
     sharedAfter: e.shared_after,
-  };
-}
+  }),
+);
 
 // === Recording ===
 
-export function parseRecordingCreatedEvent(bytes: Uint8Array): RecordingCreatedEvent {
-  const e = RecordingCreatedEventBcs.parse(bytes);
-  return {
+export const parseRecordingCreatedEvent: EventDecoder<RecordingCreatedEvent> = eventDecoder(
+  schema.recordingCreatedEventContent,
+  "recording::RecordingCreatedEvent",
+  (e): RecordingCreatedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
     recordingAdminCapId: e.recording_admin_cap_id,
@@ -82,40 +117,41 @@ export function parseRecordingCreatedEvent(bytes: Uint8Array): RecordingCreatedE
     shareDecimals: e.share_decimals,
     shareSupplyFixedAfter: e.share_supply_fixed_after,
     compositionFundsSent: e.composition_funds_sent,
-  };
-}
+  }),
+);
 
-export function parseRecordingPublishedEvent(bytes: Uint8Array): RecordingPublishedEvent {
-  const e = RecordingPublishedEventBcs.parse(bytes);
-  return {
+export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent> = eventDecoder(
+  schema.recordingPublishedEventContent,
+  "recording::RecordingPublishedEvent",
+  (e): RecordingPublishedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
     recordingAdminCapId: e.recording_admin_cap_id,
     clockId: e.clock_id,
     publishedAtMs: e.published_at_ms,
     sharedAfter: e.shared_after,
-  };
-}
+  }),
+);
 
-/** Decode the dormant legacy royalty-rate share grant event. */
-export function parseCompositionSharesGrantedEvent(
-  bytes: Uint8Array,
-): CompositionSharesGrantedEvent {
-  const e = CompositionSharesGrantedEventBcs.parse(bytes);
-  return {
+/** Decodes the dormant legacy royalty-rate share grant event. */
+export const parseCompositionSharesGrantedEvent: EventDecoder<CompositionSharesGrantedEvent> = eventDecoder(
+  schema.compositionSharesGrantedEventContent,
+  "recording::CompositionSharesGrantedEvent",
+  (e): CompositionSharesGrantedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
     value: e.value,
     rateBps: e.rate_bps,
     grantedBy: e.granted_by,
-  };
-}
+  }),
+);
 
 // === Release ===
 
-export function parseReleaseCreatedEvent(bytes: Uint8Array): ReleaseCreatedEvent {
-  const e = ReleaseCreatedEventBcs.parse(bytes);
-  return {
+export const parseReleaseCreatedEvent: EventDecoder<ReleaseCreatedEvent> = eventDecoder(
+  schema.releaseCreatedEventContent,
+  "release::ReleaseCreatedEvent",
+  (e): ReleaseCreatedEvent => ({
     registryId: e.registry_id,
     releaseId: e.release_id,
     releaseAdminCapId: e.release_admin_cap_id,
@@ -126,12 +162,13 @@ export function parseReleaseCreatedEvent(bytes: Uint8Array): ReleaseCreatedEvent
     recordingIds: e.recording_ids,
     trackSplitBps: e.track_split_bps,
     trackCount: e.track_count,
-  };
-}
+  }),
+);
 
-export function parseReleasePublishedEvent(bytes: Uint8Array): ReleasePublishedEvent {
-  const e = ReleasePublishedEventBcs.parse(bytes);
-  return {
+export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = eventDecoder(
+  schema.releasePublishedEventContent,
+  "release::ReleasePublishedEvent",
+  (e): ReleasePublishedEvent => ({
     releaseId: e.release_id,
     releaseAdminCapId: e.release_admin_cap_id,
     clockId: e.clock_id,
@@ -142,17 +179,16 @@ export function parseReleasePublishedEvent(bytes: Uint8Array): ReleasePublishedE
     trackSplitBps: e.track_split_bps,
     assignedTrackCount: e.assigned_track_count,
     sharedAfter: e.shared_after,
-  };
-}
+  }),
+);
 
-/** Decode the singleton core release-registry creation event. */
-export function parseReleaseRegistryCreatedEvent(
-  bytes: Uint8Array,
-): ReleaseRegistryCreatedEvent {
-  const e = ReleaseRegistryCreatedEventBcs.parse(bytes);
-  return {
+/** Decodes the singleton core release-registry creation event. */
+export const parseReleaseRegistryCreatedEvent: EventDecoder<ReleaseRegistryCreatedEvent> = eventDecoder(
+  schema.releaseRegistryCreatedEventContent,
+  "release::ReleaseRegistryCreatedEvent",
+  (e): ReleaseRegistryCreatedEvent => ({
     registryId: e.registry_id,
     createdBy: e.created_by,
     sharedAfter: e.shared_after,
-  };
-}
+  }),
+);
