@@ -3,8 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
-import { SuiClient, SuiGraphQL } from "@misofm/effect";
+import { KNOWN_CHAIN_IDS, SuiGraphQL } from "sui-effect";
+import { layerTest, SuiTest } from "sui-effect/testing";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import {
   findRecordSale,
@@ -258,15 +258,20 @@ describe("Record Shop sale receipts", () => {
         };
       },
     };
-    const fullnode = {
-      core: {
-        waitForTransaction: async () => { throw new Error("pruned"); },
-        getObject: async () => ({ object: { content: undefined } }),
-      },
-    } as unknown as ClientWithCoreApi;
     const result = await Effect.runPromise(
-      getPurchaseReceipt("digest", IDS.record, config).pipe(
-        Effect.provide(Layer.mergeAll(SuiClient.layer(fullnode), SuiGraphQL.layer(graphql as any))),
+      Effect.gen(function* () {
+        // The fullnode does not have this transaction (pruned) — a
+        // scripted "not found" `getTransaction` outcome is what
+        // `sui.core.waitForTransaction` serves it as, driving the same
+        // fallback-to-indexer path the predecessor's thrown "pruned"
+        // Error did.
+        yield* SuiTest.scriptGetTransaction([{ _tag: "notFound" }]);
+        return yield* getPurchaseReceipt("digest", IDS.record, config);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! }), SuiGraphQL.layer(graphql as any)),
+          { local: true },
+        ),
       ),
     );
     expect(result).toBeNull();
@@ -294,11 +299,15 @@ describe("Record Shop sale receipts", () => {
         },
       }),
     };
-    const fullnode = { core: { waitForTransaction: async () => { throw new Error("pruned"); } } } as unknown as ClientWithCoreApi;
     const error = await Effect.runPromise(
-      getPurchaseReceipt("digest", IDS.record, config).pipe(
-        Effect.provide(Layer.mergeAll(SuiClient.layer(fullnode), SuiGraphQL.layer(graphql as any))),
-        Effect.flip,
+      Effect.gen(function* () {
+        yield* SuiTest.scriptGetTransaction([{ _tag: "notFound" }]);
+        return yield* Effect.flip(getPurchaseReceipt("digest", IDS.record, config));
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! }), SuiGraphQL.layer(graphql as any)),
+          { local: true },
+        ),
       ),
     );
     expect(error._tag).toBe("MalformedRecordSoldEventError");
