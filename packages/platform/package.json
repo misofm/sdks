@@ -166,13 +166,20 @@
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.3.14",
     "effect": "4.0.0-rc.112",
+    "sui-effect": "file:../../vendor/sui-effect-0.1.0.tgz",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
     "effect": "4.0.0-rc.112",
+    "sui-effect": "^0.1.0",
     "typescript": "^5.7 || ^6 || ^7"
+  },
+  "peerDependenciesMeta": {
+    "sui-effect": {
+      "optional": true
+    }
   },
   "main": "./dist/index.js"
 }
