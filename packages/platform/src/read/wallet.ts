@@ -11,26 +11,33 @@
 // than be reimplemented by every browser, Worker, server, or native client.
 
 import { normalizeStructTag, normalizeSuiAddress, parseStructTag } from "@mysten/sui/utils";
-import { Effect, Option } from "effect";
+import { Effect, Option, Result, Stream } from "effect";
 import {
   contracts as networkContracts,
   getCompositionByShareType,
-  getOwnedReleaseAdminCaps,
   getRecordingByShareType,
-  getReleaseById,
+  Musicos,
+  type MusicosDeploymentInvalid,
+  type MusicosService,
+  type MusicosWorkNotFound,
 } from "@misofm/musicos";
 import { party as partyContracts } from "@misofm/partyos/contracts";
-import { derivePartyAdminCapId, getPartiesByIds, getPendingMemberships as getPartyPendingMemberships } from "@misofm/partyos";
+import { derivePartyAdminCapId, Partyos, type PartyosDeploymentError, type PartyosService } from "@misofm/partyos";
 import {
-  getObjectsContent,
-  getOptionalObjectContent,
-  SuiClient,
+  CoinType,
+  DecodeError,
+  ObjectId,
+  Sui,
+  SuiAddress,
   SuiGraphQL,
-  SuiRpcError,
-  type BcsDecodeError,
-  type ObjectNotFoundError,
-  type ObjectTypeMismatchError,
-} from "@misofm/effect";
+  StructTag,
+  type BatchItemError,
+  type GraphQLUnavailable,
+  type ObjectDeleted,
+  type ObjectNotFound,
+  type ObjectUnavailable,
+  type TransportError,
+} from "sui-effect";
 import type { MisoConfig } from "./config.ts";
 import { int, u64 } from "./internal/scalars.ts";
 import * as vaultContract from "../contracts/vault/vault.ts";
@@ -53,7 +60,33 @@ import { getRecordingTitles, getWorkAddressesByShareTypes, getWorksByIds } from 
  * set can't spin forever. 50/page × 20 = 1000 objects — far beyond any realistic
  * library.
  */
-const MAX_PAGES = 20;
+const MAX_OWNED_OBJECTS = 1000;
+
+/**
+ * Builds `Musicos.layer({ deployment: { packageId } })` / `Partyos.layer({
+ * deployment })`, provides it, and hands back the effect it wraps — see
+ * `../catalog.ts`'s `withMusicos` for the same idiom (kept file-local; see
+ * `docs/CONVERSION-STATUS.md`).
+ */
+function withMusicos<A, E>(
+  packageId: string,
+  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  return Effect.gen(function* () {
+    const musicos = yield* Musicos;
+    return yield* effect(musicos);
+  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+}
+
+function withPartyos<A, E>(
+  partyosPackageId: string,
+  effect: (partyos: PartyosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | PartyosDeploymentError, Sui> {
+  return Effect.gen(function* () {
+    const partyos = yield* Partyos;
+    return yield* effect(partyos);
+  }).pipe(Effect.provide(Partyos.layer({ deployment: { partyos: partyosPackageId } })));
+}
 
 type WorkAdminCapType =
   | { kind: "composition"; shareType: string }
@@ -167,35 +200,6 @@ function isCanonicalRecordType(
   return true;
 }
 
-/** Page shape this file needs from `client.core.listOwnedObjects` — content is optional per-call, not per-object. */
-interface OwnedObjectsPage {
-  objects: Array<{ objectId: string; type: string; content?: Uint8Array }>;
-  hasNextPage: boolean;
-  cursor: string | null;
-}
-
-/** One page of `client.core.listOwnedObjects`, requesting `content` when `withContent` is set. */
-const listOwnedObjectsPage = Effect.fn("listOwnedObjectsPage")(function* (
-  owner: string,
-  type: string,
-  cursor: string | null,
-  withContent: boolean,
-): Effect.fn.Return<OwnedObjectsPage, SuiRpcError, SuiClient> {
-  const client = yield* SuiClient;
-  return yield* Effect.tryPromise({
-    try: (signal) =>
-      (client.core.listOwnedObjects as (args: unknown) => Promise<OwnedObjectsPage>)({
-        owner,
-        type,
-        cursor,
-        limit: 50,
-        ...(withContent ? { include: { content: true } } : {}),
-        signal,
-      }),
-    catch: (cause) => new SuiRpcError({ operation: "listOwnedObjects", cause }),
-  });
-});
-
 /**
  * The records `owner` holds. Ownership is DIRECT — a record is an address-owned
  * `<record>::record::Record` with no pressing/license/receipt intermediary.
@@ -205,43 +209,38 @@ const listOwnedObjectsPage = Effect.fn("listOwnedObjectsPage")(function* (
 export const getOwnedRecords = Effect.fn("getOwnedRecords")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<OwnedRecord[], SuiRpcError, SuiClient> {
-  const out: OwnedRecord[] = [];
-  let cursor: string | null = null;
+): Effect.fn.Return<OwnedRecord[], TransportError, Sui> {
+  const sui = yield* Sui;
   const sales = requireRecordSalesDeployment(config.recordSales);
-  const recordType = `${sales.recordPackageId}::record::Record`;
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = (yield* listOwnedObjectsPage(owner, recordType, cursor, true)) as OwnedObjectsPage;
-    for (const obj of res.objects) {
-      if (!isCanonicalRecordType(obj.type, sales.recordPackageId)) {
-        continue;
-      }
-      if (!obj.content) throw new Error(`Record ${obj.objectId} has no BCS content`);
-      const record = recordContract.Record.parse(obj.content);
-      if (normalizeSuiAddress(record.id) !== normalizeSuiAddress(obj.objectId)) {
-        throw new Error(`Record ${obj.objectId} has mismatched embedded UID ${record.id}`);
-      }
-      const derived = deriveRecordId(record.pressing_id, record.number, sales.recordPackageId);
-      if (normalizeSuiAddress(derived) !== normalizeSuiAddress(obj.objectId)) {
-        throw new Error(`Record ${obj.objectId} is not derived from its Pressing and number`);
-      }
-      out.push({
-        id: obj.objectId,
-        type: obj.type,
-        releaseId: record.release_id,
-        pressingId: record.pressing_id,
-        edition: record.edition,
-        number: record.number,
-        purchaseCurrency: normalizeStructTag(record.purchase_currency.name),
-        purchasePrice: record.purchase_price,
-        purchasedBy: record.purchased_by,
-        purchasedTimestampMs: record.purchased_timestamp_ms,
-      });
+  const recordType = StructTag.make(`${sales.recordPackageId}::record::Record`);
+  const objects = yield* Stream.runCollect(
+    sui.streamOwnedObjects(SuiAddress.make(normalizeSuiAddress(owner)), { type: recordType }).pipe(Stream.take(MAX_OWNED_OBJECTS)),
+  );
+  const out: OwnedRecord[] = [];
+  for (const obj of objects) {
+    if (!isCanonicalRecordType(obj.type, sales.recordPackageId)) {
+      continue;
     }
-    if (!res.hasNextPage) break;
-    cursor = res.cursor;
-    if (!cursor) break;
+    const record = recordContract.Record.parse(obj.content);
+    if (normalizeSuiAddress(record.id) !== normalizeSuiAddress(obj.id)) {
+      throw new Error(`Record ${obj.id} has mismatched embedded UID ${record.id}`);
+    }
+    const derived = deriveRecordId(record.pressing_id, record.number, sales.recordPackageId);
+    if (normalizeSuiAddress(derived) !== normalizeSuiAddress(obj.id)) {
+      throw new Error(`Record ${obj.id} is not derived from its Pressing and number`);
+    }
+    out.push({
+      id: obj.id,
+      type: obj.type,
+      releaseId: record.release_id,
+      pressingId: record.pressing_id,
+      edition: record.edition,
+      number: record.number,
+      purchaseCurrency: normalizeStructTag(record.purchase_currency.name),
+      purchasePrice: record.purchase_price,
+      purchasedBy: record.purchased_by,
+      purchasedTimestampMs: record.purchased_timestamp_ms,
+    });
   }
   return out;
 });
@@ -257,29 +256,32 @@ export const getOwnedRecords = Effect.fn("getOwnedRecords")(function* (
 export const getOwnedParties = Effect.fn("getOwnedParties")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<OwnedParty[], SuiRpcError | ObjectTypeMismatchError | BcsDecodeError, SuiClient> {
-  const capType = `${config.partyos.partyos}::party::PartyAdminCap`;
+): Effect.fn.Return<OwnedParty[], TransportError | PartyosDeploymentError, Sui> {
+  const sui = yield* Sui;
+  const capType = StructTag.make(`${config.partyos.partyos}::party::PartyAdminCap`);
 
   // One page of 50 caps is plenty for launch-scale artists; paginate if labels
   // ever start hitting the cap.
-  const { objects } = yield* listOwnedObjectsPage(owner, capType, null, true);
+  const objects = yield* Stream.runCollect(sui.streamOwnedObjects(SuiAddress.make(normalizeSuiAddress(owner)), { type: capType }).pipe(Stream.take(50)));
 
   const caps = objects.flatMap((obj) => {
     try {
-      const cap = partyContracts.PartyAdminCap.parse(obj.content!);
-      return [{ capId: obj.objectId, partyId: cap.party_id }];
+      const cap = partyContracts.PartyAdminCap.parse(obj.content);
+      return [{ capId: obj.id, partyId: cap.party_id }];
     } catch {
       return [];
     }
   });
   if (caps.length === 0) return [];
 
-  const parties = yield* getPartiesByIds(
-    caps.map((c) => c.partyId),
-    config.partyos.partyos,
+  const results = yield* withPartyos(config.partyos.partyos, (partyos) =>
+    partyos.getPartiesByIds(caps.map((c) => ObjectId.make(c.partyId))),
+  );
+  const parties = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[caps[index]!.partyId, result.success] as const] : [])),
   );
   return caps.flatMap(({ capId, partyId }) => {
-    const p = parties[partyId];
+    const p = parties.get(partyId);
     return p ? [{ partyId, capId, name: p.name, kind: p.kind }] : [];
   });
 });
@@ -295,24 +297,28 @@ export const getOwnedParties = Effect.fn("getOwnedParties")(function* (
 export const getPendingMemberships = Effect.fn("getPendingMemberships")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<PendingMembership[], SuiRpcError | ObjectTypeMismatchError | BcsDecodeError, SuiClient> {
+): Effect.fn.Return<PendingMembership[], DecodeError | TransportError | PartyosDeploymentError, Sui> {
   const controlled = yield* getOwnedParties(owner, config);
   const individuals = controlled.filter((party) => party.kind === "individual");
   if (individuals.length === 0) return [];
 
-  const invitations = yield* Effect.forEach(
-    individuals,
-    (member) =>
-      getPartyPendingMemberships(member.partyId).pipe(Effect.map((groupIds) => ({ member, groupIds }))),
-    { concurrency: "unbounded" },
+  const invitations = yield* withPartyos(config.partyos.partyos, (partyos) =>
+    Effect.forEach(
+      individuals,
+      (member) => partyos.getPendingMemberships(ObjectId.make(member.partyId)).pipe(Effect.map((groupIds) => ({ member, groupIds }))),
+      { concurrency: "unbounded" },
+    ),
   );
   const groupIds = [...new Set(invitations.flatMap(({ groupIds }) => groupIds))];
   if (groupIds.length === 0) return [];
 
-  const groups = yield* getPartiesByIds(groupIds, config.partyos.partyos);
-  return invitations.flatMap(({ member, groupIds }) =>
-    groupIds.flatMap((groupId): PendingMembership[] => {
-      const group = groups[groupId];
+  const groupResults = yield* withPartyos(config.partyos.partyos, (partyos) => partyos.getPartiesByIds(groupIds));
+  const groups = new Map(
+    groupResults.flatMap((result, index) => (Result.isSuccess(result) ? [[groupIds[index]!, result.success] as const] : [])),
+  );
+  return invitations.flatMap(({ member, groupIds: memberGroupIds }) =>
+    memberGroupIds.flatMap((groupId): PendingMembership[] => {
+      const group = groups.get(groupId);
       return group?.kind === "group"
         ? [{ memberPartyId: member.partyId, memberCapId: member.capId, groupId, groupName: group.name }]
         : [];
@@ -323,26 +329,23 @@ export const getPendingMemberships = Effect.fn("getPendingMemberships")(function
 // ── Works (studio catalog) ───────────────────────────────────────────────────
 
 /**
- * Owned generic admin caps over gRPC. The bare type filter matches every
- * instantiation of `CompositionAdminCap<T>` / `RecordingAdminCap<T>`; the share
- * type `T` is parsed back out of each instance's type tag, because the cap does
- * not store the work's id — only its share type.
+ * Owned generic admin caps. The bare type filter matches every instantiation of
+ * `CompositionAdminCap<T>` / `RecordingAdminCap<T>`; the share type `T` is
+ * parsed back out of each instance's type tag, because the cap does not store
+ * the work's id — only its share type.
  */
 const ownedGenericCaps = Effect.fn("ownedGenericCaps")(function* (
   owner: string,
   capType: string,
-): Effect.fn.Return<{ id: string; shareType: string }[], SuiRpcError, SuiClient> {
+): Effect.fn.Return<{ id: string; shareType: string }[], TransportError, Sui> {
+  const sui = yield* Sui;
+  const objects = yield* Stream.runCollect(
+    sui.streamOwnedObjects(SuiAddress.make(normalizeSuiAddress(owner)), { type: StructTag.make(capType) }).pipe(Stream.take(MAX_OWNED_OBJECTS)),
+  );
   const caps: { id: string; shareType: string }[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = (yield* listOwnedObjectsPage(owner, capType, cursor, false)) as OwnedObjectsPage;
-    for (const obj of res.objects) {
-      const match = /<(.+)>$/.exec(obj.type);
-      if (match?.[1]) caps.push({ id: obj.objectId, shareType: match[1] });
-    }
-    if (!res.hasNextPage) break;
-    cursor = res.cursor;
-    if (!cursor) break;
+  for (const obj of objects) {
+    const match = /<(.+)>$/.exec(obj.type);
+    if (match?.[1]) caps.push({ id: obj.id, shareType: match[1] });
   }
   return caps;
 });
@@ -357,8 +360,8 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   { compositions: VaultedGenericCap[]; recordings: VaultedGenericCap[]; releases: VaultedReleaseCap[] },
-  SuiRpcError,
-  SuiClient
+  TransportError,
+  Sui
 > {
   const out: {
     compositions: VaultedGenericCap[];
@@ -367,36 +370,28 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
   } = { compositions: [], recordings: [], releases: [] };
   const vaultPackageId = config.protocol.vault;
   const misoPackageId = config.deployment.musicos;
-  const capType = `${vaultPackageId}::vault::VaultAdminCap`;
-  let cursor: string | null = null;
+  const capType = StructTag.make(`${vaultPackageId}::vault::VaultAdminCap`);
 
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = (yield* listOwnedObjectsPage(owner, capType, cursor, true)) as OwnedObjectsPage;
-    for (const object of res.objects) {
-      if (!object.content) continue;
-      const work = classifyVaultedWorkAdminCapType(
-        object.type,
-        vaultPackageId,
-        misoPackageId,
-      );
-      if (!work) continue;
-      try {
-        const { vault_id: vaultId } = vaultContract.VaultAdminCap.parse(object.content);
-        if (work.kind === "composition") {
-          out.compositions.push({ id: object.objectId, shareType: work.shareType, vaultId });
-        } else if (work.kind === "recording") {
-          out.recordings.push({ id: object.objectId, shareType: work.shareType, vaultId });
-        } else {
-          out.releases.push({ id: object.objectId, vaultId });
-        }
-      } catch {
-        // A malformed object under the configured vault namespace is not usable
-        // authority and should not hide otherwise valid catalog entries.
+  const sui = yield* Sui;
+  const objects = yield* Stream.runCollect(
+    sui.streamOwnedObjects(SuiAddress.make(normalizeSuiAddress(owner)), { type: capType }).pipe(Stream.take(MAX_OWNED_OBJECTS)),
+  );
+  for (const object of objects) {
+    const work = classifyVaultedWorkAdminCapType(object.type, vaultPackageId, misoPackageId);
+    if (!work) continue;
+    try {
+      const { vault_id: vaultId } = vaultContract.VaultAdminCap.parse(object.content);
+      if (work.kind === "composition") {
+        out.compositions.push({ id: object.id, shareType: work.shareType, vaultId });
+      } else if (work.kind === "recording") {
+        out.recordings.push({ id: object.id, shareType: work.shareType, vaultId });
+      } else {
+        out.releases.push({ id: object.id, vaultId });
       }
+    } catch {
+      // A malformed object under the configured vault namespace is not usable
+      // authority and should not hide otherwise valid catalog entries.
     }
-    if (!res.hasNextPage) break;
-    cursor = res.cursor;
-    if (!cursor) break;
   }
   return out;
 });
@@ -405,23 +400,26 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
 const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(function* (
   caps: readonly VaultedReleaseCap[],
   config: MisoConfig,
-): Effect.fn.Return<{ id: string; releaseId: string }[], SuiRpcError, SuiClient> {
+): Effect.fn.Return<{ id: string; releaseId: string }[], TransportError, Sui> {
   if (caps.length === 0) return [];
   const releaseCapType = `${config.deployment.musicos}::release::ReleaseAdminCap`;
   const vaultType = normalizeStructTag(`${config.protocol.vault}::vault::Vault<${releaseCapType}>`);
-  const contentById = yield* getObjectsContent(caps.map((cap) => cap.vaultId));
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(caps.map((cap) => ObjectId.make(cap.vaultId)));
   const releasesByVault = new Map<string, string>();
-  for (const [objectId, object] of contentById) {
+  results.forEach((result, index) => {
+    if (!Result.isSuccess(result)) return;
+    const object = result.success;
     try {
-      if (normalizeStructTag(object.type) !== vaultType) continue;
+      if (normalizeStructTag(object.type) !== vaultType) return;
       const vault = vaultContract.Vault(networkContracts.release.ReleaseAdminCap).parse(object.content);
       const releaseId = vault.cap?.value?.release_id;
-      if (releaseId) releasesByVault.set(objectId, releaseId);
+      if (releaseId) releasesByVault.set(caps[index]!.vaultId, releaseId);
     } catch {
       // Batch catalog discovery is best-effort per authority, matching the
       // existing direct-cap path's treatment of unreadable work objects.
     }
-  }
+  });
   return caps.flatMap((cap) => {
     const releaseId = releasesByVault.get(cap.vaultId);
     return releaseId ? [{ id: cap.id, releaseId }] : [];
@@ -432,28 +430,28 @@ const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(functio
  * Every work the wallet administers, keyed by its ADMIN CAP id (the studio
  * catalog's routing unit — caps are what control means here).
  *
- * Three transports, one answer: direct or vaulted cap discovery is gRPC; one aliased GraphQL
- * request maps every share type to its work address (gRPC cannot ask "which
- * object has type X"); one gRPC batch loads all the work contents. Releases skip
+ * Three transports, one answer: direct or vaulted cap discovery is Core; one aliased GraphQL
+ * request maps every share type to its work address (Core cannot ask "which
+ * object has type X"); one Core batch loads all the work contents. Releases skip
  * the GraphQL hop entirely — `ReleaseAdminCap` is not generic and carries
  * `release_id` directly.
  */
 export const getOwnedWorks = Effect.fn("getOwnedWorks")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<OwnedWork[], SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<OwnedWork[], MusicosDeploymentInvalid | DecodeError | BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   const miso = config.deployment.musicos;
 
   const [directCompCaps, directRecCaps, directRelCaps, vaulted] = yield* Effect.all([
     ownedGenericCaps(owner, `${miso}::composition::CompositionAdminCap`),
     ownedGenericCaps(owner, `${miso}::recording::RecordingAdminCap`),
-    getOwnedReleaseAdminCaps(owner, miso),
+    withMusicos(miso, (musicos) => musicos.getOwnedReleaseAdminCaps(SuiAddress.make(normalizeSuiAddress(owner)))),
     ownedVaultedWorkCaps(owner, config),
   ]);
   const vaultedRelCaps = yield* resolveVaultedReleaseCaps(vaulted.releases, config);
   const compCaps = [...directCompCaps, ...vaulted.compositions];
   const recCaps = [...directRecCaps, ...vaulted.recordings];
-  const relCaps = [...directRelCaps, ...vaultedRelCaps];
+  const relCaps = [...directRelCaps.map((cap) => ({ id: String(cap.id), releaseId: String(cap.id) })), ...vaultedRelCaps];
 
   const addresses = yield* getWorkAddressesByShareTypes(
     { compositions: compCaps.map((c) => c.shareType), recordings: recCaps.map((c) => c.shareType) },
@@ -500,10 +498,23 @@ export const getOwnedWorks = Effect.fn("getOwnedWorks")(function* (
 export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   capId: string,
   config: MisoConfig,
-): Effect.fn.Return<WorkDetail | null, ObjectNotFoundError | SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<
+  WorkDetail | null,
+  | ObjectNotFound
+  | ObjectDeleted
+  | ObjectUnavailable
+  | DecodeError
+  | MusicosDeploymentInvalid
+  | MusicosWorkNotFound
+  | BatchItemError
+  | GraphQLUnavailable
+  | TransportError,
+  Sui | SuiGraphQL
+> {
   const miso = config.deployment.musicos;
 
-  const found = yield* getOptionalObjectContent(capId);
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(normalizeSuiAddress(capId)));
   if (Option.isNone(found)) return null;
   const { content, type } = found.value;
 
@@ -539,7 +550,7 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   if (direct?.kind === "release") {
     // `ReleaseAdminCap`'s BCS carries `release_id` directly — no `json` include needed.
     const { release_id: releaseId } = networkContracts.release.ReleaseAdminCap.parse(content);
-    const r = yield* getReleaseById(releaseId);
+    const r = yield* withMusicos(miso, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
     return {
       capId,
       kind: "release",
@@ -587,7 +598,7 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
 
   const [releaseCap] = yield* resolveVaultedReleaseCaps([{ id: capId, vaultId }], config);
   if (!releaseCap) throw new Error(`Release vault ${vaultId} carries no release admin cap`);
-  const r = yield* getReleaseById(releaseCap.releaseId);
+  const r = yield* withMusicos(miso, (musicos) => musicos.getReleaseById(ObjectId.make(releaseCap.releaseId)));
   return {
     capId,
     kind: "release",
@@ -601,64 +612,41 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
 
 // ── Balance ──────────────────────────────────────────────────────────────────
 
-const decimalsByClient = new WeakMap<object, Map<string, Promise<number>>>();
-
-/**
- * Resolve once per (transport client, coin type). Failed lookups are evicted so
- * a transient fullnode error cannot poison a long-lived API worker.
- */
-function coinDecimalsPromise(client: object & { core: { getCoinMetadata: (args: { coinType: string }) => Promise<{ coinMetadata: { decimals?: number } | null }> } }, coinType: string): Promise<number> {
-  let cache = decimalsByClient.get(client);
-  if (!cache) {
-    cache = new Map();
-    decimalsByClient.set(client, cache);
-  }
-  const key = normalizeStructTag(coinType);
-  const cached = cache.get(key);
-  if (cached) return cached;
-
-  const pending = client.core.getCoinMetadata({ coinType: key }).then(({ coinMetadata }) => {
-    const decimals = coinMetadata?.decimals;
-    if (!Number.isSafeInteger(decimals) || decimals! < 0 || decimals! > 18) {
-      throw new Error(`Coin metadata for ${key} has no supported decimal precision`);
-    }
-    return decimals!;
-  });
-  cache.set(key, pending);
-  pending.catch(() => {
-    if (cache!.get(key) === pending) cache!.delete(key);
-  });
-  return pending;
-}
-
 /**
  * A wallet's balance in one currency. Keep the aggregate and both Sui storage
  * classes: callers using a `FundsWithdrawal` must never mistake coin-object
  * value for immediately withdrawable address balance.
+ *
+ * TODO(stage 2/3): the predecessor cached `getCoinMetadata` per (transport
+ * client, coin type) in a module-level `WeakMap`. This standalone function has
+ * no layer to hold an `Effect.cachedWithTTL`-backed cache in (the issue's own
+ * target design for this); dropped rather than reintroducing a module-level
+ * cache keyed on a raw client object, which `Sui`'s per-call service instance
+ * makes awkward to key by. Revisit once this becomes a `Miso.read.getBalance`
+ * service member with a layer to hold the cache.
  */
 export const getBalance = Effect.fn("getBalance")(function* (
   address: string,
   config: MisoConfig,
   coinType?: string,
-): Effect.fn.Return<Balance, SuiRpcError, SuiClient> {
-  const client = yield* SuiClient;
+): Effect.fn.Return<Balance, DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
   const type = coinType ?? config.money.usdCoinType;
-  const [res, decimals] = yield* Effect.all([
-    Effect.tryPromise({
-      try: (signal) => client.core.getBalance({ owner: address, coinType: type, signal }),
-      catch: (cause) => new SuiRpcError({ operation: "getBalance", cause }),
-    }),
-    Effect.tryPromise({
-      try: () => coinDecimalsPromise(client, type),
-      catch: (cause) => new SuiRpcError({ operation: "getCoinMetadata", cause }),
-    }),
+  const [balance, metadata] = yield* Effect.all([
+    sui.getBalance(SuiAddress.make(normalizeSuiAddress(address)), CoinType.make(normalizeStructTag(type))),
+    sui.core.getCoinMetadata({ coinType: normalizeStructTag(type) }),
   ]);
+  const rawDecimals = metadata.coinMetadata?.decimals;
+  if (!Number.isSafeInteger(rawDecimals) || rawDecimals! < 0 || rawDecimals! > 18) {
+    return yield* new DecodeError({ expectedType: type, issue: `coin metadata for ${type} has no supported decimal precision` });
+  }
+  const decimals: number = rawDecimals!;
   return {
     address: normalizeSuiAddress(address),
     coinType: type,
-    balance: u64(res.balance.balance),
-    coinBalance: u64(res.balance.coinBalance),
-    addressBalance: u64(res.balance.addressBalance),
+    balance: u64(balance.balance),
+    coinBalance: u64(balance.coinBalance),
+    addressBalance: u64(balance.addressBalance),
     decimals,
   };
 });
@@ -685,17 +673,14 @@ export const ownsParty = Effect.fn("ownsParty")(function* (
   address: string,
   partyId: string,
   config: MisoConfig,
-): Effect.fn.Return<Ownership, never, SuiClient> {
+): Effect.fn.Return<Ownership, never, Sui> {
   const capId = derivePartyAdminCapId(partyId, config.partyos.partyos);
-  const client = yield* SuiClient;
-  const isOwner = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObject({ objectId: capId, signal }),
-    catch: (cause) => cause,
-  }).pipe(
-    Effect.map(({ object }) => isAddressOwner(object?.owner, address)),
+  const sui = yield* Sui;
+  const isOwner = yield* sui.getObject(ObjectId.make(capId)).pipe(
+    Effect.map((object) => isAddressOwner(object.owner, address)),
     Effect.catch(() => Effect.succeed(false)),
   );
-  return { address: normalizeSuiAddress(address), objectId: partyId, isOwner, capId };
+  return { address: normalizeSuiAddress(address), objectId: partyId, isOwner, capId: String(capId) };
 });
 
 /**
@@ -707,13 +692,10 @@ export const ownsParty = Effect.fn("ownsParty")(function* (
 export const ownsRecord = Effect.fn("ownsRecord")(function* (
   address: string,
   recordId: string,
-): Effect.fn.Return<Ownership, never, SuiClient> {
-  const client = yield* SuiClient;
-  const isOwner = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObject({ objectId: recordId, signal }),
-    catch: (cause) => cause,
-  }).pipe(
-    Effect.map(({ object }) => isAddressOwner(object?.owner, address)),
+): Effect.fn.Return<Ownership, never, Sui> {
+  const sui = yield* Sui;
+  const isOwner = yield* sui.getObject(ObjectId.make(normalizeSuiAddress(recordId))).pipe(
+    Effect.map((object) => isAddressOwner(object.owner, address)),
     Effect.catch(() => Effect.succeed(false)),
   );
   return { address: normalizeSuiAddress(address), objectId: recordId, isOwner };
