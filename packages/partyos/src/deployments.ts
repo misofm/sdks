@@ -3,7 +3,7 @@
 
 import { Effect } from "effect";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { DeploymentError } from "@misofm/effect";
+import { PartyosDeploymentError } from "./errors.ts";
 
 /** Sui networks for which this SDK may bundle a verified deployment. */
 export type PartyosNetwork = "mainnet" | "testnet";
@@ -98,9 +98,10 @@ export function normalizePartyDeployment(deployment: unknown): PartyDeployment {
  */
 export const validatePartyDeployment = Effect.fn("validatePartyDeployment")(function* (
   input: unknown,
-): Effect.fn.Return<PartyDeployment, DeploymentError> {
+): Effect.fn.Return<PartyDeployment, PartyosDeploymentError> {
   return yield* Effect.try({
     try: () => normalizePartyDeployment(input),
-    catch: (cause) => new DeploymentError({ message: cause instanceof Error ? cause.message : String(cause) }),
+    catch: (cause) =>
+      new PartyosDeploymentError({ message: cause instanceof Error ? cause.message : String(cause) }),
   });
 });
