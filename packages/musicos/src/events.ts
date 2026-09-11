@@ -9,15 +9,23 @@
  * in `parsers.ts`.
  */
 import type { Schema } from "effect";
-import type { Event } from "sui-effect";
+import { Effect } from "effect";
+import { DecodeError, type Event } from "sui-effect";
 import { SuiSchema } from "sui-effect";
 import * as schema from "./schema.ts";
-import type { EventDecoder } from "./parsers.ts";
+import { matchesEventSuffix, type EventDecoder } from "./parsers.ts";
 
-function decoder<T>(codec: Schema.Codec<T, Uint8Array>): EventDecoder<T> {
+function decoder<T>(codec: Schema.Codec<T, Uint8Array>, suffix: string): EventDecoder<T> {
   return ((input: Uint8Array | Event) => {
-    const bytes = input instanceof Uint8Array ? input : input.bcs;
-    return SuiSchema.decode(codec, bytes);
+    if (input instanceof Uint8Array) {
+      return SuiSchema.decode(codec, input);
+    }
+    if (!matchesEventSuffix(input.eventType, suffix)) {
+      return Effect.fail(
+        new DecodeError({ expectedType: suffix, issue: `event type ${input.eventType} does not name ${suffix}` }),
+      );
+    }
+    return SuiSchema.decode(codec, input.bcs, { actualType: input.eventType });
   }) as EventDecoder<T>;
 }
 
@@ -29,14 +37,14 @@ function decoder<T>(codec: Schema.Codec<T, Uint8Array>): EventDecoder<T> {
  */
 export const eventParsers = {
   core: {
-    compositionCreated: decoder(schema.compositionCreatedEventContent),
-    compositionPublished: decoder(schema.compositionPublishedEventContent),
-    recordingCreated: decoder(schema.recordingCreatedEventContent),
-    recordingPublished: decoder(schema.recordingPublishedEventContent),
-    compositionSharesGranted: decoder(schema.compositionSharesGrantedEventContent),
-    releaseCreated: decoder(schema.releaseCreatedEventContent),
-    releasePublished: decoder(schema.releasePublishedEventContent),
-    releaseRegistryCreated: decoder(schema.releaseRegistryCreatedEventContent),
+    compositionCreated: decoder(schema.compositionCreatedEventContent, "composition::CompositionCreatedEvent"),
+    compositionPublished: decoder(schema.compositionPublishedEventContent, "composition::CompositionPublishedEvent"),
+    recordingCreated: decoder(schema.recordingCreatedEventContent, "recording::RecordingCreatedEvent"),
+    recordingPublished: decoder(schema.recordingPublishedEventContent, "recording::RecordingPublishedEvent"),
+    compositionSharesGranted: decoder(schema.compositionSharesGrantedEventContent, "recording::CompositionSharesGrantedEvent"),
+    releaseCreated: decoder(schema.releaseCreatedEventContent, "release::ReleaseCreatedEvent"),
+    releasePublished: decoder(schema.releasePublishedEventContent, "release::ReleasePublishedEvent"),
+    releaseRegistryCreated: decoder(schema.releaseRegistryCreatedEventContent, "release::ReleaseRegistryCreatedEvent"),
   },
 } as const;
 

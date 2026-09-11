@@ -14,6 +14,7 @@ import { type Outcome, SuiAddress } from "sui-effect";
 export {
   BuildError,
   DecodeError,
+  GraphQLUnavailable,
   ObjectDeleted,
   ObjectNotFound,
   ObjectUnavailable,
@@ -30,6 +31,21 @@ export {
 export class MusicosTreasuryCapNotFound extends Schema.TaggedError<MusicosTreasuryCapNotFound>()(
   "musicos/TreasuryCapNotFound",
   { shareType: Schema.String, owner: SuiAddress },
+) {
+  readonly outcome: Outcome = "not_applied";
+}
+
+/**
+ * No composition or recording carries `shareType` — `getCompositionByShareType`
+ * / `getRecordingByShareType`'s GraphQL discovery step found no matching work.
+ *
+ * There is no object id to name (that is exactly what the search was for), so
+ * this is its own error rather than `ObjectNotFound`, which always names one.
+ * Nothing was submitted, so the outcome is `not_applied`.
+ */
+export class MusicosWorkNotFound extends Schema.TaggedError<MusicosWorkNotFound>()(
+  "musicos/WorkNotFound",
+  { kind: Schema.Literals(["composition", "recording"]), shareType: Schema.String },
 ) {
   readonly outcome: Outcome = "not_applied";
 }

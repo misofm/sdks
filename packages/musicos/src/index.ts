@@ -16,7 +16,7 @@ export {
   type ReadError,
 } from "./Musicos.ts";
 export { musicos } from "./extension.ts";
-export { MusicosDeploymentInvalid, MusicosTreasuryCapNotFound } from "./errors.ts";
+export { MusicosDeploymentInvalid, MusicosTreasuryCapNotFound, MusicosWorkNotFound } from "./errors.ts";
 
 // Domain types (unchanged by the conversion) and PTB fragments.
 export * from "./types.ts";

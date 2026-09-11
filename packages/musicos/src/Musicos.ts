@@ -18,7 +18,7 @@
  * once by the consumer.
  */
 import { bcs } from "@mysten/sui/bcs";
-import { Config, Context, Effect, Layer, Option, Result, Stream } from "effect";
+import { Config, Context, Effect, Layer, Option, Result, Schema, Stream } from "effect";
 import {
   BuildError,
   DecodeError,
@@ -138,12 +138,13 @@ export interface MusicosService {
   /**
    * The `TreasuryCap<shareType>` owned by `owner`.
    *
-   * Fails with: `musicos/TreasuryCapNotFound` (no such cap for that owner), `TransportError`.
+   * Fails with: `musicos/TreasuryCapNotFound` (no such cap for that owner),
+   * `DecodeError` (`shareType` does not form a valid Move type), `TransportError`.
    */
   readonly getShareCurrencyTreasuryCap: (
     shareType: string,
     owner: SuiAddress,
-  ) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | TransportError>;
+  ) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | DecodeError | TransportError>;
 
   /** Simulate-based reads. A namespace, which the Promise face maps recursively. */
   readonly view: {
@@ -213,10 +214,20 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
       const capType = StructTag.make(bareCompositionAdminCapType(deployment.packageId));
       const objects = yield* Stream.runCollect(sui.streamOwnedObjects(owner, { type: capType }));
       return yield* Effect.forEach(objects, (object) =>
-        Effect.try({
-          try: () => extractTypeParam(object.type),
-          catch: shareTypeError(object.id, capType),
-        }).pipe(Effect.map((shareType) => new CompositionAdminCap({ id: object.id, shareType }))),
+        Effect.gen(function* () {
+          // Decode the content, like `getOwnedReleaseAdminCaps` does — not just
+          // trusting the envelope's `id`, so a cap whose content does not
+          // actually parse as `{ id }` is a `DecodeError`, not a silent pass.
+          const content = yield* SuiSchema.decode(CompositionAdminCapContent, object.content, {
+            objectId: object.id,
+            actualType: object.type,
+          });
+          const shareType = yield* Effect.try({
+            try: () => extractTypeParam(object.type),
+            catch: shareTypeError(object.id, capType),
+          });
+          return new CompositionAdminCap({ id: content.id, shareType });
+        }),
       );
     }, Effect.provideService(Sui, sui));
 
@@ -258,10 +269,17 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
       const capType = StructTag.make(bareRecordingAdminCapType(deployment.packageId));
       const objects = yield* Stream.runCollect(sui.streamOwnedObjects(owner, { type: capType }));
       return yield* Effect.forEach(objects, (object) =>
-        Effect.try({
-          try: () => extractTypeParam(object.type),
-          catch: shareTypeError(object.id, capType),
-        }).pipe(Effect.map((shareType) => new RecordingAdminCap({ id: object.id, shareType }))),
+        Effect.gen(function* () {
+          const content = yield* SuiSchema.decode(RecordingAdminCapContent, object.content, {
+            objectId: object.id,
+            actualType: object.type,
+          });
+          const shareType = yield* Effect.try({
+            try: () => extractTypeParam(object.type),
+            catch: shareTypeError(object.id, capType),
+          });
+          return new RecordingAdminCap({ id: content.id, shareType });
+        }),
       );
     }, Effect.provideService(Sui, sui));
 
@@ -298,7 +316,11 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
     // === Share Currency ===
 
     const getShareCurrencyType = Effect.fn("Musicos.getShareCurrencyType")(function* (id: ObjectId) {
-      const object = yield* sui.getObject(id);
+      // A bare expected tag matches every instantiation, so this both checks
+      // the object really is some `Currency<_>` before parsing anything and
+      // costs nothing extra: `getObject` compares the tag before it touches
+      // `content`.
+      const object = yield* sui.getObject(id, { expectedType: "0x2::coin::Currency" });
       return yield* Effect.try({
         try: () => extractTypeParam(object.type),
         catch: shareTypeError(id, "0x2::coin::Currency"),
@@ -309,7 +331,12 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
       shareType: string,
       owner: SuiAddress,
     ) {
-      const capType = StructTag.make(`0x2::coin::TreasuryCap<${shareType}>`);
+      // `shareType` is caller-supplied, so building the filter's tag can fail
+      // on a malformed one — decode it into a typed `DecodeError` rather than
+      // letting `StructTag.make`'s unsafe brand throw a defect.
+      const capType = yield* Schema.decodeUnknownEffect(StructTag)(`0x2::coin::TreasuryCap<${shareType}>`).pipe(
+        Effect.mapError((issue) => new DecodeError({ expectedType: "0x2::coin::TreasuryCap<_>", issue: issue.message })),
+      );
       const objects = yield* Stream.runCollect(sui.streamOwnedObjects(owner, { type: capType }));
       const first = objects[0];
       if (first === undefined) {
@@ -329,7 +356,6 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
             `deriveTargetReleaseId: recordingIds (${params.recordingIds.length}) and splitBps (${params.splitBps.length}) length mismatch.`,
           );
         }
-        tx.setSender(params.sender);
         tx.add(
           release.deriveTargetReleaseId({
             package: deployment.packageId,
@@ -342,7 +368,10 @@ const make = (deployment: MisoProtocolDeployment): Effect.Effect<MusicosService,
           }),
         );
       };
-      const address = yield* sui.view(recipe, bcs.Address);
+      // `opts.sender` rather than `tx.setSender` inside the recipe: the
+      // recipe stays a pure draft of commands, and `sui.view` is what decides
+      // who the simulation runs as.
+      const address = yield* sui.view(recipe, bcs.Address, { sender: params.sender });
       return ObjectId.make(address);
     }, Effect.provideService(Sui, sui));
 

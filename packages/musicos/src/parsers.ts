@@ -8,7 +8,7 @@
 // `SuiSchema.decode` caller sees, not a special case for events.
 
 import { Effect, type Schema } from "effect";
-import type { DecodeError, Event } from "sui-effect";
+import { DecodeError, type Event } from "sui-effect";
 import { SuiSchema } from "sui-effect";
 import * as schema from "./schema.ts";
 import type {
@@ -28,10 +28,37 @@ export interface EventDecoder<T> {
   (event: Event): Effect.Effect<T, DecodeError>;
 }
 
-function eventDecoder<Raw, T>(codec: Schema.Codec<Raw, Uint8Array>, map: (raw: Raw) => T): EventDecoder<T> {
+/**
+ * A generated event codec's own `.name` is a `@local-pkg/…` source label,
+ * never resolved to a real address (see `schema.ts`), so it cannot be
+ * compared against a real event's `eventType` the way an object's tag can.
+ * What this CAN still check, given only the `Event` overload: the
+ * `module::EventName` suffix — package address and any generic type
+ * arguments aside — which is exactly `bareEventType` strips down to.
+ */
+export function bareEventType(eventType: string): string {
+  const generic = eventType.indexOf("<");
+  return generic === -1 ? eventType : eventType.slice(0, generic);
+}
+
+export function matchesEventSuffix(eventType: string, suffix: string): boolean {
+  return bareEventType(eventType).endsWith(`::${suffix}`);
+}
+
+function eventDecoder<Raw, T>(codec: Schema.Codec<Raw, Uint8Array>, suffix: string, map: (raw: Raw) => T): EventDecoder<T> {
   return ((input: Uint8Array | Event) => {
-    const bytes = input instanceof Uint8Array ? input : input.bcs;
-    return Effect.map(SuiSchema.decode(codec, bytes), map);
+    if (input instanceof Uint8Array) {
+      return Effect.map(SuiSchema.decode(codec, input), map);
+    }
+    if (!matchesEventSuffix(input.eventType, suffix)) {
+      return Effect.fail(
+        new DecodeError({
+          expectedType: suffix,
+          issue: `event type ${input.eventType} does not name ${suffix}`,
+        }),
+      );
+    }
+    return Effect.map(SuiSchema.decode(codec, input.bcs, { actualType: input.eventType }), map);
   }) as EventDecoder<T>;
 }
 
@@ -39,6 +66,7 @@ function eventDecoder<Raw, T>(codec: Schema.Codec<Raw, Uint8Array>, map: (raw: R
 
 export const parseCompositionCreatedEvent: EventDecoder<CompositionCreatedEvent> = eventDecoder(
   schema.compositionCreatedEventContent,
+  "composition::CompositionCreatedEvent",
   (e): CompositionCreatedEvent => ({
     compositionId: e.composition_id,
     compositionAdminCapId: e.composition_admin_cap_id,
@@ -57,6 +85,7 @@ export const parseCompositionCreatedEvent: EventDecoder<CompositionCreatedEvent>
 
 export const parseCompositionPublishedEvent: EventDecoder<CompositionPublishedEvent> = eventDecoder(
   schema.compositionPublishedEventContent,
+  "composition::CompositionPublishedEvent",
   (e): CompositionPublishedEvent => ({
     compositionId: e.composition_id,
     compositionAdminCapId: e.composition_admin_cap_id,
@@ -72,6 +101,7 @@ export const parseCompositionPublishedEvent: EventDecoder<CompositionPublishedEv
 
 export const parseRecordingCreatedEvent: EventDecoder<RecordingCreatedEvent> = eventDecoder(
   schema.recordingCreatedEventContent,
+  "recording::RecordingCreatedEvent",
   (e): RecordingCreatedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
@@ -92,6 +122,7 @@ export const parseRecordingCreatedEvent: EventDecoder<RecordingCreatedEvent> = e
 
 export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent> = eventDecoder(
   schema.recordingPublishedEventContent,
+  "recording::RecordingPublishedEvent",
   (e): RecordingPublishedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
@@ -105,6 +136,7 @@ export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent>
 /** Decodes the dormant legacy royalty-rate share grant event. */
 export const parseCompositionSharesGrantedEvent: EventDecoder<CompositionSharesGrantedEvent> = eventDecoder(
   schema.compositionSharesGrantedEventContent,
+  "recording::CompositionSharesGrantedEvent",
   (e): CompositionSharesGrantedEvent => ({
     recordingId: e.recording_id,
     compositionId: e.composition_id,
@@ -118,6 +150,7 @@ export const parseCompositionSharesGrantedEvent: EventDecoder<CompositionSharesG
 
 export const parseReleaseCreatedEvent: EventDecoder<ReleaseCreatedEvent> = eventDecoder(
   schema.releaseCreatedEventContent,
+  "release::ReleaseCreatedEvent",
   (e): ReleaseCreatedEvent => ({
     registryId: e.registry_id,
     releaseId: e.release_id,
@@ -134,6 +167,7 @@ export const parseReleaseCreatedEvent: EventDecoder<ReleaseCreatedEvent> = event
 
 export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = eventDecoder(
   schema.releasePublishedEventContent,
+  "release::ReleasePublishedEvent",
   (e): ReleasePublishedEvent => ({
     releaseId: e.release_id,
     releaseAdminCapId: e.release_admin_cap_id,
@@ -151,6 +185,7 @@ export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = e
 /** Decodes the singleton core release-registry creation event. */
 export const parseReleaseRegistryCreatedEvent: EventDecoder<ReleaseRegistryCreatedEvent> = eventDecoder(
   schema.releaseRegistryCreatedEventContent,
+  "release::ReleaseRegistryCreatedEvent",
   (e): ReleaseRegistryCreatedEvent => ({
     registryId: e.registry_id,
     createdBy: e.created_by,

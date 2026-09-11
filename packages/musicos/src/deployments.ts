@@ -102,7 +102,7 @@ export function protocolDeployment(
   return normalizeMisoProtocolDeployment({ packageId: normalizeMisoDeployment(deployment).musicos });
 }
 
-/** Resolve the core package only, preserving the established `miso()` default API. */
+/** Resolve the core package identity only, for a bundled network. */
 export function getMisoProtocolDeployment(
   network: string,
 ): MisoProtocolDeployment {

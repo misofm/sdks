@@ -18,15 +18,17 @@
 import { graphql } from "@mysten/sui/graphql/schema";
 import { Effect, Option } from "effect";
 import {
+  GraphQLUnavailable,
   ObjectId,
-  ObjectNotFound,
   Sui,
   SuiGraphQL,
   TransportError,
   type DecodeError,
   type ObjectDeleted,
+  type ObjectNotFound,
   type ObjectUnavailable,
 } from "sui-effect";
+import { MusicosWorkNotFound } from "./errors.ts";
 import * as schema from "./schema.ts";
 import { Composition, Recording } from "./types.ts";
 import { extractTypeParams2 } from "./type-params.ts";
@@ -34,6 +36,31 @@ import { extractTypeParams2 } from "./type-params.ts";
 export { extractTypeParam, extractTypeParams2 } from "./type-params.ts";
 /** @deprecated Kept for platform's own event codecs; see `./events.ts`. */
 export type { BcsParser } from "./events.ts";
+
+/**
+ * `GraphQLUnavailable` lets through, not folded into `TransportError`: under
+ * `SuiGraphQL.layerUnavailable` every call rejects with the same
+ * `GraphQLUnavailable` instance, and a caller that wants to tell "no endpoint
+ * configured" apart from "the endpoint answered badly" needs to see the
+ * real tag rather than have it stand behind `cause`.
+ */
+const graphqlError = (method: string) => (cause: unknown): GraphQLUnavailable | TransportError =>
+  cause instanceof GraphQLUnavailable ? cause : TransportError.fromUnknown(method, cause);
+
+/**
+ * `extractTypeParams2` throws on a repr with only one top-level type
+ * parameter. A live object whose type does not match the deployed Recording
+ * ABI is not this read's problem to fail on — skip it — but skip it the same
+ * way everywhere this file does the skipping, rather than one call site
+ * swallowing the throw and another letting it become a defect.
+ */
+function tryRecordingShareType(repr: string): string | undefined {
+  try {
+    return extractTypeParams2(repr)[0];
+  } catch {
+    return undefined;
+  }
+}
 
 // ============================================================================
 // GraphQL discovery queries
@@ -77,12 +104,12 @@ interface WorkAddressConnection {
  * exposes the first, so one bare Recording scan is shared by every requested
  * recording type and filtered client-side.
  *
- * Fails with: `TransportError`.
+ * Fails with: `GraphQLUnavailable`, `TransportError`.
  */
 export const getWorkAddressesByShareTypes = Effect.fn("Musicos.getWorkAddressesByShareTypes")(function* (
   shareTypes: WorkShareTypes,
   packageId: string,
-): Effect.fn.Return<WorkAddressesByShareType, TransportError, SuiGraphQL> {
+): Effect.fn.Return<WorkAddressesByShareType, GraphQLUnavailable | TransportError, SuiGraphQL> {
   const compositions = [...new Set(shareTypes.compositions)];
   const recordings = new Set(shareTypes.recordings);
   const out: WorkAddressesByShareType = { compositions: {}, recordings: {} };
@@ -118,7 +145,7 @@ export const getWorkAddressesByShareTypes = Effect.fn("Musicos.getWorkAddressesB
         }`,
         variables,
       }),
-    catch: (cause) => TransportError.fromUnknown("musicos.getWorkAddressesByShareTypes", cause),
+    catch: graphqlError("musicos.getWorkAddressesByShareTypes"),
   });
   if (result.errors?.length) {
     return yield* TransportError.fromUnknown(
@@ -132,17 +159,18 @@ export const getWorkAddressesByShareTypes = Effect.fn("Musicos.getWorkAddressesB
     if (address) out.compositions[shareType] = address;
   });
 
+  const skippedReprs: string[] = [];
   const readRecordingPage = (page: WorkAddressConnection | null | undefined) => {
     for (const node of page?.nodes ?? []) {
       const repr = node.asMoveObject?.contents?.type?.repr;
       if (!repr) continue;
-      try {
-        const [recordingShareType] = extractTypeParams2(repr);
-        if (recordings.has(recordingShareType)) {
-          out.recordings[recordingShareType] = node.address;
-        }
-      } catch {
-        // Ignore a live object whose type does not match the deployed Recording ABI.
+      const recordingShareType = tryRecordingShareType(repr);
+      if (recordingShareType === undefined) {
+        skippedReprs.push(repr);
+        continue;
+      }
+      if (recordings.has(recordingShareType)) {
+        out.recordings[recordingShareType] = node.address;
       }
     }
   };
@@ -162,7 +190,7 @@ export const getWorkAddressesByShareTypes = Effect.fn("Musicos.getWorkAddressesB
           }`,
           variables: { recordingType: variables.recordingType!, cursor },
         }),
-      catch: (cause) => TransportError.fromUnknown("musicos.getWorkAddressesByShareTypes", cause),
+      catch: graphqlError("musicos.getWorkAddressesByShareTypes"),
     });
     if (next.errors?.length) {
       return yield* TransportError.fromUnknown(
@@ -174,24 +202,31 @@ export const getWorkAddressesByShareTypes = Effect.fn("Musicos.getWorkAddressesB
     readRecordingPage(recordingPage);
   }
 
+  if (skippedReprs.length > 0) {
+    yield* Effect.logDebug(
+      `musicos.getWorkAddressesByShareTypes: skipped ${skippedReprs.length} Recording object(s) whose type did not match the deployed ABI`,
+      { reprs: skippedReprs },
+    );
+  }
+
   return out;
 });
 
-/** Returns the first object address of a fully-qualified type, or `Option.none()`. Fails with: `TransportError`. */
+/** Returns the first object address of a fully-qualified type, or `Option.none()`. Fails with: `GraphQLUnavailable`, `TransportError`. */
 const firstAddressOfType = Effect.fn("Musicos.firstAddressOfType")(function* (
   type: string,
-): Effect.fn.Return<Option.Option<string>, TransportError, SuiGraphQL> {
+): Effect.fn.Return<Option.Option<string>, GraphQLUnavailable | TransportError, SuiGraphQL> {
   const client = yield* SuiGraphQL;
   const result = yield* Effect.tryPromise({
     try: () => client.query({ query: AddressesByTypeQuery, variables: { type } }),
-    catch: (cause) => TransportError.fromUnknown("musicos.firstAddressOfType", cause),
+    catch: graphqlError("musicos.firstAddressOfType"),
   });
   return Option.fromNullishOr(result.data?.objects?.nodes?.[0]?.address);
 });
 
 /**
  * Address of the `Recording` whose FIRST type parameter is `shareType`, or
- * `Option.none()`. Fails with: `TransportError`.
+ * `Option.none()`. Fails with: `GraphQLUnavailable`, `TransportError`.
  *
  * `Recording<RecordingShare, CompositionShare>` takes two parameters and a
  * type filter must supply all of them or none, so filtering by
@@ -203,7 +238,7 @@ const firstAddressOfType = Effect.fn("Musicos.firstAddressOfType")(function* (
 const addressOfRecordingWithShareType = Effect.fn("Musicos.addressOfRecordingWithShareType")(function* (
   packageId: string,
   shareType: string,
-): Effect.fn.Return<Option.Option<string>, TransportError, SuiGraphQL> {
+): Effect.fn.Return<Option.Option<string>, GraphQLUnavailable | TransportError, SuiGraphQL> {
   const client = yield* SuiGraphQL;
   let cursor: string | null | undefined;
   do {
@@ -218,13 +253,20 @@ const addressOfRecordingWithShareType = Effect.fn("Musicos.addressOfRecordingWit
           }`,
           variables: { type: `${packageId}::recording::Recording`, cursor },
         }),
-      catch: (cause) => TransportError.fromUnknown("musicos.addressOfRecordingWithShareType", cause),
+      catch: graphqlError("musicos.addressOfRecordingWithShareType"),
     });
     const page = result.data?.objects;
     for (const node of page?.nodes ?? []) {
       const repr = node?.asMoveObject?.contents?.type?.repr;
       if (!repr || !node.address) continue;
-      const [recordingShareType] = extractTypeParams2(repr);
+      const recordingShareType = tryRecordingShareType(repr);
+      if (recordingShareType === undefined) {
+        yield* Effect.logDebug(
+          "musicos.addressOfRecordingWithShareType: skipped a Recording object whose type did not match the deployed ABI",
+          { repr },
+        );
+        continue;
+      }
       if (recordingShareType === shareType) return Option.some(node.address);
     }
     cursor = page?.pageInfo?.hasNextPage ? page.pageInfo.endCursor : null;
@@ -232,28 +274,36 @@ const addressOfRecordingWithShareType = Effect.fn("Musicos.addressOfRecordingWit
   return Option.none();
 });
 
-/** Fetches a composition by its share type (GraphQL discovery + `Sui` read). Fails with: `ObjectNotFound`, `TransportError` (also `ObjectDeleted`, `ObjectUnavailable`, `DecodeError` from the follow-up read). */
+/** Fetches a composition by its share type (GraphQL discovery + `Sui` read). Fails with: `musicos/WorkNotFound` (no composition carries `shareType`), `GraphQLUnavailable`, `TransportError` (also `ObjectNotFound`, `ObjectDeleted`, `ObjectUnavailable`, `DecodeError` from the follow-up read). */
 export const getCompositionByShareType = Effect.fn("Musicos.getCompositionByShareType")(function* (
   shareType: string,
   packageId: string,
-): Effect.fn.Return<Composition, ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<
+  Composition,
+  MusicosWorkNotFound | GraphQLUnavailable | ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError,
+  Sui | SuiGraphQL
+> {
   const address = yield* firstAddressOfType(`${packageId}::composition::Composition<${shareType}>`);
   if (Option.isNone(address)) {
-    return yield* new ObjectNotFound({ objectId: ObjectId.make(`composition::Composition<${shareType}>`) });
+    return yield* new MusicosWorkNotFound({ kind: "composition", shareType });
   }
   const sui = yield* Sui;
   const object = yield* sui.getObject(ObjectId.make(address.value), { schema: schema.compositionContent(packageId) });
   return object.content;
 });
 
-/** Fetches a recording by its own (`RecordingShare`) share type. Fails with: `ObjectNotFound`, `TransportError` (also `ObjectDeleted`, `ObjectUnavailable`, `DecodeError` from the follow-up read). */
+/** Fetches a recording by its own (`RecordingShare`) share type. Fails with: `musicos/WorkNotFound` (no recording carries `shareType`), `GraphQLUnavailable`, `TransportError` (also `ObjectNotFound`, `ObjectDeleted`, `ObjectUnavailable`, `DecodeError` from the follow-up read). */
 export const getRecordingByShareType = Effect.fn("Musicos.getRecordingByShareType")(function* (
   shareType: string,
   packageId: string,
-): Effect.fn.Return<Recording, ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<
+  Recording,
+  MusicosWorkNotFound | GraphQLUnavailable | ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError,
+  Sui | SuiGraphQL
+> {
   const address = yield* addressOfRecordingWithShareType(packageId, shareType);
   if (Option.isNone(address)) {
-    return yield* new ObjectNotFound({ objectId: ObjectId.make(`recording::Recording<${shareType}, ...>`) });
+    return yield* new MusicosWorkNotFound({ kind: "recording", shareType });
   }
   const sui = yield* Sui;
   const object = yield* sui.getObject(ObjectId.make(address.value), { schema: schema.recordingContent(packageId) });
