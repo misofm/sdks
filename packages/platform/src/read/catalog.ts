@@ -10,7 +10,7 @@
 // credits → recordings); the same work happens once here, inside one datacenter,
 // and every subsequent visitor is served from cache.
 
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import {
   deriveListingId,
   getListing,
@@ -45,17 +45,19 @@ import {
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
 import { getTrackCreditsByRecordingIds } from "../catalog.ts";
-import { getReleaseById, getReleasesByIds } from "@misofm/musicos";
+import { Musicos, type MusicosDeploymentInvalid, type MusicosService, type ReadError } from "@misofm/musicos";
 import type { Release } from "@misofm/musicos";
 import {
-  getObjectsContent,
-  ObjectTypeMismatchError,
-  type BcsDecodeError,
-  type ObjectNotFoundError,
-  type SuiClient,
-  type SuiGraphQL,
-  type SuiRpcError,
-} from "@misofm/effect";
+  DecodeError,
+  ObjectId,
+  Sui,
+  SuiGraphQL,
+  type BatchItemError,
+  type GraphQLUnavailable,
+  type ObjectDeleted,
+  type ObjectUnavailable,
+  type TransportError,
+} from "sui-effect";
 import { ReleaseNotFoundError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import { getRecordingTitles, parseReleaseObject } from "./works.ts";
@@ -84,6 +86,21 @@ import type {
   TrackView,
   WorkState,
 } from "./types.ts";
+
+/**
+ * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `../catalog.ts`'s `withMusicos` for
+ * the same idiom (kept file-local; see `docs/CONVERSION-STATUS.md`).
+ */
+function withMusicos<A, E>(
+  packageId: string,
+  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  return Effect.gen(function* () {
+    const musicos = yield* Musicos;
+    return yield* effect(musicos);
+  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+}
 
 // ── Walrus URLs ──────────────────────────────────────────────────────────────
 
@@ -165,7 +182,7 @@ function toSaleView(
 export const getPressingView = Effect.fn("getPressingView")(function* (
   pressingId: string,
   config: MisoConfig,
-): Effect.fn.Return<PressingView | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+): Effect.fn.Return<PressingView | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
   const sales = requireRecordSalesDeployment(config.recordSales);
   const pressing = yield* getPressing(pressingId, sales.recordPackageId);
   return pressing ? toPressingView(pressing) : null;
@@ -176,7 +193,7 @@ export const getListingView = Effect.fn("getListingView")(function* (
   pressingId: string,
   currencyType: string,
   config: MisoConfig,
-): Effect.fn.Return<ListingView | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+): Effect.fn.Return<ListingView | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
   const sales = requireRecordSalesDeployment(config.recordSales);
   const listingId = deriveListingId(pressingId, currencyType, sales.recordShopPackageId);
   const listing = yield* getListing(listingId, sales.recordShopPackageId);
@@ -262,7 +279,7 @@ function toTrackEngineSession(view: RecordingEngineSessionView): TrackEngineSess
 export const readReleaseCover = Effect.fn("readReleaseCover")(function* (
   releaseId: string,
   config: MisoConfig,
-): Effect.fn.Return<Cover | null, never, SuiClient> {
+): Effect.fn.Return<Cover | null, never, Sui> {
   const { releaseCoverArt } = config.protocol;
   const covers = yield* getReleaseCoversByIds([releaseId], releaseCoverArt).pipe(
     Effect.catch(() => Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>)),
@@ -280,15 +297,15 @@ export interface ReleaseResources {
 }
 
 /**
- * A release plus selected derived resources in one heterogeneous Core batch.
- * Every extension id is deterministic, so separate object calls only add
- * network round trips without discovering anything new.
+ * A release plus selected derived resources in one heterogeneous chunked
+ * `sui.getObjects`. Every extension id is deterministic, so separate object
+ * calls only add network round trips without discovering anything new.
  */
 export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
   releaseId: string,
   config: MisoConfig,
   include: readonly ReleaseResourceInclude[] = [],
-): Effect.fn.Return<ReleaseResources, ReleaseNotFoundError | BcsDecodeError | SuiRpcError, SuiClient> {
+): Effect.fn.Return<ReleaseResources, ReleaseNotFoundError | DecodeError | TransportError, Sui> {
   const wantsCover = include.includes("cover");
   const wantsCredits = include.includes("credits");
   const wantsKind = include.includes("kind");
@@ -301,7 +318,11 @@ export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
     ...(creditsFieldId ? [creditsFieldId] : []),
     ...(kindFieldId ? [kindFieldId] : []),
   ];
-  const contentById = yield* getObjectsContent(objectIds);
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(objectIds.map((id) => ObjectId.make(id)));
+  const contentById = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[objectIds[index]!, result.success] as const] : [])),
+  );
 
   const releaseFound = contentById.get(releaseId);
   if (!releaseFound) return yield* new ReleaseNotFoundError({ releaseId });
@@ -368,7 +389,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
   releaseId: string,
   config: MisoConfig,
   options: GetReleaseOptions = {},
-): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | BcsDecodeError | SuiRpcError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   const { release, cover, credits, kind } = yield* getReleaseResources(releaseId, config, [
     "cover",
     "credits",
@@ -429,7 +450,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
 const getTrackCreditsForRecordingIds = Effect.fn("getTrackCreditsForRecordingIds")(function* (
   recordingIds: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<Record<string, TrackCredits>, SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<Record<string, TrackCredits>, BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   const { compositionCredits, recordingCredits } = config.protocol;
   const tracks = yield* getTrackCreditsByRecordingIds(recordingIds, {
     misoPackageId: config.deployment.musicos,
@@ -459,8 +480,12 @@ const getTrackCreditsForRecordingIds = Effect.fn("getTrackCreditsForRecordingIds
 export const getTrackCredits = Effect.fn("getTrackCredits")(function* (
   releaseId: string,
   config: MisoConfig,
-): Effect.fn.Return<Record<string, TrackCredits>, ObjectNotFoundError | SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
-  const release = yield* getReleaseById(releaseId);
+): Effect.fn.Return<
+  Record<string, TrackCredits>,
+  ReadError | MusicosDeploymentInvalid | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
+> {
+  const release = yield* withMusicos(config.deployment.musicos, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
   const recordingIds = release.tracks.map((track) => track.recordingId);
   return yield* getTrackCreditsForRecordingIds(recordingIds, config);
 });
@@ -474,8 +499,8 @@ export const getPressingDetail = Effect.fn("getPressingDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   PressingDetail | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  DecodeError | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
   if (!pressing) return null;
@@ -495,8 +520,8 @@ export const getPressingSaleDetail = Effect.fn("getPressingSaleDetail")(function
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  DecodeError | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
   if (!pressing) return null;
@@ -519,8 +544,8 @@ export const getPressingPreview = Effect.fn("getPressingPreview")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   PressingPreview | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient
+  DecodeError | ObjectUnavailable | ReleaseNotFoundError | TransportError,
+  Sui
 > {
   const pressing = yield* getPressingView(pressingId, config);
   if (!pressing) return null;
@@ -552,8 +577,8 @@ export const getSaleDetail = Effect.fn("getSaleDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  DecodeError | ObjectDeleted | ObjectUnavailable | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);
   const sale = yield* getSale({
@@ -577,7 +602,11 @@ export const getSaleDetail = Effect.fn("getSaleDetail")(function* (
  */
 export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
   config: MisoConfig,
-): Effect.fn.Return<DiscoverItem[], ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
+): Effect.fn.Return<
+  DiscoverItem[],
+  DecodeError | ObjectDeleted | ObjectUnavailable | MusicosDeploymentInvalid | TransportError,
+  Sui
+> {
   const configuredSales = [...config.discoverSales];
   const sales = requireRecordSalesDeployment(config.recordSales);
   const settled = yield* Effect.forEach(
@@ -598,8 +627,8 @@ export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
   const releaseIds = [...new Set(available.map((item) => item.result.pressing.releaseId))];
   if (releaseIds.length === 0) return [];
 
-  const [releases, coverViews, credits] = yield* Effect.all([
-    getReleasesByIds(releaseIds),
+  const [releaseResults, coverViews, credits] = yield* Effect.all([
+    withMusicos(config.deployment.musicos, (musicos) => musicos.getReleasesByIds(releaseIds.map((id) => ObjectId.make(id)))),
     getReleaseCoversByIds(releaseIds, config.protocol.releaseCoverArt).pipe(
       Effect.catch(() => Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>)),
     ),
@@ -607,10 +636,13 @@ export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
       Effect.catch(() => Effect.succeed({} as Partial<Record<string, CreditView[]>>)),
     ),
   ]);
+  const releases = new Map(
+    releaseResults.flatMap((result, index) => (Result.isSuccess(result) ? [[releaseIds[index]!, result.success] as const] : [])),
+  );
 
   return available.flatMap(({ result }) => {
     const releaseId = result.pressing.releaseId;
-    const release = releases[releaseId];
+    const release = releases.get(releaseId);
     if (!release) return [];
     const cover = toCover(config.walrusAggregatorUrl, coverViews[releaseId] ?? null);
     return [
@@ -645,8 +677,8 @@ export const getRecordAlbum = Effect.fn("getRecordAlbum")(function* (
   options: GetRecordAlbumOptions = {},
 ): Effect.fn.Return<
   RecordAlbum | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  DecodeError | ObjectUnavailable | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);
   const record = yield* getRecord(recordId, sales.recordPackageId);

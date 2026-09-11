@@ -6,8 +6,8 @@
 import { bcs } from "@mysten/sui/bcs";
 import type { Transaction, TransactionArgument, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveDynamicFieldID, fromHex, toHex } from "@mysten/sui/utils";
-import { Effect, Option } from "effect";
-import { getObjectsContent, getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
+import { Effect, Option, Result } from "effect";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
@@ -276,7 +276,7 @@ export function recordingStreamingTranscodeFieldId(
 export const getRecordingStreamingTranscode = Effect.fn("getRecordingStreamingTranscode")(function* (
   recordingId: string,
   recordingStreamingTranscodePackageId: string,
-): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
+): Effect.fn.Return<string | null, TransportError, Sui> {
   const found = yield* getRecordingStreamingTranscodesByIds([recordingId], recordingStreamingTranscodePackageId);
   return found[recordingId] ?? null;
 });
@@ -288,7 +288,7 @@ export const getRecordingStreamingTranscode = Effect.fn("getRecordingStreamingTr
 export function getRecordingStreamingTranscodesByIds(
   recordingIdsInput: readonly string[],
   recordingStreamingTranscodePackageId: string,
-): Effect.Effect<Partial<Record<string, string>>, SuiRpcError, SuiClient> {
+): Effect.Effect<Partial<Record<string, string>>, TransportError, Sui> {
   return readSoftFields(
     recordingIdsInput,
     (recordingId) => recordingStreamingTranscodeFieldId(recordingId, recordingStreamingTranscodePackageId),
@@ -305,17 +305,18 @@ const readSoftFields = Effect.fn("readSoftFields")(function* <T>(
   recordingIdsInput: readonly string[],
   fieldIdOf: (recordingId: string) => string,
   parse: (content: Uint8Array) => T,
-): Effect.fn.Return<Partial<Record<string, T>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, T>>, TransportError, Sui> {
   const recordingIds = [...new Set(recordingIdsInput)];
   if (recordingIds.length === 0) return {};
   const fieldIds = recordingIds.map(fieldIdOf);
-  const contentById = yield* getObjectsContent(fieldIds);
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(fieldIds.map((id) => ObjectId.make(id)));
   const out: Partial<Record<string, T>> = {};
   recordingIds.forEach((recordingId, index) => {
-    const found = contentById.get(fieldIds[index]!);
-    if (!found) return;
+    const found = results[index]!;
+    if (!Result.isSuccess(found)) return;
     try {
-      out[recordingId] = parse(found.content);
+      out[recordingId] = parse(found.success.content);
     } catch {
       // Extension metadata is soft: retain valid tracks when one field is stale.
     }
@@ -373,9 +374,10 @@ export function recordingEngineSessionFieldId(
 export const getRecordingEngineSession = Effect.fn("getRecordingEngineSession")(function* (
   recordingId: string,
   recordingEngineSessionPackageId: string,
-): Effect.fn.Return<RecordingEngineSessionView | null, SuiRpcError, SuiClient> {
+): Effect.fn.Return<RecordingEngineSessionView | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
   const fieldId = recordingEngineSessionFieldId(recordingId, recordingEngineSessionPackageId);
-  const found = yield* getOptionalObjectContent(fieldId);
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(fieldId));
   if (Option.isNone(found)) return null;
   return parseRecordingEngineSessionContent(found.value.content);
 });
@@ -387,7 +389,7 @@ export const getRecordingEngineSession = Effect.fn("getRecordingEngineSession")(
 export function getRecordingEngineSessionsByIds(
   recordingIdsInput: readonly string[],
   recordingEngineSessionPackageId: string,
-): Effect.Effect<Partial<Record<string, RecordingEngineSessionView>>, SuiRpcError, SuiClient> {
+): Effect.Effect<Partial<Record<string, RecordingEngineSessionView>>, TransportError, Sui> {
   return readSoftFields(
     recordingIdsInput,
     (recordingId) => recordingEngineSessionFieldId(recordingId, recordingEngineSessionPackageId),
@@ -435,7 +437,7 @@ export function recordingMasterReferenceFieldId(
 export const getRecordingMasterReference = Effect.fn("getRecordingMasterReference")(function* (
   recordingId: string,
   recordingMasterReferencePackageId: string,
-): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
+): Effect.fn.Return<string | null, TransportError, Sui> {
   const found = yield* getRecordingMasterReferencesByIds([recordingId], recordingMasterReferencePackageId);
   return found[recordingId] ?? null;
 });
@@ -449,7 +451,7 @@ export const getRecordingMasterReference = Effect.fn("getRecordingMasterReferenc
 export function getRecordingMasterReferencesByIds(
   recordingIdsInput: readonly string[],
   recordingMasterReferencePackageId: string,
-): Effect.Effect<Partial<Record<string, string>>, SuiRpcError, SuiClient> {
+): Effect.Effect<Partial<Record<string, string>>, TransportError, Sui> {
   return readSoftFields(
     recordingIdsInput,
     (recordingId) => recordingMasterReferenceFieldId(recordingId, recordingMasterReferencePackageId),

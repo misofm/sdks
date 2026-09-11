@@ -17,8 +17,8 @@
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
-import { Effect } from "effect";
-import { getObjectsContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
+import { Effect, Result } from "effect";
+import { ObjectId, Sui, type TransportError } from "sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
@@ -153,7 +153,7 @@ function toCoverImageRef(blob: ParsedWalrusBlob): CoverImageRef {
 export const getReleaseCover = Effect.fn("getReleaseCover")(function* (
   releaseId: string,
   releaseCoverArtPackageId: string,
-): Effect.fn.Return<ReleaseCoverView | null, SuiRpcError, SuiClient> {
+): Effect.fn.Return<ReleaseCoverView | null, TransportError, Sui> {
   const found = yield* getReleaseCoversByIds([releaseId], releaseCoverArtPackageId);
   return found[releaseId] ?? null;
 });
@@ -191,7 +191,7 @@ export function releaseCoverFieldId(
 export const getReleaseCoversByIds = Effect.fn("getReleaseCoversByIds")(function* (
   releaseIdsInput: readonly string[],
   releaseCoverArtPackageId: string,
-): Effect.fn.Return<Partial<Record<string, ReleaseCoverView>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, ReleaseCoverView>>, TransportError, Sui> {
   const releaseIds = [...new Set(releaseIdsInput)];
   const targets = releaseIds.map((releaseId) => ({
     releaseId,
@@ -199,13 +199,13 @@ export const getReleaseCoversByIds = Effect.fn("getReleaseCoversByIds")(function
   }));
   if (targets.length === 0) return {};
 
-  const contentById = yield* getObjectsContent(targets.map((target) => target.fieldId));
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(targets.map((target) => ObjectId.make(target.fieldId)));
   const out: Partial<Record<string, ReleaseCoverView>> = {};
-  for (const target of targets) {
-    const found = contentById.get(target.fieldId);
-    if (!found) continue;
-    const cover = parseReleaseCoverContent(found.content);
-    if (cover) out[target.releaseId] = cover;
-  }
+  results.forEach((result, index) => {
+    if (!Result.isSuccess(result)) return;
+    const cover = parseReleaseCoverContent(result.success.content);
+    if (cover) out[targets[index]!.releaseId] = cover;
+  });
   return out;
 });

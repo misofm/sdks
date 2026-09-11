@@ -13,7 +13,7 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { Effect, Option } from "effect";
-import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import * as releaseDescription from "./contracts/release_description/release_description.ts";
 import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.ts";
@@ -90,8 +90,9 @@ export function parseReleaseKindContent(content: Uint8Array): string {
 export const getReleaseKind = Effect.fn("getReleaseKind")(function* (
   releaseId: string,
   releaseKindPackageId: string,
-): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(releaseKindFieldId(releaseId, releaseKindPackageId));
+): Effect.fn.Return<string | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(releaseKindFieldId(releaseId, releaseKindPackageId)));
   return Option.isNone(found) ? null : parseReleaseKindContent(found.value.content);
 });
 

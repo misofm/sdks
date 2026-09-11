@@ -21,13 +21,24 @@
 
 import { normalizeStructTag, normalizeSuiAddress, parseStructTag } from "@mysten/sui/utils";
 import { Effect } from "effect";
-import { SuiGraphQL, SuiRpcError } from "@misofm/effect";
+import { GraphQLUnavailable, SuiGraphQL, TransportError } from "sui-effect";
 import { MalformedRoyaltyClaimedEventError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import type { RoyaltyClaim, RoyaltyClaimEntry, RoyaltyClaimPage } from "./types.ts";
 
 /** The indexer caps event pages at 50. */
 export const ROYALTY_CLAIMS_PAGE_LIMIT = 50;
+
+/**
+ * `GraphQLUnavailable` lets through, not folded into `TransportError` — see
+ * `@misofm/musicos`'s own `queries.ts` for the same idiom: under
+ * `SuiGraphQL.layerUnavailable`, every call rejects with the same
+ * `GraphQLUnavailable` instance, and a caller that wants "no endpoint
+ * configured" distinguished from "the endpoint answered badly" needs the
+ * real tag rather than having it stand behind `cause`.
+ */
+const graphqlError = (method: string) => (cause: unknown): GraphQLUnavailable | TransportError =>
+  cause instanceof GraphQLUnavailable ? cause : TransportError.fromUnknown(method, cause);
 
 const CLAIMS_QUERY = `query RoyaltyClaims($sender: SuiAddress!, $type: String!, $last: Int!, $before: String) {
   events(last: $last, before: $before, filter: { sender: $sender, type: $type }) {
@@ -113,15 +124,16 @@ function entryFromEvent(repr: string, json: unknown, digest: string): RoyaltyCla
 /**
  * One page of an address's royalty claims, newest first.
  *
- * Fails with `SuiRpcError` when the indexer cannot be reached or rejects the
- * query, and with `MalformedRoyaltyClaimedEventError` when an event of the
- * configured type does not carry the fields this package version expects.
+ * Fails with `GraphQLUnavailable` when no GraphQL endpoint is configured,
+ * `TransportError` when the indexer cannot be reached or rejects the query,
+ * and `MalformedRoyaltyClaimedEventError` when an event of the configured
+ * type does not carry the fields this package version expects.
  */
 export const listRoyaltyClaims = Effect.fn("listRoyaltyClaims")(function* (
   address: string,
   config: MisoConfig,
   options: ListRoyaltyClaimsOptions = {},
-): Effect.fn.Return<RoyaltyClaimPage, SuiRpcError | MalformedRoyaltyClaimedEventError, SuiGraphQL> {
+): Effect.fn.Return<RoyaltyClaimPage, GraphQLUnavailable | TransportError | MalformedRoyaltyClaimedEventError, SuiGraphQL> {
   const client = yield* SuiGraphQL;
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? ROYALTY_CLAIMS_PAGE_LIMIT), 1), ROYALTY_CLAIMS_PAGE_LIMIT);
   const { data, errors } = yield* Effect.tryPromise({
@@ -135,13 +147,13 @@ export const listRoyaltyClaims = Effect.fn("listRoyaltyClaims")(function* (
           before: options.before ?? null,
         },
       }),
-    catch: (cause) => new SuiRpcError({ operation: "royaltyClaims", cause }),
+    catch: graphqlError("royaltyClaims"),
   });
   if (errors?.length) {
-    return yield* new SuiRpcError({
-      operation: "royaltyClaims",
-      cause: new AggregateError(errors.map((e) => new Error(e.message)), "Royalty claims query failed"),
-    });
+    return yield* TransportError.fromUnknown(
+      "royaltyClaims",
+      new AggregateError(errors.map((e) => new Error(e.message)), "Royalty claims query failed"),
+    );
   }
 
   const edges = data?.events?.edges ?? [];

@@ -10,16 +10,8 @@ import {
   normalizeSuiAddress,
   parseStructTag,
 } from "@mysten/sui/utils";
-import { Effect, Schema } from "effect";
-import {
-  assertObjectType,
-  decodeBcs,
-  getObjectsContent,
-  getOptionalObjectContent,
-  ObjectTypeMismatchError,
-  type SuiClient,
-} from "@misofm/effect";
-import type { BcsDecodeError, SuiRpcError } from "@misofm/effect";
+import { Effect, Option, Result, Schema } from "effect";
+import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError } from "sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, type U64Input } from "./vault.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";
@@ -565,58 +557,89 @@ function mapRecord(recordId: string, recordPackageId: string, content: Uint8Arra
   };
 }
 
-/** Fails with `ObjectTypeMismatchError` unless `type` is `recordShopPackageId`'s `listing::Listing<Currency>`; returns the currency type argument. */
-function assertListingType(
-  objectId: string,
-  type: string,
-  recordShopPackageId: string,
-): Effect.Effect<string, ObjectTypeMismatchError> {
+/** Fails with a typed `DecodeError` unless `actualType` is `expectedType` (both normalized). */
+function checkType(objectId: string, actualType: string, expectedType: string): Effect.Effect<void, DecodeError> {
+  const actual = normalizeStructTag(actualType);
+  const expected = normalizeStructTag(expectedType);
+  if (actual === expected) return Effect.void;
+  return Effect.fail(
+    new DecodeError({ objectId: ObjectId.make(objectId), expectedType: expected, issue: `expected ${expected}, found ${actual}` }),
+  );
+}
+
+/**
+ * Fails with a typed `DecodeError` unless `type` is `recordShopPackageId`'s
+ * `listing::Listing<Currency>`; returns the currency type argument.
+ */
+function assertListingType(objectId: string, type: string, recordShopPackageId: string): Effect.Effect<string, DecodeError> {
   return Effect.try({
     try: () => requireListingCurrency(type, recordShopPackageId),
     catch: () =>
-      new ObjectTypeMismatchError({
-        objectId,
-        expected: `${normalizeSuiAddress(recordShopPackageId)}::listing::Listing<Currency>`,
-        actual: normalizeStructTag(type),
+      new DecodeError({
+        objectId: ObjectId.make(objectId),
+        expectedType: `${normalizeSuiAddress(recordShopPackageId)}::listing::Listing<Currency>`,
+        issue: `actual type ${normalizeStructTag(type)} is not a Listing<Currency> of this Record Shop package`,
       }),
   });
+}
+
+/**
+ * Wraps a possibly-throwing raw-bytes mapper (BCS parse plus the internal
+ * derived-id consistency checks `require Id` performs) into a typed
+ * `DecodeError`, then validates the mapped shape against the domain
+ * `Schema`. Mirrors the predecessor `@misofm/effect`-era `decodeBcs`'s two
+ * stages, now producing sui-effect's `DecodeError` instead of
+ * `BcsDecodeError`.
+ */
+function decodeInto<A, I>(map: () => I, domain: Schema.Codec<A, I>, objectId: string, expectedType: string): Effect.Effect<A, DecodeError> {
+  return Effect.try({
+    try: map,
+    catch: (cause) => new DecodeError({ objectId: ObjectId.make(objectId), expectedType, issue: cause instanceof Error ? cause.message : String(cause) }),
+  }).pipe(
+    Effect.flatMap((encoded) =>
+      Schema.decodeUnknownEffect(domain)(encoded).pipe(
+        Effect.mapError(
+          (issue) =>
+            new DecodeError({
+              objectId: ObjectId.make(objectId),
+              expectedType,
+              issue: issue instanceof Error ? issue.message : String(issue),
+            }),
+        ),
+      ),
+    ),
+  );
 }
 
 /** One permanent pressing by id, or `null` when no such Pressing exists. */
 export const getPressing = Effect.fn("getPressing")(function* (
   pressingId: string,
   recordPackageId: string,
-): Effect.fn.Return<Pressing | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(pressingId);
-  if (found._tag === "None") return null;
+): Effect.fn.Return<Pressing | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(pressingId));
+  if (Option.isNone(found)) return null;
   const { content, type } = found.value;
-  yield* assertObjectType(
-    pressingId,
-    normalizeStructTag(type),
-    normalizeStructTag(`${recordPackageId}::pressing::Pressing`),
-  );
-  return yield* decodeBcs(
-    { parse: (bytes) => mapPressing(pressingId, recordPackageId, bytes) },
-    Pressing,
-    content,
-    { type: "Pressing", objectId: pressingId },
-  );
+  const expectedType = `${recordPackageId}::pressing::Pressing`;
+  yield* checkType(pressingId, type, expectedType);
+  return yield* decodeInto(() => mapPressing(pressingId, recordPackageId, content), Pressing, pressingId, expectedType);
 });
 
 /** One currency-specific listing by id, or `null` when no such Listing exists. */
 export const getListing = Effect.fn("getListing")(function* (
   listingId: string,
   recordShopPackageId: string,
-): Effect.fn.Return<Listing | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(listingId);
-  if (found._tag === "None") return null;
+): Effect.fn.Return<Listing | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(listingId));
+  if (Option.isNone(found)) return null;
   const { content, type } = found.value;
   const currencyType = yield* assertListingType(listingId, type, recordShopPackageId);
-  return yield* decodeBcs(
-    { parse: (bytes) => mapListing(listingId, recordShopPackageId, currencyType, bytes) },
+  return yield* decodeInto(
+    () => mapListing(listingId, recordShopPackageId, currencyType, content),
     Listing,
-    content,
-    { type: "Listing", objectId: listingId },
+    listingId,
+    `${recordShopPackageId}::listing::Listing<Currency>`,
   );
 });
 
@@ -624,17 +647,14 @@ export const getListing = Effect.fn("getListing")(function* (
 export const getRecord = Effect.fn("getRecord")(function* (
   recordId: string,
   recordPackageId: string,
-): Effect.fn.Return<PressingRecord | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(recordId);
-  if (found._tag === "None") return null;
+): Effect.fn.Return<PressingRecord | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(recordId));
+  if (Option.isNone(found)) return null;
   const { content, type } = found.value;
-  yield* assertObjectType(recordId, normalizeStructTag(type), normalizeStructTag(`${recordPackageId}::record::Record`));
-  return yield* decodeBcs(
-    { parse: (bytes) => mapRecord(recordId, recordPackageId, bytes) },
-    PressingRecord,
-    content,
-    { type: "Record", objectId: recordId },
-  );
+  const expectedType = `${recordPackageId}::record::Record`;
+  yield* checkType(recordId, type, expectedType);
+  return yield* decodeInto(() => mapRecord(recordId, recordPackageId, content), PressingRecord, recordId, expectedType);
 });
 
 export interface GetSaleParams {
@@ -645,14 +665,28 @@ export interface GetSaleParams {
   recordShopPackageId: string;
 }
 
-/** A Pressing and its currency-specific Listing, read in one Core batch. Either half may be `null`. */
+/**
+ * A missing/deleted object is a legitimate `null` half of a sale (the
+ * Pressing has not been made yet, or that currency was never listed); any
+ * other per-item failure (`ObjectUnavailable`) is not — it means the node
+ * could not say what happened, and misofm/sdks#35's WP2 names this exact
+ * behaviour change: unlike the predecessor's `getObjectsContent` (which
+ * silently dropped every kind of per-item failure into "missing"), that now
+ * fails the whole read typed instead of being folded into `null`.
+ */
+function nullableObject<E extends { readonly _tag: string }>(
+  result: Result.Result<{ readonly content: Uint8Array; readonly type: string }, E>,
+): Effect.Effect<{ readonly content: Uint8Array; readonly type: string } | null, Exclude<E, { readonly _tag: "ObjectNotFound" | "ObjectDeleted" }>> {
+  if (Result.isSuccess(result)) return Effect.succeed(result.success);
+  const failure = result.failure;
+  if (failure._tag === "ObjectNotFound" || failure._tag === "ObjectDeleted") return Effect.succeed(null);
+  return Effect.fail(failure as never);
+}
+
+/** A Pressing and its currency-specific Listing, read in one chunked `sui.getObjects`. Either half may be `null`. */
 export const getSale = Effect.fn("getSale")(function* (
   p: GetSaleParams,
-): Effect.fn.Return<
-  { pressing: Pressing | null; listing: Listing | null },
-  ObjectTypeMismatchError | BcsDecodeError | SuiRpcError,
-  SuiClient
-> {
+): Effect.fn.Return<{ pressing: Pressing | null; listing: Listing | null }, DecodeError | ObjectDeleted | ObjectUnavailable | TransportError, Sui> {
   const { pressingId, listingId } = deriveSaleIds(
     p.releaseId,
     p.edition,
@@ -660,34 +694,27 @@ export const getSale = Effect.fn("getSale")(function* (
     p.recordPackageId,
     p.recordShopPackageId,
   );
-  const contentById = yield* getObjectsContent([pressingId, listingId]);
+  const sui = yield* Sui;
+  const [pressingResult, listingResult] = yield* sui.getObjects([ObjectId.make(pressingId), ObjectId.make(listingId)]);
 
-  const pressingFound = contentById.get(pressingId);
+  const pressingFound = yield* nullableObject(pressingResult!);
   let pressing: Pressing | null = null;
   if (pressingFound) {
-    yield* assertObjectType(
-      pressingId,
-      normalizeStructTag(pressingFound.type),
-      normalizeStructTag(`${p.recordPackageId}::pressing::Pressing`),
-    );
-    pressing = yield* decodeBcs(
-      { parse: (bytes) => mapPressing(pressingId, p.recordPackageId, bytes) },
-      Pressing,
-      pressingFound.content,
-      { type: "Pressing", objectId: pressingId },
-    );
+    const expectedType = `${p.recordPackageId}::pressing::Pressing`;
+    yield* checkType(pressingId, pressingFound.type, expectedType);
+    pressing = yield* decodeInto(() => mapPressing(pressingId, p.recordPackageId, pressingFound.content), Pressing, pressingId, expectedType);
     requireId("Sale pressing release", pressing.releaseId, p.releaseId);
   }
 
-  const listingFound = contentById.get(listingId);
+  const listingFound = yield* nullableObject(listingResult!);
   let listing: Listing | null = null;
   if (listingFound) {
     const currencyType = yield* assertListingType(listingId, listingFound.type, p.recordShopPackageId);
-    listing = yield* decodeBcs(
-      { parse: (bytes) => mapListing(listingId, p.recordShopPackageId, currencyType, bytes) },
+    listing = yield* decodeInto(
+      () => mapListing(listingId, p.recordShopPackageId, currencyType, listingFound.content),
       Listing,
-      listingFound.content,
-      { type: "Listing", objectId: listingId },
+      listingId,
+      `${p.recordShopPackageId}::listing::Listing<Currency>`,
     );
     requireId("Sale listing release", listing.releaseId, p.releaseId);
     requireId("Sale listing pressing", listing.pressingId, pressingId);

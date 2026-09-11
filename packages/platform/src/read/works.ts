@@ -1,21 +1,23 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 import {
   contracts,
   extractTypeParams2,
-  getCompositionsByIds,
   getWorkAddressesByShareTypes,
+  Musicos,
   Composition,
   Recording,
   Release,
+  type MusicosDeploymentInvalid,
+  type MusicosService,
   type TrackState,
   type WorkAddressesByShareType,
   type WorkShareTypes,
 } from "@misofm/musicos";
-import { decodeBcs, SuiClient, SuiGraphQL, SuiRpcError, type BcsDecodeError } from "@misofm/effect";
+import { ObjectId, Sui, SuiGraphQL, SuiSchema, type DecodeError, type GraphQLUnavailable, type TransportError } from "sui-effect";
 
 // `getWorkAddressesByShareTypes` (GraphQL type discovery) is owned by
 // `@misofm/musicos` now — re-exported here so existing platform imports keep
@@ -80,19 +82,33 @@ function mapReleaseObject(id: string, d: Parsed) {
 }
 
 /** Decode a Release object's raw BCS content into the public `Release` type. */
-export function parseReleaseObject(id: string, content: Uint8Array): Effect.Effect<Release, BcsDecodeError> {
-  return decodeBcs(
-    { parse: (bytes: Uint8Array) => mapReleaseObject(id, contracts.release.Release.parse(bytes) as Parsed) },
-    Release,
-    content,
-    { type: "Release", objectId: id },
+export function parseReleaseObject(id: string, content: Uint8Array): Effect.Effect<Release, DecodeError> {
+  return SuiSchema.decode(SuiSchema.bcs(contracts.release.Release), content, { objectId: ObjectId.make(id) }).pipe(
+    Effect.map((raw) => mapReleaseObject(id, raw as Parsed)),
   );
 }
 
-/** Fetch and parse heterogeneous works through one Core bulk request. */
+/**
+ * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `catalog.ts`'s `withMusicos` for the
+ * same idiom (kept file-local rather than shared, since each of these
+ * standalone functions is a transitional non-facade consumer in its own
+ * right; see `docs/CONVERSION-STATUS.md`).
+ */
+function withMusicos<A, E>(
+  packageId: string,
+  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  return Effect.gen(function* () {
+    const musicos = yield* Musicos;
+    return yield* effect(musicos);
+  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+}
+
+/** Fetch and parse heterogeneous works through one chunked `sui.getObjects`. */
 export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
   ids: WorkIds,
-): Effect.fn.Return<WorksById, SuiRpcError | BcsDecodeError, SuiClient> {
+): Effect.fn.Return<WorksById, DecodeError | TransportError, Sui> {
   const kinds = new Map<string, keyof WorksById>();
   for (const [kind, objectIds] of Object.entries(ids) as Array<[keyof WorksById, readonly string[]]>) {
     for (const objectId of objectIds) {
@@ -107,30 +123,21 @@ export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
   const out: WorksById = { compositions: {}, recordings: {}, releases: {} };
   if (kinds.size === 0) return out;
 
-  const client = yield* SuiClient;
-  const { objects } = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObjects({ objectIds: [...kinds.keys()], include: { content: true }, signal }),
-    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
-  });
-  for (const object of objects) {
-    if (object instanceof Error || !object.content) continue;
-    const kind = kinds.get(normalizeSuiAddress(object.objectId));
-    const objectId = object.objectId;
+  const sui = yield* Sui;
+  const requestedIds = [...kinds.keys()];
+  const objects = yield* sui.getObjects(requestedIds.map((id) => ObjectId.make(id)));
+  for (const [index, result] of objects.entries()) {
+    if (!Result.isSuccess(result)) continue;
+    const object = result.success;
+    const kind = kinds.get(requestedIds[index]!);
+    const objectId = object.id;
     const content = object.content;
     if (kind === "compositions") {
-      out.compositions[objectId] = yield* decodeBcs(
-        { parse: (bytes: Uint8Array) => mapComposition(objectId, contracts.composition.Composition.parse(bytes) as Parsed) },
-        Composition,
-        content,
-        { type: "Composition", objectId },
-      );
+      const raw = yield* SuiSchema.decode(SuiSchema.bcs(contracts.composition.Composition), content, { objectId });
+      out.compositions[objectId] = mapComposition(objectId, raw as Parsed) as unknown as Composition;
     } else if (kind === "recordings") {
-      out.recordings[objectId] = yield* decodeBcs(
-        { parse: (bytes: Uint8Array) => mapRecording(objectId, contracts.recording.Recording.parse(bytes) as Parsed) },
-        Recording,
-        content,
-        { type: "Recording", objectId },
-      );
+      const raw = yield* SuiSchema.decode(SuiSchema.bcs(contracts.recording.Recording), content, { objectId });
+      out.recordings[objectId] = mapRecording(objectId, raw as Parsed) as unknown as Recording;
     } else if (kind === "releases") {
       out.releases[objectId] = yield* parseReleaseObject(objectId, content);
     }
@@ -142,22 +149,20 @@ export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
 export const getRecordingTitles = Effect.fn("getRecordingTitles")(function* (
   recordingIds: readonly string[],
   misoPackageId: string,
-): Effect.fn.Return<Record<string, string>, SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<Record<string, string>, MusicosDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   const ids = [...new Set(recordingIds)];
   if (ids.length === 0) return {};
 
-  const client = yield* SuiClient;
-  const { objects } = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObjects({ objectIds: ids, include: {}, signal }),
-    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
-  });
+  const sui = yield* Sui;
+  const objects = yield* sui.getObjects(ids.map((id) => ObjectId.make(id)));
   const titles: Record<string, string> = {};
   const compositionShareByRecording: Record<string, string> = {};
 
-  for (const object of objects) {
-    if (object instanceof Error) continue;
+  for (const result of objects) {
+    if (!Result.isSuccess(result)) continue;
+    const object = result.success;
     const [, compositionShareType] = extractTypeParams2(object.type);
-    compositionShareByRecording[object.objectId] = compositionShareType;
+    compositionShareByRecording[object.id] = compositionShareType;
   }
 
   const compositionShareTypes = Object.values(compositionShareByRecording);
@@ -166,12 +171,14 @@ export const getRecordingTitles = Effect.fn("getRecordingTitles")(function* (
     { compositions: compositionShareTypes, recordings: [] },
     misoPackageId,
   );
-  const compositions = yield* getCompositionsByIds(
-    Object.values(addresses.compositions).filter((id): id is string => !!id),
+  const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
+  const results = yield* withMusicos(misoPackageId, (musicos) => musicos.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))));
+  const compositionsById = new Map(
+    results.flatMap((result, index) => (Result.isSuccess(result) ? [[compositionIds[index]!, result.success] as const] : [])),
   );
   for (const [recordingId, shareType] of Object.entries(compositionShareByRecording)) {
     const compositionId = addresses.compositions[shareType];
-    const title = compositionId ? compositions[compositionId]?.title : undefined;
+    const title = compositionId ? compositionsById.get(compositionId)?.title : undefined;
     if (title) titles[recordingId] = title;
   }
   return titles;
