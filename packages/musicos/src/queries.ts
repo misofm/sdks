@@ -221,6 +221,15 @@ const firstAddressOfType = Effect.fn("Musicos.firstAddressOfType")(function* (
     try: () => client.query({ query: AddressesByTypeQuery, variables: { type } }),
     catch: graphqlError("musicos.firstAddressOfType"),
   });
+  if (result.errors?.length) {
+    // A GraphQL-level error is not evidence the type does not exist — it is
+    // a transport-tier problem (a bad query, a server error) that must not
+    // read as "no address found".
+    return yield* TransportError.fromUnknown(
+      "musicos.firstAddressOfType",
+      new AggregateError(result.errors.map((error) => new Error(error.message)), "Type address lookup failed"),
+    );
+  }
   return Option.fromNullishOr(result.data?.objects?.nodes?.[0]?.address);
 });
 
@@ -255,6 +264,14 @@ const addressOfRecordingWithShareType = Effect.fn("Musicos.addressOfRecordingWit
         }),
       catch: graphqlError("musicos.addressOfRecordingWithShareType"),
     });
+    if (result.errors?.length) {
+      // Same rule as `getWorkAddressesByShareTypes` and `firstAddressOfType`:
+      // a GraphQL-level error is a transport problem, not "no match found".
+      return yield* TransportError.fromUnknown(
+        "musicos.addressOfRecordingWithShareType",
+        new AggregateError(result.errors.map((error) => new Error(error.message)), "Recording address lookup failed"),
+      );
+    }
     const page = result.data?.objects;
     for (const node of page?.nodes ?? []) {
       const repr = node?.asMoveObject?.contents?.type?.repr;

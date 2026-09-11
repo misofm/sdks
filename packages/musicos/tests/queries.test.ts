@@ -125,6 +125,11 @@ describe("getRecordingByShareType", () => {
     expect(error).toBeInstanceOf(MusicosWorkNotFound);
     expect((error as MusicosWorkNotFound).kind).toBe("recording");
   });
+
+  test("GraphQLUnavailable lets through under layerUnavailable-style rejection", async () => {
+    const error = await provide(Effect.flip(getRecordingByShareType(RS, PACKAGE_ID)), unavailableGraphQL);
+    expect(error).toBeInstanceOf(GraphQLUnavailable);
+  });
 });
 
 describe("getWorkAddressesByShareTypes", () => {
