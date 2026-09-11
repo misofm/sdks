@@ -35,7 +35,7 @@ export type MisoPackageName = (typeof CANONICAL_MISO_PACKAGE_NAMES)[number];
  */
 export type MisoDeployment = Readonly<Record<MisoPackageName, string>>;
 
-/** A minimal core-only deployment, retained for callers that use only `miso()`. */
+/** A minimal core-only deployment: just the package id `Musicos.layer` needs. */
 export interface MisoProtocolDeployment {
   /** The published `musicos` package used for calls, types, and derived IDs. */
   readonly packageId: string;

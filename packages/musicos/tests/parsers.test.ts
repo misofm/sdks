@@ -5,7 +5,7 @@
 // parse it through the public camelCase parser and assert every mapped field.
 // Distinct values make field-order and field-name mistakes visible.
 
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { Effect } from "effect";
 import { ObjectId, SuiAddress } from "sui-effect";
@@ -275,5 +275,61 @@ test("every parser also accepts a sui-effect Event's .bcs bytes", () => {
     registryId: id(0xb1),
     createdBy: id(0xb2),
     sharedAfter: false,
+  });
+});
+
+describe("the Event overload's module::name suffix check", () => {
+  const bytes = wire.compositionCreatedWire.serialize({
+    composition_id: id(0xc1),
+    composition_admin_cap_id: id(0xc2),
+    share_currency_id: id(0xc3),
+    consumed_treasury_cap_id: id(0xc4),
+    created_by: id(0xc5),
+    title_bytes: [1],
+    royalty_rate_bps: 1,
+    share_supply_before: 1n,
+    share_supply_after: 1n,
+    shares_returned: 0n,
+    share_decimals: 6,
+    share_supply_fixed_after: true,
+  }).toBytes();
+  const packageA = id(0x01);
+  const packageB = id(0x02);
+
+  test("a different module::name is rejected with DecodeError before decoding", () => {
+    const event = {
+      packageId: ObjectId.make(packageA),
+      module: "recording",
+      sender: SuiAddress.make(id(0x03)),
+      // Same bytes, but the tag names a different event entirely.
+      eventType: `${packageA}::recording::RecordingCreatedEvent`,
+      bcs: bytes,
+    };
+    const error = Effect.runSync(Effect.flip(parse.parseCompositionCreatedEvent(event)));
+    expect(error._tag).toBe("DecodeError");
+  });
+
+  test("a different package, same module::name, is accepted (the package address is not checked)", () => {
+    const event = {
+      packageId: ObjectId.make(packageB),
+      module: "composition",
+      sender: SuiAddress.make(id(0x03)),
+      eventType: `${packageB}::composition::CompositionCreatedEvent`,
+      bcs: bytes,
+    };
+    const decoded = Effect.runSync(parse.parseCompositionCreatedEvent(event));
+    expect(decoded.compositionId).toBe(id(0xc1));
+  });
+
+  test("a generic suffix on the event type is accepted (bareEventType strips it before comparing)", () => {
+    const event = {
+      packageId: ObjectId.make(packageA),
+      module: "composition",
+      sender: SuiAddress.make(id(0x03)),
+      eventType: `${packageA}::composition::CompositionCreatedEvent<${packageA}::share::Share>`,
+      bcs: bytes,
+    };
+    const decoded = Effect.runSync(parse.parseCompositionCreatedEvent(event));
+    expect(decoded.compositionId).toBe(id(0xc1));
   });
 });
