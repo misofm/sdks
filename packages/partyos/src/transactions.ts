@@ -1,15 +1,23 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Core PartyOS transaction builders. Every builder returns a thunk that *appends*
-// commands to a caller-owned Transaction, so flows compose. Package ids are taken
-// in params (the client binds them; see ./client.ts). Calls into the party package
-// go through the generated typed call fns (party.*).
+// Core PartyOS transaction builders. Every builder returns a `Recipe`
+// fragment — `(tx: Transaction) => void`, sui-effect's `docs/extensions.md`
+// §4 — that *appends* commands to a caller-owned Transaction, so flows
+// compose with other extensions' fragments and submit once. Package ids are
+// taken in params (the `Partyos` service binds them under `partyos.tx.*`;
+// see ./Partyos.ts). Calls into the party package go through the generated
+// typed call fns (party.*).
 
-import type { Transaction } from "@mysten/sui/transactions";
+import type { Recipe } from "sui-effect";
 import * as party from "./contracts/partyos/party.ts";
 
-export type TxThunk = (tx: Transaction) => void | Promise<void>;
+/**
+ * @deprecated Renamed to `Recipe` (from `sui-effect`). Kept as a type alias
+ * for source compatibility with `@misofm/platform` (converted separately,
+ * see misofm/sdks#35), which imports the old name.
+ */
+export type TxThunk = Recipe;
 
 export interface CreatePartyParams {
   /** Human-readable party name (not verified; app-layer verifies). */
@@ -20,7 +28,7 @@ export interface CreatePartyParams {
 }
 
 /** Creates an individual party, shares it, and transfers its admin cap to `recipient`. */
-export function createIndividualParty(params: CreatePartyParams): TxThunk {
+export function createIndividualParty(params: CreatePartyParams): Recipe {
   return (tx) => {
     const kind = tx.add(party.newIndividualKind({ package: params.partyPackageId }));
     const res = tx.add(party._new({ package: params.partyPackageId, arguments: [kind, params.name] }));
@@ -30,7 +38,7 @@ export function createIndividualParty(params: CreatePartyParams): TxThunk {
 }
 
 /** Creates a group party (empty member set), shares it, transfers its admin cap. */
-export function createGroupParty(params: CreatePartyParams): TxThunk {
+export function createGroupParty(params: CreatePartyParams): Recipe {
   return (tx) => {
     const kind = tx.add(party.newGroupKind({ package: params.partyPackageId }));
     const res = tx.add(party._new({ package: params.partyPackageId, arguments: [kind, params.name] }));
@@ -52,7 +60,7 @@ export interface InvitePartyParams {
 }
 
 /** Invites an individual party to a group (gated by the group's admin cap). */
-export function inviteParty(params: InvitePartyParams): TxThunk {
+export function inviteParty(params: InvitePartyParams): Recipe {
   return (tx) => {
     tx.add(party.inviteParty({
       package: params.partyPackageId,
@@ -70,7 +78,7 @@ export interface AcceptInviteParams {
 }
 
 /** Accepts a pending invite, joining the member to the group (member's cap). */
-export function acceptInvite(params: AcceptInviteParams): TxThunk {
+export function acceptInvite(params: AcceptInviteParams): Recipe {
   return (tx) => {
     tx.add(party.acceptInvite({
       package: params.partyPackageId,
@@ -88,7 +96,7 @@ export interface DeclineInviteParams {
 }
 
 /** Declines a pending invite (member's cap). */
-export function declineInvite(params: DeclineInviteParams): TxThunk {
+export function declineInvite(params: DeclineInviteParams): Recipe {
   return (tx) => {
     tx.add(party.declineInvite({
       package: params.partyPackageId,
@@ -106,7 +114,7 @@ export interface RevokeInviteParams {
 }
 
 /** Revokes a pending invite (group's admin cap). */
-export function revokeInvite(params: RevokeInviteParams): TxThunk {
+export function revokeInvite(params: RevokeInviteParams): Recipe {
   return (tx) => {
     tx.add(party.revokeInvite({
       package: params.partyPackageId,
@@ -123,7 +131,7 @@ export interface LeaveGroupParams {
 }
 
 /** Leaves a group, authorized by the member's own admin cap. */
-export function leaveGroup(params: LeaveGroupParams): TxThunk {
+export function leaveGroup(params: LeaveGroupParams): Recipe {
   return (tx) => {
     tx.add(party.leave({
       package: params.partyPackageId,
@@ -140,7 +148,7 @@ export interface RemoveMemberParams {
 }
 
 /** Evicts a member from a group (group's admin cap); scrubs the member's record too. */
-export function removeMember(params: RemoveMemberParams): TxThunk {
+export function removeMember(params: RemoveMemberParams): Recipe {
   return (tx) => {
     tx.add(party.removeMember({
       package: params.partyPackageId,
@@ -157,7 +165,7 @@ export interface SetNameParams {
 }
 
 /** Sets the party's human-readable name. */
-export function setName(params: SetNameParams): TxThunk {
+export function setName(params: SetNameParams): Recipe {
   return (tx) => {
     tx.add(party.setName({
       package: params.partyPackageId,
