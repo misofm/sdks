@@ -1,25 +1,41 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The platform-specific error vocabulary, built on the shared foundation
-// (`@misofm/effect/errors`). Every failure a caller might need to act on is a
-// `Schema.TaggedError` carrying the fields needed to act; `isNotFound`-style
-// message sniffing is replaced by `Effect.catchTag` against these tags.
+// The platform-specific error vocabulary, now built on sui-effect's own
+// taxonomy instead of the deprecated `@misofm/effect/errors` foundation
+// (misofm/sdks#35, WP1). Every failure a caller might need to act on is a
+// `Schema.TaggedError` carrying the fields needed to act, and every one of
+// THIS package's own classes declares `outcome` per sui-effect's
+// `docs/extensions.md` §2 — `SuiError.outcome` and `Script.exitCode` read
+// that field, and an error that omits it is "unclassified". Tags keep their
+// exact predecessor strings so a consumer's existing `catchTag`/`Effect.catch`
+// keeps matching.
 
 import { Schema } from "effect";
+import type { Outcome } from "sui-effect";
 
-// Re-export the foundation vocabulary so a platform consumer never needs a
-// second import for the errors platform reads/executes surface directly.
+// Re-export sui-effect's own taxonomy so a platform consumer never needs a
+// second import for the errors platform reads/writes surface directly. This
+// package no longer maintains its own copies of these — see the migration
+// table in sui-effect's `docs/extensions.md` ("Migrating from
+// `@misofm/effect`"): `BcsDecodeError`/`ObjectTypeMismatchError` merge into
+// `DecodeError`; `ObjectNotFoundError` becomes `ObjectNotFound` (plus
+// `ObjectDeleted`/`ObjectUnavailable`); `SuiRpcError` becomes `TransportError`;
+// `TransactionFailedError` becomes `ExecutionFailed`; `GraphQLUnavailableError`
+// becomes sui-effect's own `GraphQLUnavailable`, produced by the bare
+// `SuiGraphQL` tag this package now reads through directly (the same one
+// `@misofm/musicos` reads through — no second, platform-owned GraphQL tag).
 export {
-  BcsDecodeError,
-  DeploymentError,
-  GraphQLUnavailableError,
-  ObjectNotFoundError,
-  ObjectTypeMismatchError,
-  SuiRpcError,
-  TransactionFailedError,
-  type SuiReadError,
-} from "@misofm/effect/errors";
+  DecodeError,
+  ExecutionFailed,
+  GraphQLUnavailable,
+  ObjectDeleted,
+  ObjectNotFound,
+  ObjectUnavailable,
+  TransportError,
+  type BatchItemError,
+  type GetObjectError,
+} from "sui-effect";
 
 /** Record sales (Record + Record Shop) are unavailable on this deployment. */
 export class RecordSalesUnavailableError extends Schema.TaggedError<RecordSalesUnavailableError>()(
@@ -28,6 +44,8 @@ export class RecordSalesUnavailableError extends Schema.TaggedError<RecordSalesU
     reason: Schema.String,
   },
 ) {
+  /** Nothing was submitted — the deployment was rejected before any Move target was built. */
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: Record sales are unavailable: ${this.reason}`;
   }
@@ -40,6 +58,8 @@ export class OperationsUnavailableError extends Schema.TaggedError<OperationsUna
     reason: Schema.String,
   },
 ) {
+  /** Nothing was submitted — the deployment was rejected before any Move target was built. */
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: Vault operations are unavailable: ${this.reason}`;
   }
@@ -51,7 +71,10 @@ export class MisoPlatformDeploymentInvalidError extends Schema.TaggedError<MisoP
   {
     message: Schema.String,
   },
-) {}
+) {
+  /** Nothing was submitted — nothing was even built. Replaces the predecessor `@misofm/effect`-era `DeploymentError`. */
+  readonly outcome: Outcome = "not_applied";
+}
 
 /** The connected client's network does not match the configured deployment's network. */
 export class MisoNetworkMismatchError extends Schema.TaggedError<MisoNetworkMismatchError>()(
@@ -61,12 +84,18 @@ export class MisoNetworkMismatchError extends Schema.TaggedError<MisoNetworkMism
     deploymentNetwork: Schema.String,
   },
 ) {
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: client network "${this.clientNetwork}" does not match deployment network "${this.deploymentNetwork}"`;
   }
 }
 
-/** The connected endpoint's chain identifier does not match the configured deployment's. */
+/**
+ * The connected endpoint's chain identifier does not match the configured
+ * deployment's. Raised at `Miso.layer` build (the same exact-ledger check
+ * the predecessor `MisoPlatformClient#ready()` performed at first use),
+ * per misofm/sdks#35's target shape.
+ */
 export class MisoChainIdentifierMismatchError extends Schema.TaggedError<MisoChainIdentifierMismatchError>()(
   "MisoChainIdentifierMismatchError",
   {
@@ -74,18 +103,29 @@ export class MisoChainIdentifierMismatchError extends Schema.TaggedError<MisoCha
     expected: Schema.String,
   },
 ) {
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: endpoint chain identifier "${this.actual}" does not match deployment chain identifier "${this.expected}"`;
   }
 }
 
-/** A method that requires the exact-chain validation lifecycle was called before `ready()`. */
+/**
+ * A method that requires the exact-chain validation lifecycle was called
+ * before `ready()`.
+ *
+ * @deprecated The `Miso` service (misofm/sdks#35) performs this check at
+ * layer build instead — see {@link MisoChainIdentifierMismatchError}. Kept
+ * only so the not-yet-converted `MisoPlatformClient` facade (stage 2/3 of
+ * misofm/sdks#35; see `docs/CONVERSION-STATUS.md`) keeps typechecking; slated
+ * for deletion when that facade is replaced.
+ */
 export class MisoClientNotReadyError extends Schema.TaggedError<MisoClientNotReadyError>()(
   "MisoClientNotReadyError",
   {
     operation: Schema.String,
   },
 ) {
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: ${this.operation} requires an exact-chain validation lifecycle; call and await client.miso.ready() first`;
   }
@@ -98,7 +138,9 @@ export class MalformedRecordSoldEventError extends Schema.TaggedError<MalformedR
     digest: Schema.optional(Schema.String),
     reason: Schema.optional(Schema.String),
   },
-) {}
+) {
+  readonly outcome: Outcome = "not_applied";
+}
 
 /** Authenticated-fetch / API-authorization signing or verification failure. */
 export const MisoAuthErrorCode = Schema.Literals([
@@ -115,6 +157,8 @@ export class MisoAuthError extends Schema.TaggedError<MisoAuthError>()("MisoAuth
   status: Schema.optional(Schema.Number),
   cause: Schema.optional(Schema.Defect()),
 }) {
+  /** An HTTP authorization failure never submits a transaction. */
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return this.reason;
   }
@@ -130,12 +174,16 @@ export class MisoAuthError extends Schema.TaggedError<MisoAuthError>()("MisoAuth
 /** No Release exists at the requested id (or it is not a Release from the configured deployment). */
 export class ReleaseNotFoundError extends Schema.TaggedError<ReleaseNotFoundError>()("ReleaseNotFoundError", {
   releaseId: Schema.String,
-}) {}
+}) {
+  readonly outcome: Outcome = "not_applied";
+}
 
 /** The fullnode and the indexer both have no record of this transaction digest. */
 export class ReceiptNotFoundError extends Schema.TaggedError<ReceiptNotFoundError>()("ReceiptNotFoundError", {
   digest: Schema.String,
-}) {}
+}) {
+  readonly outcome: Outcome = "not_applied";
+}
 
 /** The transaction exists, but its effects contain no `record_shop::listing::RecordSoldEvent`. */
 export class RecordPurchaseNotFoundError extends Schema.TaggedError<RecordPurchaseNotFoundError>()(
@@ -143,13 +191,16 @@ export class RecordPurchaseNotFoundError extends Schema.TaggedError<RecordPurcha
   {
     digest: Schema.String,
   },
-) {}
+) {
+  readonly outcome: Outcome = "not_applied";
+}
 
 /** An object exists at the requested Pressing id, but is not a Pressing from the configured Record package. */
 export class ForeignPressingError extends Schema.TaggedError<ForeignPressingError>()("ForeignPressingError", {
   pressingId: Schema.String,
   actualType: Schema.optional(Schema.String),
 }) {
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: object ${this.pressingId} is not a Pressing from the configured Record package.`;
   }
@@ -163,6 +214,7 @@ export class MalformedRoyaltyClaimedEventError extends Schema.TaggedError<Malfor
     reason: Schema.String,
   },
 ) {
+  readonly outcome: Outcome = "not_applied";
   override get message(): string {
     return `@misofm/platform: ${this.reason} (transaction ${this.digest}).`;
   }

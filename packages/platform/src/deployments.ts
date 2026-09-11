@@ -7,7 +7,6 @@ import type { PartyDeployment } from "@misofm/partyos/deployments";
 import { PARTYOS_DEPLOYMENTS } from "@misofm/partyos/deployments";
 import { normalizeSuiAddress, normalizeSuiObjectId } from "@mysten/sui/utils";
 import { Context, Effect, Layer } from "effect";
-import { DeploymentError } from "@misofm/effect/errors";
 import { immutableSnapshot } from "./internal.ts";
 import {
   MisoPlatformDeploymentInvalidError,
@@ -571,14 +570,14 @@ export function getMisoPlatformDeployment(
   return deployment;
 }
 
-/** Effect-returning `assertMisoPlatformDeployment`: validation failure becomes a typed `DeploymentError`. */
+/** Effect-returning `assertMisoPlatformDeployment`: validation failure becomes a typed `MisoPlatformDeploymentInvalidError`. */
 export function validateMisoPlatformDeployment(
   deployment: unknown,
-): Effect.Effect<MisoPlatformDeployment, DeploymentError> {
+): Effect.Effect<MisoPlatformDeployment, MisoPlatformDeploymentInvalidError> {
   return Effect.try({
     try: () => normalizeMisoPlatformDeployment(deployment),
     catch: (cause) =>
-      new DeploymentError({
+      new MisoPlatformDeploymentInvalidError({
         message: cause instanceof Error ? cause.message : String(cause),
       }),
   });
