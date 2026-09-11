@@ -73,7 +73,7 @@ export interface MusicosService {
   readonly getOwnedReleaseAdminCaps: (owner: SuiAddress) => Effect.Effect<ReadonlyArray<ReleaseAdminCap>, OwnedReadError>
 
   readonly getShareCurrencyType: (currencyId: ObjectId) => Effect.Effect<string, ReadError>
-  readonly getShareCurrencyTreasuryCap: (shareType: string, owner: SuiAddress) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | TransportError>
+  readonly getShareCurrencyTreasuryCap: (shareType: string, owner: SuiAddress) => Effect.Effect<ObjectId, MusicosTreasuryCapNotFound | DecodeError | TransportError>
 
   readonly view: {
     readonly deriveTargetReleaseId: (params: DeriveTargetReleaseIdParams) => Effect.Effect<ObjectId, SimulationFailed | BuildError | DecodeError | TransportError>
@@ -115,8 +115,13 @@ declare const musicos: (options?: MusicosOptions) => SuiClientRegistration<Clien
 The Promise registration: `client.$extend(musicos(options))`. Not `warm` by
 default — see `src/extension.ts`'s own doc comment for why (a `warm`
 registration on `devnet`/`localnet` with no `chainId` throws at
-registration). `await client.musicos.$ready()` once makes the two
-synchronous members (`packageId`, `deployment`) real immediately.
+registration). Before the runtime exists (`register(client)` does no work
+until the first `await`), the two synchronous members are placeholders, not
+their real values and not Promises: `packageId` throws `ExtensionNotReady`
+when coerced to the string it is typed as; `deployment` is a plain object,
+so the face maps it as a namespace, and reading a property off it cold just
+returns another placeholder. `await client.musicos.$ready()` once makes
+both real immediately.
 
 ## `@misofm/musicos/errors`
 
@@ -133,6 +138,22 @@ export declare class MusicosTreasuryCapNotFound extends Schema.TaggedError<Music
 
 No `TreasuryCap<shareType>` owned by `owner` was found.
 
+### `MusicosWorkNotFound` (class)
+
+```ts
+export declare class MusicosWorkNotFound extends Schema.TaggedError<MusicosWorkNotFound>()("musicos/WorkNotFound", {
+  kind: Schema.Literals(["composition", "recording"]),
+  shareType: Schema.String
+}) {
+  readonly outcome: "not_applied"
+}
+```
+
+`getCompositionByShareType` / `getRecordingByShareType`'s GraphQL discovery
+found no work carrying `shareType`. There is no object id to name — that is
+exactly what the search came up empty on — so this is its own tag rather
+than `ObjectNotFound`, which always names one.
+
 ### `MusicosDeploymentInvalid` (class)
 
 ```ts
@@ -148,10 +169,10 @@ bundles no manifest for the client's network. Replaces the predecessor
 `@misofm/effect`-era `DeploymentError`.
 
 Also re-exported from this subpath: `BuildError`, `DecodeError`,
-`ObjectDeleted`, `ObjectNotFound`, `ObjectUnavailable`, `SimulationFailed`,
-`TransportError`, and the `BatchItemError` type — all from `sui-effect`, so
-`@misofm/musicos/errors` is still the one place to import the package's
-whole error vocabulary from.
+`GraphQLUnavailable`, `ObjectDeleted`, `ObjectNotFound`, `ObjectUnavailable`,
+`SimulationFailed`, `TransportError`, and the `BatchItemError` type — all
+from `sui-effect`, so `@misofm/musicos/errors` is still the one place to
+import the package's whole error vocabulary from.
 
 ## `@misofm/musicos/transactions`
 
@@ -189,10 +210,14 @@ Every decoder in both subpaths has this shape: `parsers.ts`'s eight
 `parse*Event` functions decode into the public camelCase event interfaces
 (`types.ts`); `events.ts`'s `eventParsers.core.*` registry decodes into the
 raw generated snake_case shape, for indexers that need the ABI surface
-unmapped. Neither compares a Move type tag — event codecs carry none, since
-a generated codec's `.name` is an unresolved `@local-pkg/…` source label —
-so a decoder given the wrong event's bytes fails on the BCS re-serialize
-length check instead, still `DecodeError`.
+unmapped. Neither compares a full Move type tag — event codecs carry none,
+since a generated codec's `.name` is an unresolved `@local-pkg/…` source
+label, never a real address — but the `Event` overload does check the
+`module::EventName` suffix of `event.eventType` (package address and any
+generic type arguments aside) before decoding, failing `DecodeError`
+immediately on a mismatch; the bytes-only overload has no `eventType` to
+check and relies on the BCS re-serialize length check alone, still
+`DecodeError` on a shape mismatch.
 
 `@deprecated` in `events.ts`, kept for `packages/platform`'s own generated
 event codecs (unrelated to musicos's own types): `BcsParser<T>` (`{ parse(bytes): T }`)
@@ -201,9 +226,9 @@ and `decodeEvent(codec, bytes)`.
 ## `@misofm/musicos/queries`
 
 ```ts
-export declare const getCompositionByShareType: (shareType: string, packageId: string) => Effect.Effect<Composition, ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL>
-export declare const getRecordingByShareType: (shareType: string, packageId: string) => Effect.Effect<Recording, ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL>
-export declare const getWorkAddressesByShareTypes: (shareTypes: WorkShareTypes, packageId: string) => Effect.Effect<WorkAddressesByShareType, TransportError, SuiGraphQL>
+export declare const getCompositionByShareType: (shareType: string, packageId: string) => Effect.Effect<Composition, MusicosWorkNotFound | GraphQLUnavailable | ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL>
+export declare const getRecordingByShareType: (shareType: string, packageId: string) => Effect.Effect<Recording, MusicosWorkNotFound | GraphQLUnavailable | ObjectNotFound | ObjectDeleted | ObjectUnavailable | DecodeError | TransportError, Sui | SuiGraphQL>
+export declare const getWorkAddressesByShareTypes: (shareTypes: WorkShareTypes, packageId: string) => Effect.Effect<WorkAddressesByShareType, GraphQLUnavailable | TransportError, SuiGraphQL>
 export declare function extractTypeParam(objectType: string): string
 export declare function extractTypeParams2(objectType: string): [string, string]
 ```
@@ -211,9 +236,17 @@ export declare function extractTypeParams2(objectType: string): [string, string]
 The three reads the Core API cannot express (a type filter needs every type
 parameter of a generic or none) stay on sui-effect's shared `SuiGraphQL` tag
 as standalone functions — not `Musicos` members, so building the service
-never requires a GraphQL endpoint. `extractTypeParam(s2)` are the pure
-helpers `Musicos` itself uses to read a share type off an object's tag; kept
-public because `packages/platform` imports them directly.
+never requires a GraphQL endpoint. `GraphQLUnavailable` (from
+`SuiGraphQL.layerUnavailable`) lets through rather than folding into
+`TransportError`, so a caller can tell "no endpoint" apart from "the
+endpoint answered badly". `musicos/WorkNotFound` is the two by-share-type
+reads' own not-found — there is no object id to name `ObjectNotFound` with.
+A malformed GraphQL `repr` (one type parameter where two are expected) is
+skipped with a debug log, in both `getWorkAddressesByShareTypes` and
+`getRecordingByShareType`'s address search, rather than thrown.
+`extractTypeParam(s2)` are the pure helpers `Musicos` itself uses to read a
+share type off an object's tag; kept public because `packages/platform`
+imports them directly.
 
 ## `@misofm/musicos/deployments`
 

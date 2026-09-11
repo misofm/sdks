@@ -31,9 +31,28 @@ the musicos-specific addendum.
   so `src/schema.ts` exports factories (`compositionContent(packageId)`, not
   a bare `compositionContent`), built once inside `Musicos`'s `make()`
   closure at layer build, not per call.
-- **Errors**: `src/errors.ts` declares exactly two of its own —
-  `musicos/TreasuryCapNotFound`, `musicos/DeploymentInvalid` — both with
-  `outcome: "not_applied"`. Everything else is sui-effect's taxonomy,
+- **No `typeOrigin`, deliberately.** sui-effect's guide distinguishes
+  `packageId` (what `moveCall` targets) from `typeOrigin` (the package a
+  Move *type* was first published in, which is what survives inside a type
+  name after an upgrade) for an upgradeable package. `Musicos` has no
+  `typeOrigin` option and uses `deployment.packageId` for both calls and
+  codecs. This is deliberate, not an oversight: `deployments.ts`'s own
+  contract is that every bundled and caller-supplied manifest names a
+  **verified immutable** publish (`MISO_DEPLOYMENTS`'s doc comment, and
+  `assertMisoDeployment`'s validation, both predate this conversion and are
+  unchanged by it) — the `musicos` package this SDK targets is never
+  upgraded, so `packageId` and `typeOrigin` are the same value for the
+  lifetime of every deployment this package can ever be given. Revisit this
+  the day `musicos` itself gains an `UpgradeCap` a deployment might name a
+  post-upgrade `packageId` for: add `typeOrigin?: string` (defaulting to
+  `packageId`) to `MusicosOptions`/`MisoProtocolDeployment`, thread it into
+  every `schema.ts` factory and `Musicos.ts`'s bare-tag constants in place
+  of `deployment.packageId`, and keep `packageId` for `moveCall` targets
+  only (`transactions.ts`'s `misoPackageId` parameters, `view`'s recipe).
+- **Errors**: `src/errors.ts` declares its own —
+  `musicos/TreasuryCapNotFound`, `musicos/WorkNotFound`,
+  `musicos/DeploymentInvalid` — each with `outcome: "not_applied"`.
+  Everything else is sui-effect's taxonomy,
   re-exported from the same module so `@misofm/musicos/errors` is still one
   place to import the whole vocabulary from. Do not invent a tag for
   something the taxonomy already names (a missing object is `ObjectNotFound`,
@@ -48,9 +67,12 @@ the musicos-specific addendum.
   section says these move to platform; they did not. If you find yourself
   re-reading the issue text on this point, trust this file and
   `src/queries.ts`'s own comment over the issue.
-- **`src/contracts/**`, `src/contracts.ts` are generated.** Never hand-edit;
-  regenerate with `bun run codegen` at the repo root and `bun run codegen:check`
-  must show no diff.
+- **`src/contracts/**` is generated.** Never hand-edit; regenerate with
+  `bun run codegen` at the repo root and `bun run codegen:check` must show
+  no diff. `src/contracts.ts` (no trailing slash) is a **hand-written**
+  barrel curating that generated tree into the public `contracts` namespace
+  (`packages.ts`'s `bindModulePackage`, minus reference-returning calls) —
+  it is fine, and sometimes necessary, to edit it.
 - **Deprecated compatibility exports** (`index.ts`'s `TxThunk`,
   `events.ts`'s `decodeEvent`/`BcsParser`) exist only because
   `packages/platform` still imports them; platform's own conversion

@@ -19,7 +19,7 @@ in this codebase follows.
 ## Install
 
 ```sh
-bun add @misofm/musicos sui-effect effect
+bun add @misofm/musicos sui-effect effect @mysten/sui @mysten/bcs
 ```
 
 Peer dependencies: `sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
@@ -76,11 +76,17 @@ const derivedId = await client.musicos.view.deriveTargetReleaseId({
 await client.musicos.dispose()
 ```
 
-`client.musicos.packageId` and `client.musicos.deployment` are Promises
-before the runtime exists (`register(client)` does no work until the first
-`await`); a synchronous read of either before that throws
-`ExtensionNotReady`, naming itself. `await client.musicos.$ready()` once
-after `$extend` makes both real from then on.
+`register(client)` does no work until the first `await`, so before that,
+`client.musicos.packageId` and `client.musicos.deployment` are **not** their
+real values — and not Promises either. Until the runtime exists the face
+does not know what a member *is*, so both come back as opaque placeholders
+(`packageId` reads as a plain string; `deployment` is a plain object, so the
+face maps it as a namespace). Using either as its real type is what throws:
+coercing `packageId` to a string (`` `${client.musicos.packageId}` ``,
+`String(...)`) throws `ExtensionNotReady`, naming itself, and reading a
+property off `deployment` (e.g. `.packageId`) just returns another
+placeholder rather than the real value. `await client.musicos.$ready()`
+once after `$extend` makes both real from then on.
 
 ### Building a transaction
 
@@ -145,7 +151,12 @@ carries it, which the Core API cannot express (a type filter needs every
 type parameter or none). These stay standalone `Effect` functions on
 sui-effect's shared `SuiGraphQL` tag rather than `Musicos` service members,
 so a consumer without a GraphQL endpoint is never forced to provide one just
-to build the service:
+to build the service. `SuiGraphQL.layerUnavailable`'s rejection,
+`GraphQLUnavailable`, is not folded into `TransportError`: it lets through
+as its own tag, so a caller can tell "no endpoint configured" apart from
+"the endpoint answered badly". A share type no work carries is
+`musicos/WorkNotFound` — there is no object id to name `ObjectNotFound`
+with, since naming one is exactly what the search came up empty on:
 
 ```ts
 import { Effect } from "effect"
@@ -161,14 +172,16 @@ const program = getCompositionByShareType(shareType, packageId).pipe(
 ## Errors
 
 `@misofm/musicos/errors` re-exports the sui-effect taxonomy this package
-reads and writes through, plus its own two tags:
+reads and writes through, plus its own three tags:
 
 | Error | Outcome | When |
 | --- | --- | --- |
 | `musicos/TreasuryCapNotFound` | `not_applied` | No `TreasuryCap<shareType>` is owned by the given address. |
+| `musicos/WorkNotFound` | `not_applied` | `getCompositionByShareType` / `getRecordingByShareType`'s GraphQL discovery found no work carrying that share type. |
 | `musicos/DeploymentInvalid` | `not_applied` | `Musicos.layer`'s `deployment` option failed validation, or this release bundles no manifest for the client's network. |
 | `ObjectNotFound` / `ObjectDeleted` / `ObjectUnavailable` | `not_applied` | An id does not exist, has been deleted, or the node could not say. |
-| `DecodeError` | `not_applied` | The object's on-chain type did not match what was expected, or its BCS content did not decode. |
+| `DecodeError` | `not_applied` | The object's on-chain type did not match what was expected, its BCS content did not decode, or a caller-supplied `shareType` did not form a valid Move type. |
+| `GraphQLUnavailable` | `not_applied` | The three GraphQL reads' `SuiGraphQL` has no usable endpoint. |
 | `TransportError` | `not_applied` | A Core API or GraphQL call did not reach a usable answer. |
 | `SimulationFailed` / `BuildError` | `not_applied` | `view.deriveTargetReleaseId`'s simulation failed, or the recipe it built threw (a `recordingIds`/`splitBps` length mismatch). |
 
@@ -222,7 +235,7 @@ composing `Effect` programs at a configuration boundary.
 | `client.miso.getX(...)`, `MisoProtocolClient` | `yield* Musicos` in Effect code; `client.$extend(musicos()).musicos.getX(...)` for Promise code |
 | `queries.getX(...)` requiring `SuiClient` | `Effect.flatMap(Musicos, (m) => m.getX(...))` |
 | `get*ByIds` returning `Record<string, T>`, errored ids dropped | `ReadonlyArray<Result<T, BatchItemError>>` in request order — nothing is silently dropped |
-| `getShareCurrencyTreasuryCap` throwing | Fails typed `musicos/TreasuryCapNotFound` |
+| `getShareCurrencyTreasuryCap` throwing | Fails typed `musicos/TreasuryCapNotFound` (or `DecodeError` for a malformed `shareType`) |
 | `ObjectNotFoundError`, `BcsDecodeError`, `SuiRpcError`, `DeploymentError` | `ObjectNotFound` / `ObjectDeleted` / `ObjectUnavailable`, `DecodeError`, `TransportError`, `musicos/DeploymentInvalid` |
 | `TxThunk`; `./execute` (`buildTx`, `signAndExecute`, `ExecResult`, ...) | `Recipe` (a deprecated `TxThunk` alias is kept); `Tx.run(recipe, { signer })` from `sui-effect/tx`, `Executed.created(type)` and friends |
 | `parseXEvent(bytes): T` (throws) | `parseXEvent(bytes): Effect<T, DecodeError>` |
