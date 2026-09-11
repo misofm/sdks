@@ -159,7 +159,7 @@
     "@misofm/streaming": "0.3.0",
     "@mysten/bcs": "^2.1.1",
     "@misofm/musicos": "0.3.1",
-    "@misofm/partyos": "0.3.1"
+    "@misofm/partyos": "0.4.0"
   },
   "devDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",
