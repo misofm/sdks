@@ -1,8 +1,8 @@
 {
   "name": "@misofm/platform",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "packageManager": "bun@1.4.0",
-  "description": "Complete client SDK for the Miso platform on Sui — high-level reads, pressings, listings, records, work publishing, Party extensions, and the first-party extensions built on top of the @misofm/musicos object model and the @misofm/partyos Party identity model.",
+  "description": "Complete client SDK for the Miso platform on Sui \u2014 high-level reads, pressings, listings, records, work publishing, Party extensions, and the first-party extensions built on top of the @misofm/musicos object model and the @misofm/partyos Party identity model.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -153,8 +153,8 @@
   "dependencies": {
     "@misofm/streaming": "0.3.0",
     "@mysten/bcs": "^2.1.1",
-    "@misofm/musicos": "0.4.1",
-    "@misofm/partyos": "0.4.1"
+    "@misofm/musicos": "0.4.2",
+    "@misofm/partyos": "0.4.2"
   },
   "devDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",

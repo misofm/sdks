@@ -131,8 +131,8 @@ export interface RedeemBalanceOptions {
  * Redeem `value` from `party`'s accumulator and return the resulting balance.
  *
  * Aborts if `admin_cap` belongs to another Party. Accumulator semantics remain in
- * `hikida`: zero values abort with code `1`, and unavailable funds abort in the
- * Sui accumulator implementation.
+ * `hikida`: this Action rejects zero with `ENoValueToRedeem`, and unavailable
+ * funds abort in the Sui accumulator implementation.
  */
 export function redeemBalance(options: RedeemBalanceOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_wallet';

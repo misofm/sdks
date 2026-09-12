@@ -27,6 +27,18 @@ export const ReleaseCoverArt = new MoveStruct({ name: `${$moduleName}::ReleaseCo
         cover: bcs.option(cover_art.CoverArt),
         track_covers: per_track.PerTrack(bcs.option(cover_art.CoverArt))
     } });
+export const CoverSnapshot = new MoveStruct({ name: `${$moduleName}::CoverSnapshot`, fields: {
+        present: bcs.bool(),
+        still_blob_id: bcs.u256(),
+        still_is_encrypted: bcs.bool(),
+        still_sealed_dek_length: bcs.u64(),
+        still_sealed_dek_digest: bcs.vector(bcs.u8()),
+        has_animated: bcs.bool(),
+        animated_blob_id: bcs.u256(),
+        animated_is_encrypted: bcs.bool(),
+        animated_sealed_dek_length: bcs.u64(),
+        animated_sealed_dek_digest: bcs.vector(bcs.u8())
+    } });
 export const ReleaseCoverArtSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCoverArtSetEvent`, fields: {
         release_id: bcs.Address,
         admin_cap_id: bcs.Address,
@@ -110,16 +122,7 @@ export const ReleaseTrackCoverArtSetEvent = new MoveStruct({ name: `${$moduleNam
         current_animated_is_encrypted: bcs.bool(),
         current_animated_sealed_dek_length: bcs.u64(),
         current_animated_sealed_dek_digest: bcs.vector(bcs.u8()),
-        album_present: bcs.bool(),
-        album_still_blob_id: bcs.u256(),
-        album_still_is_encrypted: bcs.bool(),
-        album_still_sealed_dek_length: bcs.u64(),
-        album_still_sealed_dek_digest: bcs.vector(bcs.u8()),
-        album_has_animated: bcs.bool(),
-        album_animated_blob_id: bcs.u256(),
-        album_animated_is_encrypted: bcs.bool(),
-        album_animated_sealed_dek_length: bcs.u64(),
-        album_animated_sealed_dek_digest: bcs.vector(bcs.u8())
+        album: CoverSnapshot
     } });
 export const ReleaseTrackCoverArtUnsetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackCoverArtUnsetEvent`, fields: {
         release_id: bcs.Address,
@@ -150,16 +153,7 @@ export const ReleaseTrackCoverArtUnsetEvent = new MoveStruct({ name: `${$moduleN
         current_animated_is_encrypted: bcs.bool(),
         current_animated_sealed_dek_length: bcs.u64(),
         current_animated_sealed_dek_digest: bcs.vector(bcs.u8()),
-        album_present: bcs.bool(),
-        album_still_blob_id: bcs.u256(),
-        album_still_is_encrypted: bcs.bool(),
-        album_still_sealed_dek_length: bcs.u64(),
-        album_still_sealed_dek_digest: bcs.vector(bcs.u8()),
-        album_has_animated: bcs.bool(),
-        album_animated_blob_id: bcs.u256(),
-        album_animated_is_encrypted: bcs.bool(),
-        album_animated_sealed_dek_length: bcs.u64(),
-        album_animated_sealed_dek_digest: bcs.vector(bcs.u8())
+        album: CoverSnapshot
     } });
 export interface SetCoverArguments {
     self: RawTransactionArgument<string>;

@@ -1562,6 +1562,18 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   test(`independent wire fixture ${eventIndex + 1}/${EVENT_WIRE_FIXTURES.length}: ${fixture.path}`, () => {
     const expected = Object.fromEntries(fixture.fields.map(([field, type], fieldIndex) => [field, valueFor(type, eventIndex, fieldIndex)]));
     const bytes = schemaFor(fixture.name, fixture.fields).serialize(expected).toBytes();
+    if (fixture.name === "ReleaseTrackCoverArtSetEvent" || fixture.name === "ReleaseTrackCoverArtUnsetEvent") {
+      // Keep the independent flat wire fixture: nesting the album snapshot
+      // changes the decoded JSON shape, while preserving every BCS byte.
+      const album: Record<string, unknown> = {};
+      for (const field of Object.keys(expected)) {
+        if (!field.startsWith("album_")) continue;
+        album[field.slice("album_".length)] = expected[field];
+        delete expected[field];
+      }
+      expect(Object.keys(album)).toHaveLength(10);
+      expected.album = album;
+    }
     const decoded = fixture.name === "PaymentSentEvent"
       ? platformEventParsers.actions.pay.paymentSent(bcs.vector(bcs.u8()))(bytes)
       : parserAt(fixture.path)(bytes);

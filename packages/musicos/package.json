@@ -1,6 +1,6 @@
 {
   "name": "@misofm/musicos",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "packageManager": "bun@1.4.0",
   "description": "A sui-effect extension for the Miso object model (Composition, Recording, Release, Track): the Musicos service, PTB fragments, event decoders, and BCS codecs.",
   "license": "Apache-2.0",

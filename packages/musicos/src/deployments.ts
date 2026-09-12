@@ -69,7 +69,7 @@ export function normalizeMisoProtocolDeployment(
 /** Verified immutable deployments bundled with this SDK release. */
 export const MISO_DEPLOYMENTS = Object.freeze({
   testnet: Object.freeze({
-    musicos: "0x2a4f8d83bffa73a13c9cfefdc4376256d4cef4330d5f60233c082cfab9a34e68",
+    musicos: "0xda6acdada9ffe4814231c0d8d3f0869ff3510c57a0c383a9bf6bdf197bef1901",
   } as const),
 } as const) satisfies Partial<
   Record<MisoNetwork, MisoDeployment>
