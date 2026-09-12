@@ -27,6 +27,11 @@ const signer = Signer.fromKeypair(keypair);
 const SENDER = signer.address;
 const owner: SuiClientTypes.ObjectOwner = { $kind: "AddressOwner", AddressOwner: SENDER };
 
+const sponsorKeypair = Ed25519Keypair.fromSecretKey(new Uint8Array(32).fill(9));
+const sponsor = Signer.fromKeypair(sponsorKeypair);
+const SPONSOR = sponsor.address;
+const sponsorOwner: SuiClientTypes.ObjectOwner = { $kind: "AddressOwner", AddressOwner: SPONSOR };
+
 // `initializeShareCurrency` reads the shared `0xc` Sui Coin Registry object;
 // `Tx.build` has to resolve it even though the fake never inspects its content.
 const COIN_REGISTRY_OBJECT = {
@@ -45,6 +50,15 @@ const COINS: SuiClientTypes.Coin[] = [
     type: "0x2::coin::Coin<0x2::sui::SUI>",
     balance: "1000000000",
     owner,
+    previousTransaction: null,
+  } as unknown as SuiClientTypes.Coin,
+  {
+    objectId: padded("c02"),
+    version: "2",
+    digest: "11111111111111111111111111111111",
+    type: "0x2::coin::Coin<0x2::sui::SUI>",
+    balance: "1000000000",
+    owner: sponsorOwner,
     previousTransaction: null,
   } as unknown as SuiClientTypes.Coin,
 ];
@@ -103,6 +117,39 @@ describe("createShareCurrency: two Tx.run's, one signer", () => {
     );
     expect(error).toBeInstanceOf(UnexpectedEffects);
     expect(SuiError.outcome(error)).toBe("applied");
+  });
+
+  // B4, misofm/sdks#35 verification: the sponsor path on createShareCurrency.
+  describe("the sponsor path (gasOwner + sponsor)", () => {
+    const PKG = padded("bb1");
+    const CURRENCY_ID = padded("dd1");
+    const TREASURY_ID = padded("992");
+    const outcomes = () => [
+      FakeOutcome.succeed({ created: [{ objectId: PKG, type: "package", version: 2n, outputState: "PackageWrite" }] }),
+      FakeOutcome.succeed({
+        created: [
+          { objectId: CURRENCY_ID, type: `0x2::coin_registry::Currency<${PKG}::share::Share>`, version: 2n, owner },
+          { objectId: TREASURY_ID, type: `0x2::coin::TreasuryCap<${PKG}::share::Share>`, version: 2n, owner },
+        ],
+      }),
+    ];
+
+    test("gasOwner plus sponsor: both runs submit with the sponsor paying gas", async () => {
+      const currency = await provide(
+        createShareCurrency({ name: "Sponsored Share", description: "d" }, { signer, gasOwner: SPONSOR, sponsor }),
+        outcomes(),
+      );
+      expect(currency.packageId).toBe(PKG);
+      expect(currency.currencyId).toBe(CURRENCY_ID);
+    });
+
+    test("gasOwner without sponsor fails typed SigningError, naming the missing signature", async () => {
+      const error = await provide(
+        Effect.flip(createShareCurrency({ name: "Sponsored Share", description: "d" }, { signer, gasOwner: SPONSOR })),
+        outcomes(),
+      );
+      expect(error._tag).toBe("SigningError");
+    });
   });
 });
 
