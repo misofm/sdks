@@ -15,7 +15,7 @@ import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { SuiClientTypes } from "@mysten/sui/client";
 import { Effect, Layer } from "effect";
-import { ExtensionNotReady, KNOWN_CHAIN_IDS, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { ExtensionNotReady, KNOWN_CHAIN_IDS, ObjectId, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { FakeOutcome, SuiCoreFake, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { Signer } from "@unconfirmed/sui-effect/tx";
 import { SuiExtension } from "@unconfirmed/sui-effect/extension";
@@ -183,7 +183,7 @@ describe("client.$extend(miso()): error identity through the face", () => {
     // missing object into its own package-specific tag (`PartyNotFound`, not
     // sui-effect's generic `ObjectNotFound`) — the identity guarantee holds
     // for a composed sibling service's own tag too, not only sui-effect's.
-    const partyRejection = await client.miso.party.getPartyById(A).catch((error: unknown) => error);
+    const partyRejection = await client.miso.party.getPartyById(ObjectId.make(A)).catch((error: unknown) => error);
     expect((partyRejection as { _tag: string })._tag).toBe("partyos/PartyNotFound");
 
     await client.miso.dispose();
@@ -209,7 +209,7 @@ describe("client.$extend(miso()): error identity through the face", () => {
     );
     const client = fake.client.$extend(miso({ deployment: TESTNET }));
 
-    const party = await client.miso.party.getPartyById(A);
+    const party = await client.miso.party.getPartyById(ObjectId.make(A));
     expect(party).toMatchObject({ id: A, kind: "individual", name: "Test Party" });
 
     await client.miso.dispose();
