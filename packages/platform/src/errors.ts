@@ -109,28 +109,6 @@ export class MisoChainIdentifierMismatchError extends Schema.TaggedError<MisoCha
   }
 }
 
-/**
- * A method that requires the exact-chain validation lifecycle was called
- * before `ready()`.
- *
- * @deprecated The `Miso` service (misofm/sdks#35) performs this check at
- * layer build instead — see {@link MisoChainIdentifierMismatchError}. Kept
- * only so the not-yet-converted `MisoPlatformClient` facade (stage 2/3 of
- * misofm/sdks#35; see `docs/CONVERSION-STATUS.md`) keeps typechecking; slated
- * for deletion when that facade is replaced.
- */
-export class MisoClientNotReadyError extends Schema.TaggedError<MisoClientNotReadyError>()(
-  "MisoClientNotReadyError",
-  {
-    operation: Schema.String,
-  },
-) {
-  readonly outcome: Outcome = "not_applied";
-  override get message(): string {
-    return `@misofm/platform: ${this.operation} requires an exact-chain validation lifecycle; call and await client.miso.ready() first`;
-  }
-}
-
 /** An on-chain `RecordSoldEvent` could not be decoded into a `RecordSale`. */
 export class MalformedRecordSoldEventError extends Schema.TaggedError<MalformedRecordSoldEventError>()(
   "MalformedRecordSoldEventError",

@@ -23,7 +23,7 @@
 export { createMisoClient } from "./client.ts";
 export type { MisoClient, CreateMisoClientOptions } from "./client.ts";
 
-export { misoConfig, networkFrom } from "./config.ts";
+export { configFromDeployment, misoConfig, networkFrom } from "./config.ts";
 export type {
   MisoConfig,
   MisoConfigOverrides,

@@ -13,7 +13,7 @@
 
 import type { MisoDeployment } from "@misofm/musicos/deployments";
 import type { PartyDeployment } from "@misofm/partyos/deployments";
-import { getMisoPlatformDeployment, type PartyExtensionsDeployment, type RecordSalesDeployment } from "../deployments.ts";
+import { getMisoPlatformDeployment, type MisoPlatformDeployment, type PartyExtensionsDeployment, type RecordSalesDeployment } from "../deployments.ts";
 import { walrusAggregatorUrl } from "../walrus.ts";
 
 export type Network = "testnet" | "mainnet";
@@ -100,38 +100,48 @@ export type MisoConfigOverrides = Partial<
   Pick<MisoConfig, "grpcUrl" | "graphqlUrl" | "walrusAggregatorUrl" | "apiBaseUrl" | "discoverSales">
 >;
 
-/** The config for `network`, derived from this SDK's verified deployment map. */
-export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}): MisoConfig {
-  const platform = getMisoPlatformDeployment(network);
+/**
+ * The config for a complete `MisoPlatformDeployment` — the same manifest
+ * `Miso.layer(deployment)` builds the service from — so `Miso`'s bound
+ * `read.*` namespace (misofm/sdks#35, WP6) and `misoConfig` share one
+ * derivation instead of two.
+ *
+ * TODO: `money`/`grpcUrl`/`graphqlUrl`/`apiBaseUrl` are still the fixed
+ * Testnet-shaped defaults the predecessor `misoConfig` hard-coded regardless
+ * of `deployment.network` (a pre-existing gap this stage's facade-derivation
+ * scope does not extend to fixing — see `docs/CONVERSION.md`); pass
+ * `overrides` for a Mainnet or custom deployment's real endpoints today.
+ */
+export function configFromDeployment(deployment: MisoPlatformDeployment, overrides: MisoConfigOverrides = {}): MisoConfig {
   const vaultPackageId =
-    platform.operations.status === "available"
-      ? platform.operations.vault.packageId
-      : platform.operations.legacy?.vaultPackageId;
+    deployment.operations.status === "available"
+      ? deployment.operations.vault.packageId
+      : deployment.operations.legacy?.vaultPackageId;
   if (!vaultPackageId) {
     throw new Error(
-      `@misofm/platform/read: no current or legacy Vault type metadata for "${network}".`,
+      `@misofm/platform/read: no current or legacy Vault type metadata for "${deployment.network}".`,
     );
   }
   const config: MisoConfig = {
-    network,
-    deployment: platform.protocol,
-    partyos: platform.partyos,
-    party: platform.party,
-    recordSales: platform.recordSales,
+    network: deployment.network,
+    deployment: deployment.protocol,
+    partyos: deployment.partyos,
+    party: deployment.party,
+    recordSales: deployment.recordSales,
     protocol: {
       // Read-only legacy type discovery does not make this package an
       // executable operations ABI; client call surfaces remain fail closed.
       vault: vaultPackageId,
-      releaseCoverArt: platform.packages.releaseCoverArt,
-      releaseKind: platform.packages.releaseKind,
-      recordingMasterReference: platform.packages.recordingMasterReference,
-      recordingStreamingTranscode: platform.packages.recordingStreamingTranscode ?? null,
-      recordingEngineSession: platform.packages.recordingEngineSession ?? null,
-      compositionCredits: platform.packages.compositionCredits,
-      recordingCredits: platform.packages.recordingCredits,
-      releaseCredits: platform.packages.releaseCredits,
-      credit: platform.packages.credit,
-      royaltyPool: platform.packages.royaltyPool,
+      releaseCoverArt: deployment.packages.releaseCoverArt,
+      releaseKind: deployment.packages.releaseKind,
+      recordingMasterReference: deployment.packages.recordingMasterReference,
+      recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode ?? null,
+      recordingEngineSession: deployment.packages.recordingEngineSession ?? null,
+      compositionCredits: deployment.packages.compositionCredits,
+      recordingCredits: deployment.packages.recordingCredits,
+      releaseCredits: deployment.packages.releaseCredits,
+      credit: deployment.packages.credit,
+      royaltyPool: deployment.packages.royaltyPool,
     },
     money: {
       usdCoinType:
@@ -140,11 +150,16 @@ export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}
     },
     grpcUrl: "https://fullnode.testnet.sui.io",
     graphqlUrl: "https://graphql.testnet.sui.io/graphql",
-    walrusAggregatorUrl: walrusAggregatorUrl(network),
+    walrusAggregatorUrl: walrusAggregatorUrl(deployment.network),
     apiBaseUrl: "https://api.testnet.miso.fm",
     discoverSales: [],
   };
   return { ...config, ...stripUndefined(overrides) };
+}
+
+/** The config for `network`, derived from this SDK's verified deployment map. */
+export function misoConfig(network: Network, overrides: MisoConfigOverrides = {}): MisoConfig {
+  return configFromDeployment(getMisoPlatformDeployment(network), overrides);
 }
 
 /** `{ a: undefined }` must not clobber a real default when spread. */
