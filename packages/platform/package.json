@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui — high-level reads, pressings, listings, records, work publishing, Party extensions, and the first-party extensions built on top of the @misofm/musicos object model and the @misofm/partyos Party identity model.",
   "license": "Apache-2.0",
@@ -153,14 +153,14 @@
   "dependencies": {
     "@misofm/streaming": "0.3.0",
     "@mysten/bcs": "^2.1.1",
-    "@misofm/musicos": "0.4.0",
-    "@misofm/partyos": "0.4.0"
+    "@misofm/musicos": "0.4.1",
+    "@misofm/partyos": "0.4.1"
   },
   "devDependencies": {
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.3.14",
-    "@unconfirmed/sui-effect": "0.1.1",
+    "@unconfirmed/sui-effect": "0.1.2",
     "effect": "4.0.0-rc.112",
     "typescript": "^7.0.2"
   },

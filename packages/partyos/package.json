@@ -1,6 +1,6 @@
 {
   "name": "@misofm/partyos",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "packageManager": "bun@1.4.0",
   "description": "A sui-effect extension for the PartyOS object model (Party identity, admin caps, and group membership) on Sui.",
   "license": "Apache-2.0",
@@ -99,7 +99,7 @@
   "devDependencies": {
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.4.0",
-    "@unconfirmed/sui-effect": "0.1.1",
+    "@unconfirmed/sui-effect": "0.1.2",
     "effect": "4.0.0-rc.112",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",
