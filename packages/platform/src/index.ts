@@ -24,28 +24,32 @@
 // extensions a `&mut UID` hook and stops there; every opinion about what to hang
 // off it is business logic, and business logic ships from the platform package.
 
-// The `Miso` sui-effect service (misofm/sdks#35). WP1 skeleton only — see
-// docs/CONVERSION-STATUS.md for what stage 2/3 still adds before this
-// replaces the class-based `miso()`/`MisoPlatformClient` below as the
-// recommended entry point.
-export { Miso, type MisoLayerError, type MisoService } from "./Miso.ts";
+// The `Miso` sui-effect service (misofm/sdks#35) — the complete `MisoService`
+// (WP6 "facade derivation"): `getPressing`/`getListing`/`getRecord`/`getSale`,
+// `ids`/`tx`/`call`/`bcs`/`vault`, `createShareCurrency`/
+// `publishShareCurrencies`/`initializeShareCurrencies`/`publishCatalog`,
+// `read.*`, `events`, `protocol`/`party`. See docs/CONVERSION.md.
+export {
+  Miso,
+  normalizeMisoPlatformDeployment,
+  type ConfiguredReleaseGraphParams,
+  type MisoBcs,
+  type MisoCall,
+  type MisoIds,
+  type MisoLayerError,
+  type MisoService,
+  type MisoTx,
+  type MisoVault,
+} from "./Miso.ts";
 
 // The recommended entry point is the client extension (see ./client.ts); the bare
 // builders and readers stay exported for callers that hold ids themselves.
 export {
   miso,
-  misoPlatform,
   MisoChainIdentifierMismatchError,
-  MisoClientNotReadyError,
-  MisoClient,
   MisoNetworkMismatchError,
-  MisoPlatformClient,
 } from "./client.ts";
-export type {
-  ConfiguredReleaseGraphParams,
-  MisoOptions,
-  MisoPlatformConfig,
-} from "./client.ts";
+export type { MisoClient, MisoOptions } from "./client.ts";
 export * from "./deployments.ts";
 export * from "./pressing.ts";
 export * from "./transactions.ts";
