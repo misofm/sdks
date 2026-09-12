@@ -813,22 +813,34 @@ change** — `SuiExtension.fromService`'s derived Promise face turns every
 `miso()` attached the raw `MisoPlatformClient` class instance (genuinely
 `Effect`-returning methods, no Promise translation at all). Every
 `Effect.runPromise(client.miso.<member>(...))` call site must drop the
-`Effect.runPromise` wrapper and just `await` the call directly:
+`Effect.runPromise` wrapper and just `await` the call directly. This table
+was rewritten during this stage's independent verification (misofm/sdks#35)
+against the actual consumer source in `misofm/app`, `misofm/cli` and
+`misofm/api`, replacing the stage 3 draft above with the verified list:
 
 | Repo | File:line | Today | After this conversion |
 | --- | --- | --- | --- |
+| app | `src/lib/sui-client.ts:43` | `Effect.runPromise(suiClient.miso.ready())` | `await suiClient.miso.ready()` |
+| app | `src/lib/party.ts:4` | `import type { TxThunk } from "@misofm/musicos"` | the import is gone (musicos's own `TxThunk` is deprecated, `Recipe` from `@unconfirmed/sui-effect`); the async thunk this file builds around it hoists its own `await` out of the thunk body since a `Recipe` is synchronous |
 | cli | `config.ts:362` | `await Effect.runPromise(client.miso.ready())` | `await client.miso.ready()` |
+| cli | `config.ts:63-67` (`runSui`) | builds `Sui` some other way | must provide `Sui` via `Sui.layerNoDeps` over `SuiCore.layerFromClient(config.client)`, reusing the one client instance rather than opening a second transport |
 | cli | `show.ts:33,66,74,107` | `await Effect.runPromise(config.client.miso.protocol!.get*(...))` | `await config.client.miso.protocol.get*(...)` (the `!` is now optional, not wrong) |
 | cli | `resolve.ts:967` | `await Effect.runPromise(config.client.miso.protocol!.getCompositionById(...))` | `await config.client.miso.protocol.getCompositionById(...)` |
-| cli | `resolve.ts:1293` | `await Effect.runPromise(config.client.miso.party.getPartyById(...))` | `await config.client.miso.party.getPartyById(...)` |
+| cli | `resolve.ts:1018` | reads `Sui` some other way alongside `config.client` | same `Sui.layerNoDeps` over `SuiCore.layerFromClient(config.client)` composition as `config.ts:63-67` — one client, one transport |
+| cli | `resolve.ts:1293` | `await Effect.runPromise(config.client.miso.party.getPartyById(...))` | `await config.client.miso.party.getPartyById(ObjectId.make(...))` — `getPartyById` takes a branded `ObjectId`, not a bare `string`; the predecessor's `Effect`-typed call happened to accept a plain string where the derived Promise face's argument type does not widen it |
+| cli | `party.ts:38,39,46,52,117,183,188,224,274` | `Effect.runPromise(...)` wrapping a call through a captured `client.miso.party` reference | same shape as `resolve.ts:1293`/`show.ts` — drop `Effect.runPromise`, `await` directly; each of these is a call through the captured `party` variable, not `client.miso.party` written out each time |
+| cli | `party.ts:6` | `import { ... } from "@misofm/musicos/execute"` | the subpath is gone; whatever this file imported from it must come from wherever musicos's own conversion moved it (or a `Signer`-based replacement, if it was executor-shaped) |
+| cli | `genres.ts:11,143,145` | imports/uses `@misofm/platform/execute` | the subpath is gone (deleted in stage 2) — same fix as `exec.ts:20` |
 | cli | `exec.ts:20` | `export * from "@misofm/platform/execute"` | delete the line — the subpath was removed in stage 2, this re-export is already broken independent of this stage |
-| cli | `resolve.ts:1343,1371,1440` (the "two share-currency call sites" plus the `executeViaExecutor` call) | `dependencies.publishShareCurrencies(executor, signerAddress, count)` / `dependencies.initializeShareCurrencies(executor, signerAddress, ids, metaOf, onBatch)` / `dependencies.executeViaExecutor(executor, transaction)` — all against `@misofm/platform/share`'s stage-2-converted signatures, which cli was never updated for | `publishShareCurrencies(count, { signer })` / `initializeShareCurrencies(ids, metaOf, { signer, onBatch: (batch, gasUsed) => Effect<void, E> })`; `executeViaExecutor` is gone — the whole `createExecutor`/executor-threading shape in `resolve.ts`'s `dependencies` object needs to become a `Signer` instead, which is genuinely cli's own conversion's work, not a one-line fix |
-| app | (none) | — | no `client.miso.*` call site in `misofm/app` wraps a member in `Effect.runPromise` — `lib/sui-client.ts`'s own `readySuiClient()`/`lib/party.ts`'s `readyPartyClient()` already treat `client.miso.ready()`/`client.miso.party` as Promise-shaped, so app needs **no edit** |
+| cli | `resolve.ts:1343,1371,1440` (the "two share-currency call sites" plus the `executeViaExecutor`/atomic-publication call) | `dependencies.publishShareCurrencies(executor, signerAddress, count)` / `dependencies.initializeShareCurrencies(executor, signerAddress, ids, metaOf, onBatch)` / `parseAtomicPublicationResult(p, result: PlatformExecResult)` — all against pre-stage-2 signatures cli was never updated for | `publishShareCurrencies(count, { signer })`; `initializeShareCurrencies(ids, metaOf, { signer, onBatch: (batch, gasUsed) => Effect<void, E> })`; `parseAtomicPublicationResult(p, executed: Executed)` — the whole `createExecutor`/executor-threading shape in `resolve.ts`'s `dependencies` object needs to become a `Signer` instead, which is genuinely cli's own conversion's work, not a one-line fix |
+| cli (behaviour, not a line) | — | a network/deployment mismatch rejected the first call | `miso()`'s default `warm` registration (`docs/CONVERSION.md`'s own stage 3 deviation #1) builds the layer inside `register`, so a mismatch now **throws synchronously out of `buildClient`** (wherever cli's own client-construction helper calls `$extend(miso(...))`), not on the first `await`. cli's own error handling around client construction needs a `try`/`catch`, not only a rejected-promise path |
+| api (read service) | `src/sui-runtime.ts:12-21` | `MisoClient.protocol` (a member of the old hand-written client) | `MisoClient.protocol` no longer exists on the read-service's own `MisoClient` (`read/client.ts`'s type, not the facade's) — use `Effect.runPromise(program.pipe(Effect.provide(miso.layer)))` (`miso.layer: Layer<Miso \| Sui \| SuiCore \| SuiGraphQL>`) and reach the protocol through `yield* Miso` inside `program` instead |
+| api (crank) | `src/core/refresh.ts:80,120,121,129,144`, `src/coordinator-unsettled.ts:67`, `src/runtime.ts:28,50`, `src/coordinator-execute.ts:137,267` | `getRoyaltyPoolById`/`getRoutedStakeById` declared against the predecessor's error shape; `catchTag("SuiRpcError")` | both reads are now `Effect<X \| null, DecodeError \| ObjectUnavailable \| TransportError, Sui>`; `catchTag("SuiRpcError")` becomes `catchTag("TransportError")` — the crank service's own conversion (not this one) still owes fixing its other 34 `SuiRpcError` sites and 6 `BcsDecodeError` sites named in the issue's own risk list |
 
 This table is the "written list of every remaining consumer edit" WP7 asks
 for; none of it was applied here (`misofm/app`/`misofm/cli`/`misofm/api` are
-sibling repos outside this worktree, and the stage 3 brief's own gates name
-only this workspace) — it feeds those repos' own conversion issues.
+sibling repos outside this worktree, and this stage's own gates name only
+this workspace) — it feeds those repos' own conversion issues.
 
 ### Gate results
 
@@ -973,3 +985,385 @@ specifier, the isolated-consumer fixture, and `dependency-contract.test.ts`
 were updated from `sui-effect` to `@unconfirmed/sui-effect` to match. The
 Stage 1-3 narrative above describes the vendored-tarball setup as it was at
 the time and is left as history, per this file's own rule.
+
+## Stage 5: verification fixes
+
+An independent verification of the Stage 1-4 conversion (misofm/sdks#35)
+found one blocker (A1) and eight further issues (B1-B9, B7 the doc-only
+consumer-edit table) plus a handful of cheap cleanups (C items). This stage
+fixes every one of them in the same worktree, each as its own small commit.
+
+### A1 (blocker) — the derived face's type lied about three namespaces
+
+sui-effect 0.1.0's `PromiseFace<S>` recurses only into members assignable to
+`Record<string, unknown>` (fixed in 0.1.1; this fix is correct on both). An
+`interface` — unlike a type alias's object literal — is not such a member,
+so `MisoService.protocol`/`.party`/`.vault` kept every member typed as
+`Effect`-returning while the derived Promise face actually mapped them to
+Promise-returning methods at runtime: the type lied, one direction only
+(correct at runtime, wrong in the type), which is exactly the shape of bug
+that survives review and breaks a consumer's own type-checking.
+
+**Fixed**: `MisoPartyService` (`src/party/client.ts`) converted from
+`interface` to a `type` object alias; `MisoTx`/`MisoSalesTx`/`MisoIds`/
+`MisoCall`/`MisoBcs`/`MisoVault` (`src/Miso.ts`) converted the same way, for
+consistency, per the fix list; `MisoService.protocol`'s field type wraps the
+external `MusicosService` interface in a homomorphic mapped type
+(`{ [K in keyof MusicosService]: MusicosService[K] }`) instead of naming it
+directly, since that type isn't this package's to redeclare. Verified against
+a standalone `tsc` probe of sui-effect's actual `PromiseFace` definition
+before touching any source, and empirically by reverting the fix and
+confirming both the new type test and `tests/client.test.ts`'s own runtime
+assertions fail exactly as expected.
+
+**Tests**: `tests/face.types.test.ts` (new) — `PromiseFace<MisoService>`
+resolves `protocol.getReleaseById`, `party.getPartyById`, and
+`vault.getVaultAdminCap` to Promise-returning members, `bcs.Pressing` passes
+through untouched (a leaf, not a namespace), and `deployment` stays the
+value type. `tests/client.test.ts`'s two sites that only compiled because
+tests were not typechecked (`ObjectId.make` needed at both `party.getPartyById`
+call sites) are fixed as part of B3 below. README's Promise-usage example
+(the range the fix list named) was already correct — no change needed there.
+
+### B1 — a vault-less deployment could not build `Miso` at all
+
+`configFromDeployment` (`src/read/config.ts`) threw a plain `Error` when
+`operations.status: "unavailable"` and no `legacy.vaultPackageId` fallback
+existed; `Miso.ts`'s `assemble()` calls it unconditionally to bind `read.*`,
+so the throw took down the *entire* `Miso` construction (protocol, party,
+vault, tx — everything) as an unhandled defect, not just the two `read.*`
+members that actually need the missing field.
+
+**Fixed**: `ProtocolIds.vault` is now `string | null`; `configFromDeployment`
+always succeeds. Only `read/wallet.ts`'s `getOwnedWorks` and `getWorkByCap`
+(the two members that classify a vaulted work admin cap) fail typed
+`OperationsUnavailableError` when they reach a vault-dependent branch and
+find it `null` — every other `read.*` member, and `Miso` construction
+itself, is unaffected.
+
+**Tests**: `configFromDeployment` doesn't throw and returns `protocol.vault:
+null`; `Miso.layerTest` builds fine with such a deployment (`vault`/`read.*`
+still bound); `getWorkByCap` fails typed for a cap that isn't a direct admin
+cap type. Verified load-bearing by temporarily restoring the old throw.
+
+### B2 — `vault.getVaultAdminCap`/`resolveReceivingCoins` threw synchronously
+
+Both are `Effect`-returning members, but `gateAvailability`'s Proxy called
+its `guard()` synchronously on every property access before the wrapped
+function ran — correct for a synchronous PTB builder, wrong for an `Effect`
+member, which a Promise/Effect caller expects to reject/fail, never to throw
+merely from calling it. `getVaultAdminCap`'s own body additionally evaluated
+`operations()` eagerly as an argument expression, a second copy of the same
+hazard.
+
+**Fixed**: both members are out of the `gateAvailability` Proxy; a new
+`operationsOrFail()` (mirroring the existing `salesOrFail`) gates them
+through their own `Effect.flatMap` chain, so calling either always returns a
+value and only running it can fail. `MisoVault`'s two member types gain
+`OperationsUnavailableError` (and `resolveReceivingCoins` gains
+`BatchItemError` from B9's `getObjectsOrFail` switch).
+
+**Tests**: a synchronous builder (`withdrawVaultCapability`) still throws
+cold, unchanged; both fixed members never throw when called, and their
+returned `Effect` fails typed `OperationsUnavailableError`. Verified
+load-bearing by reverting and reproducing the exact synchronous throw.
+
+### B3 — `tests/` was never typechecked
+
+`tsconfig.json` only included `src`; `tsconfig.build.json` (the published
+build) already scopes to `src` and excludes `tests` explicitly, so adding
+`"tests"` to the base config's `include` (both `platform` and `partyos`)
+changes nothing about what ships. Typechecking `tests/` surfaced ~35 genuine,
+pre-existing errors, all fixed:
+
+- `partyos/tests/Partyos.test.ts`: narrow a flipped union before reading
+  `.outcome`; `as const` two literal `_tag` fields a bare `const` binding
+  had widened.
+- `auth.test.ts`: four hand-written `fetch` mocks cast to `typeof fetch`
+  (bun's `fetch` type requires `preconnect`, absent from a plain async
+  function).
+- `credits.test.ts`: the three params-builder helpers' `over` parameter
+  narrowed to `Pick<..., "displayName" | "roles">` — the full discriminated
+  union can't be spread through `Partial<T>` without breaking the
+  `authority`/`*AdminCapId` discriminant.
+- `deployments.test.ts`: `as unknown as Mutable<...>` for a literal
+  empty-tuple field that can't overlap-cast to `string[]` directly; the
+  `expected` snapshot clones from the original literal manifest, not from
+  the widened `Mutable<>` clone, so its fields keep their exact literal
+  types for the `.toBe` assertions.
+- `read/config.test.ts`: cast the vault-fallback ternary to the config's
+  required `string` (the fallback branch is unreachable for the bundled
+  testnet manifest, but its type is `string | undefined`).
+- `read/money.test.ts`: `TrackView`'s required `compositionId` field was
+  missing from the test fixture builder.
+- `read/wallet.test.ts`: narrow the flipped `DecodeError | TransportError`
+  union before reading `.issue`.
+- `recording-extensions.test.ts`: dropped a name duplicated across the
+  file's two import blocks.
+- `vault.test.ts`: `@mysten/sui` 2.29's `TransactionObjectArgument` now also
+  admits an `AsyncTransactionThunk` variant with no `$kind`, and `Argument`
+  is a discriminated union whose `NestedResult`/`Result`/`Input` fields
+  aren't visible without narrowing — cast at each assertion site (none of
+  these builders ever actually return the thunk variant).
+- `tests/client.test.ts`'s two A1-flagged sites: `ObjectId.make(A)` at both
+  `party.getPartyById` call sites.
+
+None of these change runtime behavior; the two package's test suites pass
+unchanged (334 → 349+ platform tests across this whole stage; 36 partyos
+tests unchanged).
+
+### B5/B6 — an unbundled network died untyped; `chainId` couldn't come from a deployment
+
+`getMisoPlatformDeployment` throws a plain `Error` for a network with no
+bundled manifest; `miso()`'s registration layer called it unwrapped inside
+`Layer.unwrap`, so the failure surfaced as an unhandled defect instead of a
+typed rejection — `Miso.layerConfig` already wrapped the identical call in
+`Effect.try`, this was the one place that didn't. Separately, a custom
+deployment naming its own network's `chainIdentifier` still had to repeat
+that id via `options.chainId` for `warm` to build synchronously — the
+deployment's own field was ignored.
+
+**Fixed**: `Effect.try` around `getMisoPlatformDeployment` inside `miso()`,
+mapping to `MisoPlatformDeploymentInvalidError`. `options.chainId ??
+options.deployment?.chainIdentifier` — a custom deployment is now enough on
+its own.
+
+**Tests**: an unbundled network with an explicit `chainId` (satisfying
+`warm`'s own precondition) rejects `MisoPlatformDeploymentInvalidError`
+synchronously, not a defect; a custom deployment's own `chainIdentifier`
+suffices with no `chainId` option at all. Verified load-bearing: reverting
+`src/client.ts` breaks `tests/client.test.ts` to load (a since-removed
+export the new tests import).
+
+### B7 — the consumer-edit table was incomplete
+
+Rewritten from the verified list against actual `misofm/app`/`misofm/cli`/
+`misofm/api` source: app `lib/sui-client.ts:43`/`lib/party.ts:4`; cli
+`config.ts:362,63-67`, `show.ts:33,66,74,107`, `resolve.ts:967,1018,1293,
+1343,1371,1440`, `party.ts:6,38,39,46,52,117,183,188,224,274`,
+`genres.ts:11,143,145`, `exec.ts:20`, plus the "a warm mismatch throws
+synchronously out of `buildClient`" behaviour note; api read-service
+`sui-runtime.ts:12-21`; api crank `core/refresh.ts`, `coordinator-unsettled.ts`,
+`runtime.ts`, `coordinator-execute.ts` (the `SuiRpcError` → `TransportError`
+rename). See the table itself, above, in the Stage 3 section it replaces in
+place (this file's own "append, don't delete history" rule applies to
+*narrative*, not to a table that WP7 always intended to be a living,
+correctable artifact — the stage 3 section header and surrounding prose are
+untouched).
+
+### B8 — `TxThunk` leaked past its one deprecated re-export
+
+`git grep TxThunk packages/platform/src` showed the return-type annotation
+on every PTB builder across `Miso.ts`, `cover.ts`, `credits.ts`, `genre.ts`,
+`pressing.ts`, `publication.ts`, `recording-extensions.ts`,
+`release-extensions.ts`, `transactions.ts`, and all of `party/extensions/*.ts`
+— imported from `./transactions.ts`, `@misofm/musicos`, or `@misofm/partyos`
+depending on the file. Retyped every one as `Recipe` (`@unconfirmed/sui-effect`)
+directly; dropped `party/index.ts`'s re-export of partyos's own deprecated
+`TxThunk` (nothing in this package needs it); marked `transactions.ts`'s own
+`export type { TxThunk }` `@deprecated`. `git grep TxThunk packages/platform/src`
+now shows only that one line, per the issue's definition of done.
+
+### B9 — throws inside `Effect` bodies, now typed failures
+
+- `pressing.ts` `getSale`: three `requireId` consistency checks and the
+  currency-match comparison threw directly inside the `Effect.gen` body —
+  an unrecoverable defect. `requireId` itself is untouched (every other call
+  site is already inside `decodeInto`'s `Effect.try`-wrapped mapper, where
+  the throw is the intended, already-safe idiom); a new `requireIdOrFail`
+  covers the three direct-body call sites, and the currency check now fails
+  `DecodeError` explicitly.
+- `catalog.ts:137` (`getTrackCreditsByRecordingIds`): a composition
+  genuinely not found for a claimed share type threw a plain `Error`; fails
+  `MusicosWorkNotFound` now (musicos's own tag for exactly this case),
+  cascaded through every `read/catalog.ts` + `read/receipts.ts` caller up to
+  `getReleaseDetail`/`getTrackCredits`/`getPressingDetail`/
+  `getPressingSaleDetail`/`getSaleDetail`/`getRecordAlbum`/
+  `hydratePurchaseReceipt`.
+- `vault.ts` `resolveReceivingCoins`: replaced raw `sui.core.getObjects` +
+  manual `instanceof Error`/throw with `sui.getObjectsOrFail`
+  (`BatchItemError | TransportError`) — the same hard-read idiom `getSale`
+  already used. `MisoVault.resolveReceivingCoins`'s declared type gains
+  `BatchItemError`.
+- `share.ts`: `createShareCurrency` (publish produced no package) and
+  `publishShareCurrencies` (published count disagrees with what was
+  requested) called `Effect.die` *after* their `Tx.run` already applied —
+  gas was charged, the transaction reached the chain — which is exactly
+  `UnexpectedEffects`'s own documented case (`outcome: "applied"`), not a
+  defect; sui-effect's own `expectCreated` two lines below already used it
+  for the same class of problem. `currenciesFromResult` (called from
+  `initializeShareCurrencies`) threw plain `Error`s for a missing
+  `Currency`/`TreasuryCap`; rewritten on `Executed.expectCreated` per
+  package instead of a manual `find`+throw, so it's `Effect`-returning and
+  fails `UnexpectedEffects` the same way.
+
+**Tests**: a fixture that fails `getSale`'s consistency checks proves it
+fails typed, not dies; `resolveReceivingCoins`/`getVaultAdminCap` (zero
+coverage before this stage) get full coverage including the new
+`BatchItemError` path; all three now-typed `share.ts` paths get a fixture
+that applies without the expected effects and asserts `UnexpectedEffects`
+with `SuiError.outcome === "applied"`. Every one of these was verified
+load-bearing by temporarily reverting the fix and confirming the new test
+fails the same way the bug would have failed in production.
+
+### B4 — test coverage named by the issue's own definition of done
+
+- A test walks the old facade surface list (reads, `ids.*`, `tx.*`,
+  `call`/`bcs`/`vault`/`deployment`, the four submission members,
+  `protocol`/`party`, `ready`, `read`, `events`) and asserts each documented
+  name exists with the right kind.
+- Dispose-then-reuse: a warm client goes cold (`ExtensionNotReady`)
+  immediately after `dispose()` and rebuilds a fresh runtime lazily on the
+  next call.
+- `ids.genre` asserted real (a string, not a placeholder) after `$ready()`.
+- `protocol.getReleaseById` and `party.getProfile` are called and their
+  results asserted through `client.$extend(miso())` against the fake — not
+  just `typeof` — using a `Release` fixture and a `party_profile` dynamic
+  field fixture respectively.
+- `createShareCurrency`'s sponsor path: `gasOwner` + `sponsor` succeeds with
+  the sponsor's balance paying gas; `gasOwner` without `sponsor` fails typed
+  `SigningError`.
+- `SuiError.toJson` round-trips three platform errors
+  (`RecordSalesUnavailableError`, `OperationsUnavailableError`,
+  `MisoNetworkMismatchError`) to plain JSON-safe records, and `SuiError.outcome`
+  honours the platform-declared `outcome` — an acceptance criterion (WP1)
+  this package's own errors had no test for at all before this stage.
+- `royalty.ts`'s three reads (`getRoyaltyPoolById`/`getRoyaltyStakeById`/
+  `getRoutedStakeById`) — zero coverage since stage 2 — get a new dedicated
+  file (happy path plus null-when-missing for all three).
+- A musicos free-function fragment (`createComposition`,
+  `@misofm/musicos/transactions` — a standalone primitive builder, not a
+  service member) composed with a platform fragment (`purchaseRecord`) on
+  one caller-owned `Transaction`, no facade involved at all — distinct from
+  the file's existing service-member-to-service-member composition test.
+
+`PromiseFace<MisoService>` type test: see A1, above.
+
+### C items (all done — all were cheap)
+
+- `auth.ts:118` (`parseChallenge`): `Clock.currentTimeMillis` instead of
+  `Date.now()` when the caller doesn't supply `nowMs` — deterministic,
+  `TestClock`-controllable. `auth.ts:62`
+  (`parseFreshAuthorizationIssuedAt`) stays a plain sync utility with its
+  own `Date.now()` default; that default is never exercised by this file's
+  own `Effect` path, which always resolves and passes `nowMs` explicitly.
+- `read/client.ts:87-92`: `createMisoClient`'s standalone `layer` now
+  reuses the one `SuiGrpcClient` instance `client` extends
+  (`SuiCore.layerFromClient(sui)`) instead of opening a second gRPC
+  transport at the same endpoint via `SuiCore.layerGrpc`; `CreateMisoClientOptions`
+  gained `chainId`, forwarded to both the layer and `miso()`.
+- `party/client.ts:66` vs `Miso.ts:201`'s two copies of `bindModulePackage`
+  disagreed on precedence when a caller's `options.package` conflicted with
+  the bound package (one let the caller win, one didn't). Made consistent:
+  the bound package always wins — it is fixed, not a caller-overridable
+  default.
+- Stale comments: `queries.ts` and `read/index.ts` referenced deleted
+  `@misofm/effect` types (`ObjectNotFoundError`, `SuiClient.layer`) and the
+  predecessor's `Effect<A, E, SuiClient | SuiGraphQL>` signature; updated to
+  the current taxonomy and `Sui | SuiGraphQL` / `miso.layer` shape.
+- README: a `dispose()` note — a warm face goes cold after `dispose()`,
+  rebuilding lazily on the next call.
+- Isolated-consumer fixture: three new type-level assertions index into
+  `MisoClient`'s `protocol`/`party`/`vault` namespaces and assert each named
+  member resolves to a Promise-returning function through the derived face
+  — the fixture's prior only platform probe was a bare `MisoClient` type
+  alias reference, which never exercised the `PromiseFace` recursion A1
+  fixed and so could not have caught that regression. Verified empirically:
+  these three assertions failed against the fixture's own installed
+  (pre-fix) `@misofm/platform` tarball and passed once `bun run build &&
+  bun run test:consumer` refreshed it.
+
+### Gate results
+
+```
+$ bun run typecheck
+@misofm/streaming typecheck: Exited with code 0
+@misofm/effect typecheck: Exited with code 0
+@misofm/partyos typecheck: Exited with code 0
+@misofm/musicos typecheck: Exited with code 0
+@misofm/platform typecheck: Exited with code 0
+@misofm/transcoding typecheck: Exited with code 0
+
+$ bun run test
+@misofm/streaming test:  27 pass, 0 fail (99 expect() calls, 3 files)
+@misofm/effect test:  23 pass, 0 fail (41 expect() calls, 2 files)
+@misofm/partyos test:  36 pass, 0 fail (76 expect() calls, 2 files)
+@misofm/transcoding test:  52 pass, 0 fail (166 expect() calls, 9 files)
+@misofm/musicos test:  101 pass, 0 fail (234 expect() calls, 13 files)
+@misofm/platform test:  368 pass, 0 fail (1195 expect() calls, 38 files)
+
+$ bun run build
+@misofm/streaming build: Exited with code 0
+@misofm/effect build: Exited with code 0
+@misofm/musicos build: Exited with code 0
+@misofm/partyos build: Exited with code 0
+@misofm/platform build: Exited with code 0
+@misofm/transcoding build: Exited with code 0
+
+$ git diff --stat -- packages/*/src/contracts
+(empty)
+
+$ bun run test:consumer
+isolated consumer verified: single @mysten/sui@2.29.0 installed
+isolated consumer verified: single effect@4.0.0-rc.112 installed
+isolated consumer verified: single @misofm/effect@0.2.0 installed
+isolated consumer verified: single @misofm/musicos@0.4.0 installed
+isolated consumer verified: single @misofm/partyos@0.4.0 installed
+isolated consumer verified: single @misofm/platform@0.28.0 installed
+isolated consumer verified: single @misofm/streaming@0.3.0 installed
+isolated consumer verified: single @misofm/transcoding@0.4.0 installed
+isolated consumer dependency identity verified
+test:consumer: OK — 6 package(s) packed, installed, and verified in isolation
+```
+
+Platform: **334 → 368 tests passing** (34 net new: A1's type test carries no
+runtime test but `face.types.test.ts` registers one; B4/B9/B1/B2's new
+`describe`/`test` blocks account for the rest); partyos unchanged at 36
+(only two existing tests' internals were fixed, per B3, not added to).
+
+### Skill and library feedback
+
+- **The `PromiseFace<S>`/runtime `mapMember` divergence (interface vs.
+  `Record<string, unknown>`) is exactly as sharp as `docs/extensions.md`'s
+  own risk section 1 warned it would be** for a facade this size — it is
+  worth this library shipping a lint rule or a `tsc` plugin that flags a
+  non-mapped-type member on a service interface that will be
+  `SuiExtension.fromService`d, since the failure mode (type says `Effect`,
+  runtime hands back a `Promise`) is silent at every one of TypeScript's
+  own checks: it only shows up if a consumer's own code tries to call
+  `.pipe()` or `yield*` a member that is actually a function at runtime, or
+  (as here) if a test asserts the resolved value rather than `typeof`.
+  0.1.1 reportedly fixes the *library's* own default, but a downstream
+  service author who names an external package's interface as a member type
+  (this package's own `protocol: MusicosService`) still has to know to wrap
+  it, and nothing in the type system flags the omission.
+- **A fixture with its own installed `node_modules` copy (the
+  isolated-consumer fixture) interacts non-obviously with a workspace-wide
+  `tsconfig.json` `include` change.** Adding `"tests"` to `packages/platform/tsconfig.json`
+  (B3) pulled `tests/fixtures/isolated-consumer/imports.ts` into the main
+  package's own `bun run typecheck`, which typechecks against whatever that
+  fixture's *separately installed* `@misofm/platform` tarball happens to be
+  — stale mid-session, refreshed only by `bun run build && bun run
+  test:consumer`. `docs/extensions.md`'s own testing guidance doesn't
+  mention this, and it is exactly the kind of thing that would silently
+  pass or fail depending on when in a session someone last repacked the
+  fixture; worth a note in the guide's testing or "copying the template"
+  sections, since every extension package following this repo's own
+  pattern has the same fixture shape.
+- **`Executed.expectCreated`'s exact-tag matching made `share.ts`'s
+  hand-rolled substring `find` + throw trivially replaceable** once
+  reframed as one call per package instead of one filter over the whole
+  batch — this is exactly the kind of mechanical migration
+  `docs/extensions.md` §12's "converting an existing facade" checklist
+  should call out explicitly as a pattern to grep for (`.find(... =>
+  ...type?.includes(...))` immediately followed by `if (!x) throw`), since
+  it is the same shape `publication.ts`'s own stage-2 conversion already
+  fixed once in this very package.
+- **The `getObjectsOrFail`/`getObjects` naming pair reads backwards on
+  first encounter** — `getObjects` is the *soft* one (per-item `Result`)
+  and `getObjectsOrFail` is the *hard* one (first failure fails the whole
+  read), which is the opposite of what "OrFail" suggests in isolation
+  (unless you've internalized `docs/extensions.md`'s own framing of it as
+  "a caller who wants the first per-item failure to fail the whole read").
+  A name closer to `getObjectsStrict`/`requireObjects` would read correctly
+  without the doc comment.
