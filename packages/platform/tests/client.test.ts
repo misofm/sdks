@@ -14,12 +14,16 @@ import { Transaction } from "@mysten/sui/transactions";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { SuiClientTypes } from "@mysten/sui/client";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { ExtensionNotReady, KNOWN_CHAIN_IDS, ObjectId, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { FakeOutcome, SuiCoreFake, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { Signer } from "@unconfirmed/sui-effect/tx";
 import { SuiExtension } from "@unconfirmed/sui-effect/extension";
 import { party as partyCoreContracts } from "@misofm/partyos/contracts";
+import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
+import * as musicosReleaseContract from "@misofm/musicos/contracts/musicos/release";
+import { ProfileKey as ProfileKeyBcs, Profile as ProfileBcs } from "../src/contracts/party_profile/party_profile.ts";
+import { purchaseRecord } from "../src/pressing.ts";
 import { miso, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/client.ts";
 import { Miso } from "../src/Miso.ts";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
@@ -369,5 +373,105 @@ describe("B4 (misofm/sdks#35 verification): the old facade surface, walked", () 
     expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
 
     await client.miso.dispose();
+  });
+});
+
+describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved through the face, and a musicos fragment composed with a platform one", () => {
+  test("protocol.getReleaseById and party.getProfile resolve real values through the face, not just typeof", async () => {
+    const RELEASE_ID = `0x${"77".repeat(32)}`;
+    const PARTY_ID = `0x${"88".repeat(32)}`;
+    const profileKeyBytes = ProfileKeyBcs.serialize([false]).toBytes();
+    const profileFieldId = `0x${"99".repeat(32)}`;
+    const keyTag = `${TESTNET.party.partyProfile}::party_profile::ProfileKey`;
+    const valueTag = `${TESTNET.party.partyProfile}::party_profile::Profile`;
+
+    const fake = await Effect.runPromise(
+      Effect.provide(
+        SuiCoreFake,
+        SuiCoreFake.layer({
+          network: "testnet",
+          chainId: REAL_TESTNET_CHAIN_ID,
+          objects: [
+            {
+              objectId: RELEASE_ID,
+              type: `${TESTNET.protocol.musicos}::release::Release`,
+              version: 1n,
+              content: musicosReleaseContract.Release.serialize({
+                id: RELEASE_ID,
+                state: { Initialized: true },
+                title: "Through The Face",
+                tracks: [],
+              }).toBytes(),
+            },
+          ],
+          dynamicFields: {
+            [PARTY_ID]: [
+              {
+                $kind: "DynamicField",
+                fieldId: profileFieldId,
+                type: `0x2::dynamic_field::Field<${keyTag}, ${valueTag}>`,
+                name: { type: keyTag, bcs: profileKeyBytes },
+                valueType: valueTag,
+              },
+            ],
+          },
+          dynamicFieldValues: {
+            [profileFieldId]: {
+              type: valueTag,
+              bcs: ProfileBcs.serialize({ bio_short: "Solo artist", bio_long: null, country: null, languages: [] }).toBytes(),
+            },
+          },
+        }),
+      ),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    const release = await client.miso.protocol.getReleaseById(ObjectId.make(RELEASE_ID));
+    expect(release.title).toBe("Through The Face");
+
+    const profile = await client.miso.party.getProfile(PARTY_ID);
+    expect(Option.isSome(profile)).toBe(true);
+    expect(Option.getOrThrow(profile)).toMatchObject({ bioShort: "Solo artist" });
+
+    await client.miso.dispose();
+  });
+
+  test("a musicos free-function fragment composes with a platform fragment in one PTB", () => {
+    // `createComposition` (`@misofm/musicos/transactions`) is a standalone
+    // PRIMITIVE builder — not a service member, not even through `miso()` —
+    // proving the two SDKs' fragments compose on one caller-owned
+    // `Transaction` with no facade involved at all. (The earlier "warm
+    // registration" test in this file composes `client.miso.tx.*` with
+    // `client.miso.party.tx.*`, both service members; this is the "a
+    // musicos free-function" case B4 names separately.)
+    const tx = new Transaction();
+    const compositionParams: CreateCompositionParams = {
+      title: "Fragment Composition",
+      royaltyRateBps: 500,
+      misoPackageId: TESTNET.protocol.musicos,
+      shareType: `${A}::share::Share`,
+      shareCurrencyId: A,
+      shareTreasuryCapId: A,
+    };
+    createComposition(tx, compositionParams);
+
+    const sales = TESTNET.recordSales.status === "available" ? TESTNET.recordSales : undefined;
+    if (!sales) throw new Error("test fixture: bundled testnet Record sales must be available");
+    purchaseRecord({
+      releaseId: A,
+      edition: 1,
+      paymentAmount: "10",
+      expectedPricing: { kind: "fixed", amount: "10" },
+      currencyType: "0x2::sui::SUI",
+      recipient: A,
+      recordPackageId: sales.recordPackageId,
+      recordShopPackageId: sales.recordShopPackageId,
+    })(tx);
+
+    const commands = (tx.getData().commands as Array<{ $kind: string; MoveCall?: { module: string; function: string } }>).filter(
+      (c) => c.$kind === "MoveCall",
+    );
+    expect(commands.some((c) => c.MoveCall?.module === "composition")).toBe(true);
+    expect(commands.some((c) => c.MoveCall?.function === "purchase")).toBe(true);
   });
 });
