@@ -116,8 +116,8 @@ export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordi
     getRecordingCreditsByIds(recordingIds, options.recordingCreditsPackageId),
     // A hard read: every id must resolve, same as the predecessor's
     // `object instanceof Error) throw object` — a typed BatchItemError now,
-    // not a defect (sui-effect's `getObjectsOrFail`).
-    sui.getObjectsOrFail(recordingIds.map((id) => ObjectId.make(id))),
+    // not a defect (sui-effect's `getObjectsStrict`).
+    sui.getObjectsStrict(recordingIds.map((id) => ObjectId.make(id))),
   ]);
   const recordingReads = recordingObjects.map((object) => {
     const [, compositionShareType] = extractTypeParams2(object.type);

@@ -1002,12 +1002,12 @@ export const resolveReceivingCoins = Effect.fn("resolveReceivingCoins")(function
   coinIds: readonly string[],
 ): Effect.fn.Return<ReceivingObjectRef[], BatchItemError | TransportError, Sui> {
   const sui = yield* Sui;
-  // `getObjectsOrFail`: every id must resolve, same "hard read" idiom
+  // `getObjectsStrict`: every id must resolve, same "hard read" idiom
   // `getSale` uses — a coin the caller named to receive but that the node
   // cannot produce is a typed `BatchItemError`, not a hand-rolled defect
   // from a raw `sui.core.getObjects` per-item `Error | null` check (B9,
   // misofm/sdks#35 verification).
-  const objects = yield* sui.getObjectsOrFail(coinIds.map((id) => ObjectId.make(id)));
+  const objects = yield* sui.getObjectsStrict(coinIds.map((id) => ObjectId.make(id)));
   return objects.map((object) => ({ objectId: object.id, version: String(object.version), digest: object.digest }));
 });
 
