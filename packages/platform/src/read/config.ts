@@ -27,8 +27,17 @@ export function networkFrom(value: string | undefined): Network {
 
 /** Package ids for the miso protocol core and the extensions the read layer touches. */
 export interface ProtocolIds {
-  /** `vault` — shared custody for protocol admin capabilities. */
-  vault: string;
+  /**
+   * `vault` — shared custody for protocol admin capabilities, or `null` when
+   * this deployment's `operations` is unavailable AND carries no
+   * `legacy.vaultPackageId` fallback (misofm/sdks#35 verification, B1). A
+   * `MisoConfig` in that shape is still fully constructible; only the two
+   * `read/wallet.ts` members that classify a vaulted work admin cap
+   * (`getOwnedWorks`, `getWorkByCap`) fail typed `OperationsUnavailableError`
+   * when they actually need this field and find it `null` — every other
+   * `read.*` member is unaffected.
+   */
+  vault: string | null;
   /** `release_cover_art` — the release cover extension. */
   releaseCoverArt: string;
   /** `release_kind` — the Release's optional self-declared kind. */
@@ -113,15 +122,16 @@ export type MisoConfigOverrides = Partial<
  * `overrides` for a Mainnet or custom deployment's real endpoints today.
  */
 export function configFromDeployment(deployment: MisoPlatformDeployment, overrides: MisoConfigOverrides = {}): MisoConfig {
+  // No current-or-legacy Vault package id is a real, expected deployment
+  // shape (an `operations: { status: "unavailable" }` deployment with no
+  // `legacy.vaultPackageId` fallback) — `vault: null` here, not a thrown
+  // error, so this function (and therefore `Miso.layer`, which calls it
+  // unconditionally to bind `read.*`) always succeeds for a structurally
+  // valid deployment. B1, misofm/sdks#35 verification: see `ProtocolIds.vault`.
   const vaultPackageId =
-    deployment.operations.status === "available"
+    (deployment.operations.status === "available"
       ? deployment.operations.vault.packageId
-      : deployment.operations.legacy?.vaultPackageId;
-  if (!vaultPackageId) {
-    throw new Error(
-      `@misofm/platform/read: no current or legacy Vault type metadata for "${deployment.network}".`,
-    );
-  }
+      : deployment.operations.legacy?.vaultPackageId) ?? null;
   const config: MisoConfig = {
     network: deployment.network,
     deployment: deployment.protocol,

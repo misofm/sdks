@@ -3,12 +3,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { Sui, SuiAddress, SuiCore, type DecodeError } from "@unconfirmed/sui-effect";
+import { Sui, SuiAddress, SuiCore, SuiGraphQL, type DecodeError } from "@unconfirmed/sui-effect";
 import { layerTest, type FakeObject, type FakeScript } from "@unconfirmed/sui-effect/testing";
 import * as recordContract from "../../src/contracts/record/record.ts";
 import { deriveRecordId } from "../../src/pressing.ts";
-import type { MisoConfig } from "../../src/read/config.ts";
-import { getBalance, getOwnedRecords } from "../../src/read/wallet.ts";
+import { OperationsUnavailableError } from "../../src/errors.ts";
+import { misoConfig, type MisoConfig } from "../../src/read/config.ts";
+import { getBalance, getOwnedRecords, getWorkByCap } from "../../src/read/wallet.ts";
 
 const RECORD_PACKAGE = `0x${"ab".repeat(32)}`;
 const RECORD_SHOP_PACKAGE = `0x${"ac".repeat(32)}`;
@@ -204,5 +205,28 @@ describe("getBalance", () => {
     );
     expect(error._tag).toBe("DecodeError");
     expect((error as DecodeError).issue).toMatch(/decimal precision/);
+  });
+});
+
+describe("getWorkByCap: B1 (misofm/sdks#35 verification) — typed failure, not a crash, when Vault is unconfigured", () => {
+  test("a real object that isn't a direct admin cap type fails OperationsUnavailableError, not ObjectUnavailable/null", async () => {
+    // `protocol.vault: null` (no current or legacy Vault package id) — the
+    // one field `MisoConfig` can carry as absent since the B1 fix stopped
+    // `configFromDeployment` from throwing for this shape.
+    const config: MisoConfig = { ...misoConfig("testnet"), protocol: { ...misoConfig("testnet").protocol, vault: null } };
+    const capId = `0x${"9a".repeat(32)}`;
+    // A real object, but not a Composition/Recording/ReleaseAdminCap type —
+    // so every direct classification falls through and `getWorkByCap` must
+    // decide whether it could be a VAULTED admin cap, which needs the
+    // now-missing Vault package id.
+    const object: FakeObject = { objectId: capId, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 1n, content: new Uint8Array() };
+
+    const error = await Effect.runPromise(
+      getWorkByCap(capId, config).pipe(
+        Effect.provide(Layer.merge(layerTest({ objects: [object] }), SuiGraphQL.layerUnavailable)),
+        Effect.flip,
+      ),
+    );
+    expect(error).toBeInstanceOf(OperationsUnavailableError);
   });
 });

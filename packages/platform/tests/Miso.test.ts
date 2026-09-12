@@ -177,4 +177,25 @@ describe("Miso.layerTest", () => {
     );
     expect(deployment.chainIdentifier).toBe("anything-layerTest-does-not-check");
   });
+
+  // B1, misofm/sdks#35 verification: `assemble()` calls `configFromDeployment`
+  // unconditionally to bind `read.*` — before the fix, a deployment with no
+  // current or legacy Vault package id made that call throw, which took down
+  // the whole `Miso` construction (protocol/party/vault/tx included, not
+  // just the two `read.*` members that actually need the missing field).
+  test("builds fine with operations unavailable and no legacy Vault package id", async () => {
+    const withoutVault = { ...TESTNET, operations: { status: "unavailable" as const, reason: "test fixture" } };
+    const { hasVaultNamespace, readIsBound } = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(Miso, (m) => ({
+          hasVaultNamespace: typeof m.vault === "object",
+          readIsBound: typeof m.read.getReleaseDetail === "function",
+        })),
+        Layer.provide(Miso.layerTest({ deployment: withoutVault }), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        { local: true },
+      ),
+    );
+    expect(hasVaultNamespace).toBe(true);
+    expect(readIsBound).toBe(true);
+  });
 });

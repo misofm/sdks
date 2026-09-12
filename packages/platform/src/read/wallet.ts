@@ -38,6 +38,7 @@ import {
   type ObjectUnavailable,
   type TransportError,
 } from "@unconfirmed/sui-effect";
+import { OperationsUnavailableError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import { int, u64 } from "./internal/scalars.ts";
 import * as vaultContract from "../contracts/vault/vault.ts";
@@ -360,9 +361,17 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   { compositions: VaultedGenericCap[]; recordings: VaultedGenericCap[]; releases: VaultedReleaseCap[] },
-  TransportError,
+  TransportError | OperationsUnavailableError,
   Sui
 > {
+  // No current-or-legacy Vault package id: this deployment has no vaulted
+  // works to enumerate at all, so the caller (`getOwnedWorks`) fails typed
+  // rather than silently reporting only the direct caps (B1, misofm/sdks#35
+  // verification — `MisoConfig` itself always constructs; this is the one
+  // member that actually needs the missing field).
+  if (config.protocol.vault === null) {
+    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+  }
   const out: {
     compositions: VaultedGenericCap[];
     recordings: VaultedGenericCap[];
@@ -400,8 +409,15 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
 const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(function* (
   caps: readonly VaultedReleaseCap[],
   config: MisoConfig,
-): Effect.fn.Return<{ id: string; releaseId: string }[], TransportError, Sui> {
+): Effect.fn.Return<{ id: string; releaseId: string }[], TransportError | OperationsUnavailableError, Sui> {
   if (caps.length === 0) return [];
+  // Every caller only reaches here with a non-empty `caps` after already
+  // establishing `config.protocol.vault` is configured (`ownedVaultedWorkCaps`,
+  // `getWorkByCap`'s own guard below) — this is a defensive typed failure,
+  // not an expected path, so an interpolated `null` can never reach `vaultType`.
+  if (config.protocol.vault === null) {
+    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+  }
   const releaseCapType = `${config.deployment.musicos}::release::ReleaseAdminCap`;
   const vaultType = normalizeStructTag(`${config.protocol.vault}::vault::Vault<${releaseCapType}>`);
   const sui = yield* Sui;
@@ -439,7 +455,11 @@ const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(functio
 export const getOwnedWorks = Effect.fn("getOwnedWorks")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<OwnedWork[], MusicosDeploymentInvalid | DecodeError | BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<
+  OwnedWork[],
+  MusicosDeploymentInvalid | DecodeError | BatchItemError | GraphQLUnavailable | TransportError | OperationsUnavailableError,
+  Sui | SuiGraphQL
+> {
   const miso = config.deployment.musicos;
 
   const [directCompCaps, directRecCaps, directRelCaps, vaulted] = yield* Effect.all([
@@ -508,7 +528,8 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   | MusicosWorkNotFound
   | BatchItemError
   | GraphQLUnavailable
-  | TransportError,
+  | TransportError
+  | OperationsUnavailableError,
   Sui | SuiGraphQL
 > {
   const miso = config.deployment.musicos;
@@ -562,6 +583,13 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
     };
   }
 
+  // Every direct classification above already fell through: this cap can
+  // only be a legitimate work authority if it is a vaulted one, which
+  // requires the deployment's Vault package id (B1, misofm/sdks#35
+  // verification) — fail typed rather than misreport "no such work".
+  if (config.protocol.vault === null) {
+    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+  }
   const vaulted = classifyVaultedWorkAdminCapType(type, config.protocol.vault, miso);
   if (!vaulted) {
     // A real object, but not a supported work authority — "no such work",
