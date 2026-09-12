@@ -8,12 +8,13 @@
 // sui-effect/docs/extensions.md §10.
 
 import { describe, expect, test } from "bun:test";
+import { Transaction } from "@mysten/sui/transactions";
 import { ConfigProvider, Effect, Exit, Layer, Cause, Option } from "effect";
 import { KNOWN_CHAIN_IDS, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { layerTest } from "@unconfirmed/sui-effect/testing";
 import { derivePartyAdminCapId } from "@misofm/partyos";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
-import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/errors.ts";
+import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError, OperationsUnavailableError } from "../src/errors.ts";
 import { Miso } from "../src/Miso.ts";
 
 const TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
@@ -197,5 +198,61 @@ describe("Miso.layerTest", () => {
     );
     expect(hasVaultNamespace).toBe(true);
     expect(readIsBound).toBe(true);
+  });
+});
+
+describe("Miso: vault namespace availability gate (B2, misofm/sdks#35 verification)", () => {
+  const UNAVAILABLE = { ...TESTNET, operations: { status: "unavailable" as const, reason: "test fixture" } };
+
+  test("a synchronous PTB builder still throws OperationsUnavailableError cold, at the call itself", async () => {
+    const vault = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(Miso, (m) => m.vault),
+        Layer.provide(Miso.layerTest({ deployment: UNAVAILABLE }), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        { local: true },
+      ),
+    );
+    expect(() => vault.withdrawVaultCapability(new Transaction(), {
+      vault: "0x1",
+      vaultAdminCap: "0x1",
+      capType: "0x1::x::Y",
+      vaultPackageId: "0x1",
+    })).toThrow(OperationsUnavailableError);
+  });
+
+  test("getVaultAdminCap: calling it never throws; the returned Effect fails typed", async () => {
+    const vault = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(Miso, (m) => m.vault),
+        Layer.provide(Miso.layerTest({ deployment: UNAVAILABLE }), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        { local: true },
+      ),
+    );
+    // Merely calling it must not throw — it is an `Effect`-returning member,
+    // not a synchronous builder (that was the B2 bug: `operations()` was
+    // evaluated eagerly as an argument expression before the Effect was even
+    // constructed).
+    let effect: ReturnType<typeof vault.getVaultAdminCap> | undefined;
+    expect(() => {
+      effect = vault.getVaultAdminCap("0x1", "0x1::x::Y");
+    }).not.toThrow();
+    const error = await Effect.runPromise(Effect.flip(effect!));
+    expect(error).toBeInstanceOf(OperationsUnavailableError);
+  });
+
+  test("resolveReceivingCoins: calling it never throws; the returned Effect fails typed", async () => {
+    const vault = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(Miso, (m) => m.vault),
+        Layer.provide(Miso.layerTest({ deployment: UNAVAILABLE }), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        { local: true },
+      ),
+    );
+    let effect: ReturnType<typeof vault.resolveReceivingCoins> | undefined;
+    expect(() => {
+      effect = vault.resolveReceivingCoins(["0x1"]);
+    }).not.toThrow();
+    const error = await Effect.runPromise(Effect.flip(effect!));
+    expect(error).toBeInstanceOf(OperationsUnavailableError);
   });
 });

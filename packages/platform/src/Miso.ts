@@ -393,8 +393,8 @@ export type MisoBcs = {
  * `deployment.operations.status`").
  */
 export type MisoVault = Omit<typeof vaultActions, "getVaultAdminCap" | "resolveReceivingCoins"> & {
-  readonly getVaultAdminCap: (vaultAdminCapId: string, capType: string) => Effect.Effect<vaultActions.VaultAdminCap | null, DecodeError | ObjectUnavailable | TransportError>;
-  readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], TransportError>;
+  readonly getVaultAdminCap: (vaultAdminCapId: string, capType: string) => Effect.Effect<vaultActions.VaultAdminCap | null, DecodeError | ObjectUnavailable | TransportError | OperationsUnavailableError>;
+  readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], TransportError | OperationsUnavailableError>;
 };
 
 const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | Musicos | Partyos> =>
@@ -457,6 +457,9 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
   // ── Operations binding (OperationsUnavailableError when unavailable) ─────
   const operations = (): AvailableOperationsDeployment => requireOperationsDeployment(deployment.operations);
   const availableOperations = (): AvailableOperationsDeployment | undefined => (deployment.operations.status === "available" ? requireOperationsDeployment(deployment.operations) : undefined);
+  /** `operations`, as a typed Effect failure instead of a synchronous throw — mirrors `salesOrFail` above. */
+  const operationsOrFail = (): Effect.Effect<AvailableOperationsDeployment, OperationsUnavailableError> =>
+    Effect.try({ try: operations, catch: (cause) => cause as OperationsUnavailableError });
 
   // ── Reads ─────────────────────────────────────────────────────────────
   const misoGetPressing = (pressingId: string): Effect.Effect<Pressing | null, DecodeError | ObjectUnavailable | TransportError | RecordSalesUnavailableError> =>
@@ -636,17 +639,28 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     ReleaseFundsRedeemedEvent: releaseRevenueDistributorContract.ReleaseFundsRedeemedEvent,
   };
 
-  // ── Vault namespace: always present; every member throws OperationsUnavailableError cold ──
-  const vault: MisoVault = gateAvailability(
-    {
-      ...vaultActions,
-      getVaultAdminCap: (vaultAdminCapId: string, capType: string) => withSui(vaultActions.getVaultAdminCap(vaultAdminCapId, { vaultPackageId: operations().vault.packageId, capType })),
-      resolveReceivingCoins: (coinIds: readonly string[]) => withSui(vaultActions.resolveReceivingCoins(coinIds)),
-    },
-    () => {
+  // ── Vault namespace: always present; every member throws/fails OperationsUnavailableError when unavailable ──
+  //
+  // `getVaultAdminCap`/`resolveReceivingCoins` are `Effect`-returning members,
+  // not synchronous PTB builders — `gateAvailability`'s Proxy calls its
+  // `guard()` synchronously, on every property access, before the wrapped
+  // function even runs, which is exactly right for a sync builder (the
+  // predecessor's own behaviour: throw before building) but wrong for an
+  // `Effect` member, which a Promise/Effect caller expects to REJECT/fail,
+  // never to throw synchronously out of merely calling it. So these two stay
+  // out of the Proxy and gate themselves through `operationsOrFail()`
+  // (mirroring `salesOrFail` above) composed into their own `Effect` chain —
+  // calling them always returns a value; only running it can fail (B2,
+  // misofm/sdks#35 verification).
+  const { getVaultAdminCap: _unusedGetVaultAdminCap, resolveReceivingCoins: _unusedResolveReceivingCoins, ...vaultActionsWithoutEffectMembers } = vaultActions;
+  const vault: MisoVault = {
+    ...gateAvailability(vaultActionsWithoutEffectMembers, () => {
       requireOperationsDeployment(deployment.operations);
-    },
-  ) as MisoVault;
+    }),
+    getVaultAdminCap: (vaultAdminCapId: string, capType: string) =>
+      withSui(Effect.flatMap(operationsOrFail(), (ops) => vaultActions.getVaultAdminCap(vaultAdminCapId, { vaultPackageId: ops.vault.packageId, capType }))),
+    resolveReceivingCoins: (coinIds: readonly string[]) => withSui(Effect.flatMap(operationsOrFail(), () => vaultActions.resolveReceivingCoins(coinIds))),
+  } as MisoVault;
 
   // ── Submissions ───────────────────────────────────────────────────────────
   const misoCreateShareCurrency = (params: Parameters<typeof createShareCurrency>[0], opts: RunOpts): Effect.Effect<ShareCurrency, RunError | UnexpectedEffects> => withSui(createShareCurrency(params, opts));
