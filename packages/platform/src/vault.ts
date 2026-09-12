@@ -20,15 +20,7 @@ import type {
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { Effect, Schema } from "effect";
-import {
-  assertObjectType,
-  decodeBcs,
-  getOptionalObjectContent,
-  SuiClient,
-  SuiRpcError,
-  type BcsDecodeError,
-  type ObjectTypeMismatchError,
-} from "@misofm/effect";
+import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
 import * as vault from "./contracts/vault/vault.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
 import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
@@ -981,17 +973,17 @@ function mapVaultAdminCap(id: string, parsed: ReturnType<typeof vault.VaultAdmin
 export const getVaultAdminCap = Effect.fn("getVaultAdminCap")(function* (
   vaultAdminCapId: string,
   expected: { readonly vaultPackageId: string; readonly capType: string },
-): Effect.fn.Return<VaultAdminCap | null, ObjectTypeMismatchError | BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(vaultAdminCapId);
-  if (found._tag === "None") return null;
+): Effect.fn.Return<VaultAdminCap | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const id = ObjectId.make(vaultAdminCapId);
   const expectedType = normalizeStructTag(`${expected.vaultPackageId}::vault::VaultAdminCap<${expected.capType}>`);
-  yield* assertObjectType(vaultAdminCapId, normalizeStructTag(found.value.type), expectedType);
-  return yield* decodeBcs(
-    { parse: (bytes) => mapVaultAdminCap(vaultAdminCapId, vault.VaultAdminCap.parse(bytes)) },
-    VaultAdminCap,
-    found.value.content,
-    { type: "VaultAdminCap", objectId: vaultAdminCapId },
-  );
+  const found = yield* sui.getObjectOption(id, { expectedType });
+  if (found._tag === "None") return null;
+  const parsed = yield* SuiSchema.decode(SuiSchema.bcs(vault.VaultAdminCap), found.value.content, {
+    objectId: id,
+    actualType: found.value.type,
+  });
+  return new VaultAdminCap(mapVaultAdminCap(vaultAdminCapId, parsed));
 });
 
 /**
@@ -1008,12 +1000,9 @@ export interface ReceivingObjectRef {
 /** Resolve owned coins to the exact references required by a Receiving input. */
 export const resolveReceivingCoins = Effect.fn("resolveReceivingCoins")(function* (
   coinIds: readonly string[],
-): Effect.fn.Return<ReceivingObjectRef[], SuiRpcError, SuiClient> {
-  const client = yield* SuiClient;
-  const { objects } = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObjects({ objectIds: [...coinIds], signal }),
-    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
-  });
+): Effect.fn.Return<ReceivingObjectRef[], TransportError, Sui> {
+  const sui = yield* Sui;
+  const { objects } = yield* sui.core.getObjects({ objectIds: [...coinIds] });
   return objects.map((coin, index) => {
     if (coin instanceof Error || !coin) {
       throw new Error(`resolveReceivingCoins: could not resolve ${coinIds[index]}`);

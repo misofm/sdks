@@ -44,7 +44,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID, deriveObjectID, normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { Effect, Schema } from "effect";
-import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
+import { ObjectId, Sui, type ObjectUnavailable, type DecodeError, type TransportError } from "sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import { PlatformDeployment } from "./deployments.ts";
@@ -364,8 +364,9 @@ export function recordingGenresFieldId(
 export const getReleaseGenres = Effect.fn("getReleaseGenres")(function* (
   releaseId: string,
   releaseGenrePackageId: string,
-): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(releaseGenresFieldId(releaseId, releaseGenrePackageId));
+): Effect.fn.Return<string[], ObjectUnavailable | DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(releaseGenresFieldId(releaseId, releaseGenrePackageId)));
   return found._tag === "None" ? [] : parseReleaseGenresContent(found.value.content);
 });
 
@@ -378,7 +379,8 @@ export const getReleaseGenres = Effect.fn("getReleaseGenres")(function* (
 export const getRecordingGenres = Effect.fn("getRecordingGenres")(function* (
   recordingId: string,
   recordingGenrePackageId: string,
-): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(recordingGenresFieldId(recordingId, recordingGenrePackageId));
+): Effect.fn.Return<string[], ObjectUnavailable | DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(recordingGenresFieldId(recordingId, recordingGenrePackageId)));
   return found._tag === "None" ? [] : parseRecordingGenresContent(found.value.content);
 });
