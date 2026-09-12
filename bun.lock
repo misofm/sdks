@@ -30,13 +30,13 @@
     },
     "packages/musicos": {
       "name": "@misofm/musicos",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "devDependencies": {
         "@effect/language-service": "0.87.2",
         "@mysten/bcs": "2.1.1",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
-        "@unconfirmed/sui-effect": "0.1.2",
+        "@unconfirmed/sui-effect": "0.1.3",
         "effect": "4.0.0-rc.112",
         "typedoc": "^0.28.20",
         "typedoc-plugin-markdown": "^4.13.0",
@@ -52,14 +52,14 @@
     },
     "packages/partyos": {
       "name": "@misofm/partyos",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "dependencies": {
         "@mysten/bcs": "^2.1.1",
       },
       "devDependencies": {
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
-        "@unconfirmed/sui-effect": "0.1.2",
+        "@unconfirmed/sui-effect": "0.1.3",
         "effect": "4.0.0-rc.112",
         "typedoc": "^0.28.20",
         "typedoc-plugin-markdown": "^4.13.0",
@@ -74,10 +74,10 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.29.0",
+      "version": "0.29.1",
       "dependencies": {
-        "@misofm/musicos": "0.4.2",
-        "@misofm/partyos": "0.4.2",
+        "@misofm/musicos": "0.4.3",
+        "@misofm/partyos": "0.4.3",
         "@misofm/streaming": "0.3.0",
         "@mysten/bcs": "^2.1.1",
       },
@@ -85,7 +85,7 @@
         "@mysten/move-bytecode-template": "^0.4.0",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.3.14",
-        "@unconfirmed/sui-effect": "0.1.2",
+        "@unconfirmed/sui-effect": "0.1.3",
         "effect": "4.0.0-rc.112",
         "typescript": "^7.0.2",
       },
@@ -286,7 +286,7 @@
 
     "@typescript/typescript-win32-x64": ["@typescript/typescript-win32-x64@7.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g=="],
 
-    "@unconfirmed/sui-effect": ["@unconfirmed/sui-effect@0.1.2", "", { "peerDependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.28", "effect": "4.0.0-rc.112" } }, "sha512-S+sYPH1vO9twQmPPm0lbDZU4bSfeJj81pMAGpqlJWY8bBjOx/5fA1AoMLQtAngG172AvzU6JAXovgVNeKg2R+g=="],
+    "@unconfirmed/sui-effect": ["@unconfirmed/sui-effect@0.1.3", "", { "peerDependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.28", "effect": "4.0.0-rc.112" } }, "sha512-DofcIzMytG/pZG07i0BJgNSK+zbjfJaS1fXeGTuagCB3HBEF47sXMDXSsVVSGUhA9hA/sPUfhSarNZY76OS6Rg=="],
 
     "@videojs/vhs-utils": ["@videojs/vhs-utils@4.1.2", "", { "dependencies": { "@babel/runtime": "^7.12.5", "global": "^4.4.0" } }, "sha512-1Dsv5dtWOq0LP1G37O46FQFA2tKAZON5UMe6dFPxT7JvPhEx8QIXcFQxan8+hHI3fX6aomFRFrUBJNgRYQDSXA=="],
 

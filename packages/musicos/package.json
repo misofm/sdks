@@ -1,6 +1,6 @@
 {
   "name": "@misofm/musicos",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "packageManager": "bun@1.4.0",
   "description": "A sui-effect extension for the Miso object model (Composition, Recording, Release, Track): the Musicos service, PTB fragments, event decoders, and BCS codecs.",
   "license": "Apache-2.0",
@@ -100,7 +100,7 @@
     "@mysten/bcs": "2.1.1",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.4.0",
-    "@unconfirmed/sui-effect": "0.1.2",
+    "@unconfirmed/sui-effect": "0.1.3",
     "effect": "4.0.0-rc.112",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",

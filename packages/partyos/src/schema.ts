@@ -20,21 +20,15 @@ import { Party } from "./types.ts";
 type PartyFields = typeof party.Party.$inferType;
 
 /**
- * The halfway shape the transformation produces: `Party`'s own field names
- * and shape, still unbranded — `Party`'s own schema does the rest (brands
- * `id` and `members` as `ObjectId`), the same two-step `docs/extensions.md`
- * §3 shows for `Settlement`.
+ * `decode` produces `Party`'s own `Encoded` side — the halfway shape, still
+ * unbranded — and `Party`'s own schema does the rest (brands `id` and
+ * `members` as `ObjectId`); see `docs/extensions.md` §3, "Two details worth
+ * copying". `typeof Party.Encoded` is exactly this shape, so there is nothing
+ * to write out by hand and nothing that can drift from `Party` itself.
  */
-interface PartyParts {
-  readonly id: string;
-  readonly kind: "individual" | "group";
-  readonly name: string;
-  readonly members?: ReadonlyArray<string>;
-  readonly createdAtMs: number;
-}
 
 /** `decode`: the generated shape to `Party`'s own field shape. */
-function mapParty(fields: PartyFields): PartyParts {
+function mapParty(fields: PartyFields): typeof Party.Encoded {
   const kind = fields.kind;
   if (kind.$kind === "Group") {
     return {
@@ -54,7 +48,7 @@ function mapParty(fields: PartyFields): PartyParts {
 }
 
 /** `encode`: the inverse mapper. */
-function unmapParty(fields: PartyParts): PartyFields {
+function unmapParty(fields: typeof Party.Encoded): PartyFields {
   return {
     id: fields.id,
     kind:
