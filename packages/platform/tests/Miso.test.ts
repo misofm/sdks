@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { ConfigProvider, Effect, Exit, Layer, Cause, Option } from "effect";
-import { KNOWN_CHAIN_IDS } from "sui-effect";
+import { KNOWN_CHAIN_IDS, SuiGraphQL } from "sui-effect";
 import { layerTest } from "sui-effect/testing";
 import { derivePartyAdminCapId } from "@misofm/partyos";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
@@ -19,6 +19,9 @@ import { Miso } from "../src/Miso.ts";
 const TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
 const REAL_TESTNET_CHAIN_ID = KNOWN_CHAIN_IDS["testnet"]!;
 const SOME_PARTY_ID = `0x${"11".repeat(32)}`;
+
+/** `Sui` fake plus `SuiGraphQL.layerUnavailable` — no test in this file reaches a GraphQL-backed member. */
+const fakeEnv = (state: Parameters<typeof layerTest>[0]) => Layer.merge(layerTest(state), SuiGraphQL.layerUnavailable);
 
 const errorOf = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.isFailure(exit) ? Option.getOrUndefined(Cause.findErrorOption(exit.cause)) : undefined;
@@ -36,7 +39,7 @@ describe("Miso.layer: the exact-chain startup check", () => {
           // `party/client.ts` does — via a synchronous derivation.
           partyAdminCapId: m.party.derivePartyAdminCapId(SOME_PARTY_ID),
         })),
-        Layer.provide(Miso.layer(TESTNET), layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        Layer.provide(Miso.layer(TESTNET), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
       ),
     );
@@ -51,7 +54,7 @@ describe("Miso.layer: the exact-chain startup check", () => {
       Effect.exit(
         Effect.provide(
           Effect.asVoid(Miso),
-          Layer.provide(Miso.layer(TESTNET), layerTest({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
+          Layer.provide(Miso.layer(TESTNET), fakeEnv({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
           { local: true },
         ),
       ),
@@ -76,7 +79,7 @@ describe("Miso.layer: the exact-chain startup check", () => {
       Effect.exit(
         Effect.provide(
           Effect.asVoid(Miso),
-          Layer.provide(Miso.layer(misconfigured), layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+          Layer.provide(Miso.layer(misconfigured), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
           { local: true },
         ),
       ),
@@ -100,7 +103,7 @@ describe("Miso.layerConfig", () => {
     const network = await Effect.runPromise(
       Effect.provide(
         Effect.map(Miso, (m) => m.network),
-        Layer.provide(Miso.layerConfig, layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        Layer.provide(Miso.layerConfig, fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
       ).pipe(withConfig({ MISO_NETWORK: "testnet" })),
     );
@@ -111,7 +114,7 @@ describe("Miso.layerConfig", () => {
     const network = await Effect.runPromise(
       Effect.provide(
         Effect.map(Miso, (m) => m.network),
-        Layer.provide(Miso.layerConfig, layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        Layer.provide(Miso.layerConfig, fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
       ).pipe(withConfig({})),
     );
@@ -123,7 +126,7 @@ describe("Miso.layerConfig", () => {
       Effect.exit(
         Effect.provide(
           Effect.asVoid(Miso),
-          Layer.provide(Miso.layerConfig, layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+          Layer.provide(Miso.layerConfig, fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
           { local: true },
         ).pipe(withConfig({ MISO_NETWORK: "devnet" })),
       ),
@@ -141,7 +144,7 @@ describe("Miso.layerTest", () => {
         // Deliberately a network/chainId that does NOT match the bundled
         // testnet deployment layerTest defaults to — proving the check
         // layer/layerConfig perform is skipped here.
-        Layer.provide(Miso.layerTest(), layerTest({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
+        Layer.provide(Miso.layerTest(), fakeEnv({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
         { local: true },
       ),
     );
@@ -155,7 +158,7 @@ describe("Miso.layerTest", () => {
           hasProtocolRead: typeof m.protocol.getReleaseById === "function",
           hasPartyRead: typeof m.party.getPartyById === "function",
         })),
-        Layer.provide(Miso.layerTest(), layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        Layer.provide(Miso.layerTest(), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
       ),
     );
@@ -168,7 +171,7 @@ describe("Miso.layerTest", () => {
     const { deployment } = await Effect.runPromise(
       Effect.provide(
         Effect.map(Miso, (m) => ({ deployment: m.deployment })),
-        Layer.provide(Miso.layerTest({ deployment: custom }), layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+        Layer.provide(Miso.layerTest({ deployment: custom }), fakeEnv({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
       ),
     );
