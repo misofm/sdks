@@ -10,7 +10,7 @@
 
 import { b64UrlToU256 } from "../internal.ts";
 import * as mediaMod from "../../contracts/party_media/party_media.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import type { Media } from "../types.ts";
 
 /**
@@ -30,7 +30,7 @@ export interface SetMediaParams {
 }
 
 /** Sets (or replaces) the party's media quilt. */
-export function setMedia(params: SetMediaParams): TxThunk {
+export function setMedia(params: SetMediaParams): Recipe {
   return (tx) => {
     tx.add(
       mediaMod.setMedia({
@@ -48,7 +48,7 @@ export interface ClearMediaParams {
 }
 
 /** Removes the party's media entirely. No-op on-chain if none is set. */
-export function clearMedia(params: ClearMediaParams): TxThunk {
+export function clearMedia(params: ClearMediaParams): Recipe {
   return (tx) => {
     tx.add(mediaMod.clearMedia({ package: params.partyMediaPackageId, arguments: [params.partyId, params.capId] }));
   };

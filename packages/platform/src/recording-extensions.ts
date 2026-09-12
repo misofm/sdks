@@ -7,8 +7,7 @@ import { bcs } from "@mysten/sui/bcs";
 import type { Transaction, TransactionArgument, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveDynamicFieldID, fromHex, toHex } from "@mysten/sui/utils";
 import { Effect, Option, Result } from "effect";
-import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
-import type { TxThunk } from "./transactions.ts";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
 import * as language from "./contracts/recording_language/recording_language.ts";
@@ -37,7 +36,7 @@ export interface SetRecordingAdvisoryParams extends RecordingExtensionTarget {
   readonly rating: Rating;
 }
 
-export function setRecordingAdvisory(p: SetRecordingAdvisoryParams): TxThunk {
+export function setRecordingAdvisory(p: SetRecordingAdvisoryParams): Recipe {
   return (tx) => {
     const rating = tx.add(
       p.rating === "Explicit" ? advisory.explicit({ package: p.recordingAdvisoryPackageId })
@@ -59,7 +58,7 @@ export interface SetRecordingLanguagesParams extends RecordingExtensionTarget {
   readonly languages: TransactionArgument;
 }
 
-export function setRecordingLanguages(p: SetRecordingLanguagesParams): TxThunk {
+export function setRecordingLanguages(p: SetRecordingLanguagesParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingLanguagePackageId}::recording_language::set_languages`,
@@ -70,7 +69,7 @@ export function setRecordingLanguages(p: SetRecordingLanguagesParams): TxThunk {
   };
 }
 
-export function setRecordingInstrumental(p: Omit<SetRecordingLanguagesParams, "languages">): TxThunk {
+export function setRecordingInstrumental(p: Omit<SetRecordingLanguagesParams, "languages">): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingLanguagePackageId}::recording_language::set_instrumental`,
@@ -89,7 +88,7 @@ interface RecordingWalrusReferenceParams extends RecordingExtensionTarget {
 export interface SetRecordingMasterReferenceParams extends RecordingWalrusReferenceParams {
   readonly recordingMasterReferencePackageId: string;
 }
-export function setRecordingMasterReference(p: SetRecordingMasterReferenceParams): TxThunk {
+export function setRecordingMasterReference(p: SetRecordingMasterReferenceParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingMasterReferencePackageId}::recording_master_reference::set_master_reference`,
@@ -111,7 +110,7 @@ export interface SetRecordingStreamingTranscodeParams extends RecordingExtension
 /** Sets or replaces the complete streaming-transcode Quilt attached to a Recording. */
 export function setRecordingStreamingTranscode(
   p: SetRecordingStreamingTranscodeParams,
-): TxThunk {
+): Recipe {
   return (tx) => {
     const quilt = tx.moveCall({
       target: `${p.oriPackageId}::data::new_quilt`,
@@ -176,7 +175,7 @@ function compareBytes(a: Uint8Array, b: Uint8Array): number {
  * checked for duplicates here, mirroring `recording_engine_session::new`, so a
  * bad input fails before signing rather than on chain.
  */
-export function setRecordingEngineSession(p: SetRecordingEngineSessionParams): TxThunk {
+export function setRecordingEngineSession(p: SetRecordingEngineSessionParams): Recipe {
   const stems = p.stems
     .map((stem) => ({ digest: stemDigestBytes(stem.digest), blobId: stem.blobId }))
     .sort((a, b) => compareBytes(a.digest, b.digest));
@@ -218,7 +217,7 @@ export type UnsetRecordingEngineSessionParams = Omit<
 >;
 
 /** Removes the Recording's Miso Engine session reference, if present. */
-export function unsetRecordingEngineSession(p: UnsetRecordingEngineSessionParams): TxThunk {
+export function unsetRecordingEngineSession(p: UnsetRecordingEngineSessionParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingEngineSessionPackageId}::recording_engine_session::unset_engine_session`,
@@ -232,7 +231,7 @@ export function unsetRecordingEngineSession(p: UnsetRecordingEngineSessionParams
 /** Removes the Recording's streaming-transcode reference, if present. */
 export function unsetRecordingStreamingTranscode(
   p: UnsetRecordingStreamingTranscodeParams,
-): TxThunk {
+): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingStreamingTranscodePackageId}::recording_streaming_transcode::unset_streaming_transcode`,

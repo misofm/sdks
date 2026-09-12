@@ -11,8 +11,7 @@ import {
   parseStructTag,
 } from "@mysten/sui/utils";
 import { Effect, Option, Result, Schema } from "effect";
-import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
-import type { TxThunk } from "./transactions.ts";
+import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { asU64, type U64Input } from "./vault.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";
 import * as recordContract from "./contracts/record/record.ts";
@@ -137,7 +136,7 @@ export function deriveSaleIds(
   };
 }
 
-type Tx = Parameters<TxThunk>[0];
+type Tx = Parameters<Recipe>[0];
 
 function priceArg(tx: Tx, packageId: string, price: ListingPrice) {
   const fn =
@@ -179,7 +178,7 @@ export interface OpenPressingParams {
 
 /** Initial setup: create the Pressing, authorize Record Shop, open/share Listings,
  * share the Pressing, and transfer its admin capability. */
-export function openPressing(p: OpenPressingParams): TxThunk {
+export function openPressing(p: OpenPressingParams): Recipe {
   return (tx) => {
     const [pressing, cap] = tx.add(
       pressingContract._new({
@@ -249,7 +248,7 @@ export interface PressingAdministrationParams {
   recordShopPackageId: string;
 }
 
-export function authorizeRecordShop(p: PressingAdministrationParams): TxThunk {
+export function authorizeRecordShop(p: PressingAdministrationParams): Recipe {
   return (tx) => {
     tx.add(
       pressingContract.authorizeDistributor({
@@ -261,7 +260,7 @@ export function authorizeRecordShop(p: PressingAdministrationParams): TxThunk {
   };
 }
 
-export function revokeRecordShop(p: PressingAdministrationParams): TxThunk {
+export function revokeRecordShop(p: PressingAdministrationParams): Recipe {
   return (tx) => {
     tx.add(
       pressingContract.revokeDistributor({
@@ -281,7 +280,7 @@ export interface OpenListingParams {
 }
 
 /** Add one permanent currency Listing. Authorization is deliberately separate. */
-export function openListing(p: OpenListingParams): TxThunk {
+export function openListing(p: OpenListingParams): Recipe {
   return (tx) => {
     const listing = tx.add(
       listingContract._new({
@@ -325,7 +324,7 @@ export interface SetListingPriceParams {
   recordShopPackageId: string;
 }
 
-export function setListingPrice(p: SetListingPriceParams): TxThunk {
+export function setListingPrice(p: SetListingPriceParams): Recipe {
   return (tx) => {
     tx.add(
       listingContract.setPrice({
@@ -349,7 +348,7 @@ export interface SetListingStateParams {
   recordShopPackageId: string;
 }
 
-export function setListingState(p: SetListingStateParams): TxThunk {
+export function setListingState(p: SetListingStateParams): Recipe {
   return (tx) => {
     tx.add(
       listingContract.setState({
@@ -376,7 +375,7 @@ export interface PurchaseRecordParams {
   recordShopPackageId: string;
 }
 
-export function purchaseRecord(p: PurchaseRecordParams): TxThunk {
+export function purchaseRecord(p: PurchaseRecordParams): Recipe {
   return (tx) => {
     const { pressingId, listingId } = deriveSaleIds(
       p.releaseId,

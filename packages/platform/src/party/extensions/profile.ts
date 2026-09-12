@@ -6,7 +6,7 @@
 // `CountryCode` / `LanguageCode` values from raw ISO codes.
 
 import * as profileMod from "../../contracts/party_profile/party_profile.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 
 const OPTION_NONE = "0x1::option::none";
 const OPTION_SOME = "0x1::option::some";
@@ -26,7 +26,7 @@ export interface SetProfileParams {
 }
 
 /** Sets (creates or replaces) a party's whole profile. */
-export function setProfile(params: SetProfileParams): TxThunk {
+export function setProfile(params: SetProfileParams): Recipe {
   return (tx) => {
     const ccType = `${params.countryCodePackageId}::country_code::CountryCode`;
     const country = params.country
@@ -69,7 +69,7 @@ export interface ClearProfileParams {
 }
 
 /** Removes a party's profile. No-op on-chain if none is set. */
-export function clearProfile(params: ClearProfileParams): TxThunk {
+export function clearProfile(params: ClearProfileParams): Recipe {
   return (tx) => {
     tx.add(
       profileMod.clearProfile({

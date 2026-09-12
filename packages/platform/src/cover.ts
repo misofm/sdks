@@ -18,8 +18,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { Effect, Result } from "effect";
-import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
-import type { TxThunk } from "./transactions.ts";
+import { ObjectId, Sui, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
 import * as coverArt from "./contracts/cover_art/cover_art.ts";
@@ -59,7 +58,7 @@ export type SetReleaseTrackCoverParams = SetReleaseCoverParams & {
   trackIndex: U64Input;
 };
 
-function buildCover(tx: Parameters<TxThunk>[0], p: SetReleaseCoverParams) {
+function buildCover(tx: Parameters<Recipe>[0], p: SetReleaseCoverParams) {
   const walrusType = `${p.oriPackageId}::data::WalrusBlob`;
   const blob = (id: bigint | string) => unencryptedWalrusBlob(tx, p.oriPackageId, id);
 
@@ -82,7 +81,7 @@ function buildCover(tx: Parameters<TxThunk>[0], p: SetReleaseCoverParams) {
 }
 
 /** Sets (or replaces) a release's album-level cover from Walrus blob ids. */
-export function setReleaseCover(p: SetReleaseCoverParams): TxThunk {
+export function setReleaseCover(p: SetReleaseCoverParams): Recipe {
   return (tx) => {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
@@ -94,7 +93,7 @@ export function setReleaseCover(p: SetReleaseCoverParams): TxThunk {
 }
 
 /** Sets (or replaces) one track's cover from Walrus blob ids. */
-export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): TxThunk {
+export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): Recipe {
   return (tx) => {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {

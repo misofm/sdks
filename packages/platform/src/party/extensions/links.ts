@@ -11,7 +11,7 @@
 // Only the native identifier is stored on-chain; the public URL is rebuilt from it.
 
 import * as platformLinkMod from "../../contracts/party_platform_link/party_platform_link.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import { PlatformLink } from "../types.ts";
 import type { PlatformKey } from "../types.ts";
 
@@ -105,7 +105,7 @@ export interface SetLinkParams extends LinkPackageIds {
 }
 
 /** Sets (or replaces) a platform's link on the party. */
-export function setLink(platform: PlatformKey, params: SetLinkParams): TxThunk {
+export function setLink(platform: PlatformKey, params: SetLinkParams): Recipe {
   return (tx) => {
     const spec = PLATFORMS[platform];
     const pkg = payloadPackageId(spec, params);
@@ -129,7 +129,7 @@ export interface ClearLinkParams extends LinkPackageIds {
 }
 
 /** Clears a platform's link from the party. No-op on-chain if unset. */
-export function clearLink(platform: PlatformKey, params: ClearLinkParams): TxThunk {
+export function clearLink(platform: PlatformKey, params: ClearLinkParams): Recipe {
   return (tx) => {
     const spec = PLATFORMS[platform];
     tx.add(
@@ -171,16 +171,16 @@ export type BoundClearLinkParams = Omit<ClearLinkParams, keyof LinkPackageIds>;
 
 /** Per-platform `setX` / `clearX` builders, keyed off the table so all ~27 are covered. */
 export type LinkTxBuilders =
-  & { [K in PlatformKey as `set${Capitalize<K>}`]: (p: BoundSetLinkParams) => TxThunk }
-  & { [K in PlatformKey as `clear${Capitalize<K>}`]: (p: BoundClearLinkParams) => TxThunk };
+  & { [K in PlatformKey as `set${Capitalize<K>}`]: (p: BoundSetLinkParams) => Recipe }
+  & { [K in PlatformKey as `clear${Capitalize<K>}`]: (p: BoundClearLinkParams) => Recipe };
 
 /** Builds the per-platform link tx builders with `ids` pre-bound. */
 export function linkTxBuilders(ids: LinkPackageIds): LinkTxBuilders {
   const out: Record<string, unknown> = {};
   for (const key of PLATFORM_KEYS) {
     const cap = key.charAt(0).toUpperCase() + key.slice(1);
-    out[`set${cap}`] = (p: BoundSetLinkParams): TxThunk => setLink(key, { ...p, ...ids });
-    out[`clear${cap}`] = (p: BoundClearLinkParams): TxThunk => clearLink(key, { ...p, ...ids });
+    out[`set${cap}`] = (p: BoundSetLinkParams): Recipe => setLink(key, { ...p, ...ids });
+    out[`clear${cap}`] = (p: BoundClearLinkParams): Recipe => clearLink(key, { ...p, ...ids });
   }
   return out as LinkTxBuilders;
 }

@@ -35,6 +35,7 @@ import {
   type DecodeError,
   type ObjectDeleted,
   type ObjectUnavailable,
+  type Recipe,
   type SuiService,
   type TransportError,
   type UnexpectedEffects,
@@ -100,7 +101,6 @@ import {
   type PublishCompositionParams,
   type PublishRecordingParams,
   type PublishReleaseParams,
-  type TxThunk,
 } from "./transactions.ts";
 import { publishReleaseGraph, type PublishReleaseGraphParams } from "./release-graph.ts";
 import {
@@ -244,35 +244,35 @@ export type ConfiguredReleaseGraphParams = Omit<PublishReleaseGraphParams, "miso
 
 /** The 7 sales reads plus PTB builders, bound to `deployment.recordSales` (`RecordSalesUnavailableError` when unavailable). */
 export type MisoSalesTx = {
-  readonly purchaseRecord: (p: Configured<PurchaseRecordParams>) => TxThunk;
-  readonly openPressing: (p: Configured<OpenPressingParams>) => TxThunk;
-  readonly openListing: (p: Configured<OpenListingParams>) => TxThunk;
-  readonly authorizeRecordShop: (p: Configured<PressingAdministrationParams>) => TxThunk;
-  readonly revokeRecordShop: (p: Configured<PressingAdministrationParams>) => TxThunk;
-  readonly setListingPrice: (p: Configured<SetListingPriceParams>) => TxThunk;
-  readonly setListingState: (p: Configured<SetListingStateParams>) => TxThunk;
+  readonly purchaseRecord: (p: Configured<PurchaseRecordParams>) => Recipe;
+  readonly openPressing: (p: Configured<OpenPressingParams>) => Recipe;
+  readonly openListing: (p: Configured<OpenListingParams>) => Recipe;
+  readonly authorizeRecordShop: (p: Configured<PressingAdministrationParams>) => Recipe;
+  readonly revokeRecordShop: (p: Configured<PressingAdministrationParams>) => Recipe;
+  readonly setListingPrice: (p: Configured<SetListingPriceParams>) => Recipe;
+  readonly setListingState: (p: Configured<SetListingStateParams>) => Recipe;
 };
 
 export type MisoTx = MisoSalesTx & {
   readonly publishShareCurrency: typeof publishShareCurrency;
   readonly initializeShareCurrency: typeof initializeShareCurrency;
-  readonly publishComposition: (p: ConfiguredPublish<PublishCompositionParams>) => TxThunk;
-  readonly publishRecording: (p: ConfiguredPublish<PublishRecordingParams>) => TxThunk;
-  readonly publishCompositionAndRecording: (p: ConfiguredPublish<PublishCompositionAndRecordingParams>) => TxThunk;
-  readonly publishRelease: (p: ConfiguredRelease<PublishReleaseParams>) => TxThunk;
-  readonly publishReleaseGraph: (p: ConfiguredReleaseGraphParams) => TxThunk;
-  readonly setReleaseKind: (p: ConfiguredReleaseKind) => TxThunk;
-  readonly setReleaseDescription: (p: ConfiguredReleaseDescription) => TxThunk;
-  readonly setReleaseGenres: (p: ConfiguredReleaseGenres) => TxThunk;
-  readonly clearReleaseGenres: (p: ConfiguredClearReleaseGenres) => TxThunk;
-  readonly setReleaseDspLinks: (p: ConfiguredReleaseDspLinks) => TxThunk;
-  readonly addReleaseCredit: (p: ConfiguredReleaseCredit) => TxThunk;
-  readonly setReleaseCover: (p: ConfiguredReleaseCover) => TxThunk;
-  readonly setReleaseTrackCover: (p: ConfiguredReleaseTrackCover) => TxThunk;
-  readonly setRecordingStreamingTranscode: (p: ConfiguredRecordingStreamingTranscode) => TxThunk;
-  readonly unsetRecordingStreamingTranscode: (p: ConfiguredUnsetRecordingStreamingTranscode) => TxThunk;
-  readonly setRecordingGenres: (p: ConfiguredRecordingGenres) => TxThunk;
-  readonly clearRecordingGenres: (p: ConfiguredClearRecordingGenres) => TxThunk;
+  readonly publishComposition: (p: ConfiguredPublish<PublishCompositionParams>) => Recipe;
+  readonly publishRecording: (p: ConfiguredPublish<PublishRecordingParams>) => Recipe;
+  readonly publishCompositionAndRecording: (p: ConfiguredPublish<PublishCompositionAndRecordingParams>) => Recipe;
+  readonly publishRelease: (p: ConfiguredRelease<PublishReleaseParams>) => Recipe;
+  readonly publishReleaseGraph: (p: ConfiguredReleaseGraphParams) => Recipe;
+  readonly setReleaseKind: (p: ConfiguredReleaseKind) => Recipe;
+  readonly setReleaseDescription: (p: ConfiguredReleaseDescription) => Recipe;
+  readonly setReleaseGenres: (p: ConfiguredReleaseGenres) => Recipe;
+  readonly clearReleaseGenres: (p: ConfiguredClearReleaseGenres) => Recipe;
+  readonly setReleaseDspLinks: (p: ConfiguredReleaseDspLinks) => Recipe;
+  readonly addReleaseCredit: (p: ConfiguredReleaseCredit) => Recipe;
+  readonly setReleaseCover: (p: ConfiguredReleaseCover) => Recipe;
+  readonly setReleaseTrackCover: (p: ConfiguredReleaseTrackCover) => Recipe;
+  readonly setRecordingStreamingTranscode: (p: ConfiguredRecordingStreamingTranscode) => Recipe;
+  readonly unsetRecordingStreamingTranscode: (p: ConfiguredUnsetRecordingStreamingTranscode) => Recipe;
+  readonly setRecordingGenres: (p: ConfiguredRecordingGenres) => Recipe;
+  readonly clearRecordingGenres: (p: ConfiguredClearRecordingGenres) => Recipe;
 };
 
 export type MisoIds = {

@@ -29,7 +29,6 @@ import {
   type AvailableOperationsDeployment,
   type MisoPlatformDeployment,
 } from "./deployments.ts";
-import type { TxThunk } from "./transactions.ts";
 import {
   createShareStakes,
   disperseShares,
@@ -88,7 +87,7 @@ import {
   type ListingPrice,
 } from "./pressing.ts";
 import { requireRecordSalesDeployment } from "./deployments.ts";
-import { Executed } from "@unconfirmed/sui-effect";
+import { Executed, type Recipe } from "@unconfirmed/sui-effect";
 import * as pressingContract from "./contracts/record/pressing.ts";
 import * as listingContract from "./contracts/record_shop/listing.ts";
 
@@ -658,7 +657,7 @@ function publishReleaseObject(
 }
 
 /** Build the complete post-share catalog graph as one atomic PTB. */
-export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
+export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
   if (
     p.recordings.some((node) => node.streamingTranscodeQuiltId !== undefined) &&
     !p.deployment.packages.recordingStreamingTranscode
