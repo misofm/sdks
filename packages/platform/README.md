@@ -193,8 +193,11 @@ await client.miso.dispose();
 synchronous members a consumer reads the moment it registers, and `Miso.layer`
 touches no network at build for a client on `mainnet` or `testnet` (their
 chain identifiers are in sui-effect's built-in table). On `devnet`,
-`localnet`, or a custom network, pass `chainId` (the identifier that network's
-node must report) — without it, `client.$extend(miso())` throws
+`localnet`, or a custom network, `warm` needs a chain identifier from
+somewhere: pass `chainId` explicitly, **or** pass a `deployment` whose own
+`chainIdentifier` names it (`options.chainId ?? options.deployment?.chainIdentifier`)
+— a custom deployment for your own network is enough on its own, nothing
+else to repeat. Without either, `client.$extend(miso())` throws
 synchronously, naming the network. **A network/deployment mismatch also
 throws synchronously here** (warm builds the layer inside `register`,
 so `Miso.layer`'s own `MisoNetworkMismatchError`/`MisoChainIdentifierMismatchError`
@@ -202,6 +205,9 @@ surface immediately rather than on first call) — register lazily
 (`SuiExtension.fromService(Miso, { name: "miso", layer: Miso.layer(deployment) })`,
 no `warm`) if you want that check deferred to the first call instead, and
 `await client.miso.$ready()` once before reading a synchronous member.
+`miso()` on a network with no bundled manifest and no explicit `deployment`
+rejects typed (`MisoPlatformDeploymentInvalidError`), not with an unhandled
+defect.
 
 Verified package and singleton IDs are bundled in
 `MISO_PLATFORM_DEPLOYMENTS.testnet`. `miso()`/`Miso.layer` select that

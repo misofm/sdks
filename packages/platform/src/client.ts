@@ -30,8 +30,9 @@ import { Sui, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { SuiExtension, type ExtensionFace, type PromiseFace } from "@unconfirmed/sui-effect/extension";
 import { getMisoPlatformDeployment, type MisoPlatformDeployment } from "./deployments.ts";
 import { Miso, type MisoService } from "./Miso.ts";
+import { MisoPlatformDeploymentInvalidError } from "./errors.ts";
 
-export { MisoChainIdentifierMismatchError, MisoNetworkMismatchError } from "./errors.ts";
+export { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "./errors.ts";
 
 /**
  * The type of `client.miso` after `client.$extend(miso())` — the derived
@@ -94,15 +95,34 @@ export interface MisoOptions<Name extends string = "miso"> {
  */
 export const miso = <const Name extends string = "miso">(
   options: MisoOptions<Name> = {},
-): SuiClientRegistration<ClientWithCoreApi, Name, PromiseFace<MisoService> & ExtensionFace> =>
-  SuiExtension.fromService(Miso, {
+): SuiClientRegistration<ClientWithCoreApi, Name, PromiseFace<MisoService> & ExtensionFace> => {
+  // `options.chainId` falls back to a custom deployment's own
+  // `chainIdentifier` (B5/B6, misofm/sdks#35 verification): a caller who
+  // names a custom network's deployment, with its own `chainIdentifier`, does
+  // not also have to repeat that id via `chainId` for `warm` to build
+  // synchronously — `docs/extensions.md` §7's "thread the chain id through
+  // your registration options" applies equally to an id the deployment
+  // already carries.
+  const chainId = options.chainId ?? options.deployment?.chainIdentifier;
+  return SuiExtension.fromService(Miso, {
     name: (options.name ?? "miso") as Name,
     layer: Layer.unwrap(
       Effect.gen(function* () {
         const sui = yield* Sui;
-        return Miso.layer(options.deployment ?? getMisoPlatformDeployment(sui.network));
+        if (options.deployment) return Miso.layer(options.deployment);
+        // `getMisoPlatformDeployment` throws a plain `Error` for a network
+        // with no bundled manifest; `Effect.try` turns that into a typed
+        // `MisoPlatformDeploymentInvalidError` instead of an unhandled defect
+        // out of `Layer.unwrap` (B5, misofm/sdks#35 verification) — the same
+        // mapping `Miso.layerConfig` already applies to the same function.
+        const deployment = yield* Effect.try({
+          try: () => getMisoPlatformDeployment(sui.network),
+          catch: (cause) => new MisoPlatformDeploymentInvalidError({ message: cause instanceof Error ? cause.message : String(cause) }),
+        });
+        return Miso.layer(deployment);
       }),
     ).pipe(Layer.provide(options.graphqlClient ? SuiGraphQL.layer(options.graphqlClient) : SuiGraphQL.layerUnavailable)),
-    ...(options.chainId === undefined ? {} : { sui: { chainId: options.chainId } }),
-    warm: { chainId: options.chainId },
+    ...(chainId === undefined ? {} : { sui: { chainId } }),
+    warm: { chainId },
   });
+};

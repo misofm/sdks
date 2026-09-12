@@ -20,7 +20,7 @@ import { FakeOutcome, SuiCoreFake, type FakeObject } from "@unconfirmed/sui-effe
 import { Signer } from "@unconfirmed/sui-effect/tx";
 import { SuiExtension } from "@unconfirmed/sui-effect/extension";
 import { party as partyCoreContracts } from "@misofm/partyos/contracts";
-import { miso, MisoNetworkMismatchError } from "../src/client.ts";
+import { miso, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/client.ts";
 import { Miso } from "../src/Miso.ts";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
 import { RecordSalesUnavailableError } from "../src/errors.ts";
@@ -252,6 +252,44 @@ describe("the network-mismatch path at layer build", () => {
     const rejection = await client.miso.ready().catch((error: unknown) => error);
     expect(rejection).toBeInstanceOf(MisoNetworkMismatchError);
     expect((rejection as MisoNetworkMismatchError)._tag).toBe("MisoNetworkMismatchError");
+
+    await client.miso.dispose();
+  });
+});
+
+describe("miso() on an unbundled network (B5/B6, misofm/sdks#35 verification)", () => {
+  test("no explicit deployment: getMisoPlatformDeployment's plain throw becomes a typed MisoPlatformDeploymentInvalidError", async () => {
+    // `chainId` is given explicitly so `warm`'s own precondition (a chain id
+    // must be knowable) is satisfied independently of the deployment lookup
+    // this test actually targets — "devnet" has no bundled Miso manifest, so
+    // `getMisoPlatformDeployment` throws a plain `Error` inside `Layer.unwrap`
+    // unless it's `Effect.try`-wrapped (the B5 fix in `src/client.ts`).
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "devnet", chainId: "devnet-chain-id" })),
+    );
+    // `warm` builds the layer synchronously (this stage's own default, see
+    // the network-mismatch block above), so the typed failure surfaces as a
+    // synchronous throw at `$extend`, exactly like `MisoNetworkMismatchError`
+    // does for a bundled-network mismatch — not an unhandled defect.
+    expect(() => fake.client.$extend(miso({ chainId: "devnet-chain-id" }))).toThrow(MisoPlatformDeploymentInvalidError);
+  });
+
+  test("an explicit deployment's own chainIdentifier is enough for warm — no options.chainId needed", async () => {
+    // A custom deployment naming its own network/chainIdentifier (as a
+    // localnet/devnet deployment must) registers warm from the deployment
+    // alone: `options.chainId ?? options.deployment?.chainIdentifier` (B6).
+    const custom: MisoPlatformDeployment = { ...TESTNET, network: "devnet" as MisoPlatformDeployment["network"], chainIdentifier: "custom-devnet-chain" };
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "devnet", chainId: "custom-devnet-chain" })),
+    );
+    // No `chainId` option at all: if `warm` could not derive one from
+    // `custom.chainIdentifier`, `register` would throw ("devnet" has no
+    // built-in table entry) instead of building the runtime synchronously.
+    const client = fake.client.$extend(miso({ deployment: custom }));
+    // `MisoNetwork` is a closed `"mainnet" | "testnet"` union; a custom
+    // deployment's own network label is a plain runtime string regardless.
+    expect(client.miso.deployment.network as string).toBe("devnet");
+    expect(client.miso.chainId).toBe("custom-devnet-chain");
 
     await client.miso.dispose();
   });
