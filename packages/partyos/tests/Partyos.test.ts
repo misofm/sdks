@@ -57,7 +57,7 @@ describe("Partyos.getPartyById", () => {
   test("is PartyNotFound when the object is missing", async () => {
     const error = await provide(Effect.flatMap(Partyos, (p) => Effect.flip(p.getPartyById(MISSING_ID))));
     expect(error).toBeInstanceOf(PartyNotFound);
-    expect(error.outcome).toBe("not_applied");
+    expect((error as PartyNotFound).outcome).toBe("not_applied");
   });
 
   test("is PartyNotFound after SuiTest.deleteObject", async () => {
@@ -146,7 +146,7 @@ describe("Party schema round-trips (TestSchema.Asserts)", () => {
   });
 
   test("PartyNotFound decodes and encodes", async () => {
-    const encoded = { _tag: "partyos/PartyNotFound", partyId: PARTY_ID };
+    const encoded = { _tag: "partyos/PartyNotFound" as const, partyId: PARTY_ID };
     const decoded = new PartyNotFound({ partyId: PARTY_ID });
     const asserts = new TestSchema.Asserts(PartyNotFound);
     // Two-arg form: decoding produces a class instance (which also carries
@@ -156,7 +156,7 @@ describe("Party schema round-trips (TestSchema.Asserts)", () => {
   });
 
   test("PartyosDeploymentError decodes and encodes", async () => {
-    const encoded = { _tag: "partyos/DeploymentError", message: "bad manifest" };
+    const encoded = { _tag: "partyos/DeploymentError" as const, message: "bad manifest" };
     const decoded = new PartyosDeploymentError({ message: "bad manifest" });
     const asserts = new TestSchema.Asserts(PartyosDeploymentError);
     await asserts.decoding().succeed(encoded, decoded);

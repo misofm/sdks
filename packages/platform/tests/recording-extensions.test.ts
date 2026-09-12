@@ -290,7 +290,6 @@ import {
   getRecordingEngineSessionsByIds,
   getRecordingStreamingTranscode,
   getRecordingStreamingTranscodesByIds,
-  recordingEngineSessionFieldId,
   recordingStreamingTranscodeFieldId,
 } from "../src/recording-extensions.ts";
 

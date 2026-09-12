@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { Sui, SuiAddress, SuiCore } from "@unconfirmed/sui-effect";
+import { Sui, SuiAddress, SuiCore, type DecodeError } from "@unconfirmed/sui-effect";
 import { layerTest, type FakeObject, type FakeScript } from "@unconfirmed/sui-effect/testing";
 import * as recordContract from "../../src/contracts/record/record.ts";
 import { deriveRecordId } from "../../src/pressing.ts";
@@ -203,6 +203,6 @@ describe("getBalance", () => {
       ),
     );
     expect(error._tag).toBe("DecodeError");
-    expect(error.issue).toMatch(/decimal precision/);
+    expect((error as DecodeError).issue).toMatch(/decimal precision/);
   });
 });

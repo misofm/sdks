@@ -13,10 +13,13 @@ describe("misoConfig", () => {
     expect(config.deployment).toBe(deployment.protocol);
     expect(config.recordSales).toBe(deployment.recordSales);
     expect(config.protocol).toEqual({
-      vault:
-        deployment.operations.status === "available"
-          ? deployment.operations.vault.packageId
-          : deployment.operations.legacy?.vaultPackageId,
+      // The bundled testnet manifest's `operations` is always "available",
+      // so the fallback branch never runs; the cast matches `MisoConfig`'s
+      // own required `vault: string` field instead of the general
+      // `string | undefined` the ternary's other branch types to.
+      vault: (deployment.operations.status === "available"
+        ? deployment.operations.vault.packageId
+        : deployment.operations.legacy?.vaultPackageId) as string,
       releaseCoverArt: deployment.packages.releaseCoverArt,
       royaltyPool: deployment.packages.royaltyPool,
       releaseKind: deployment.packages.releaseKind,

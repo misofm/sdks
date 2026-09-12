@@ -59,12 +59,12 @@ describe("auth contract", () => {
           return { signature: "sui-signature" };
         },
       },
-      fetch: async (input, init) => {
+      fetch: (async (input, init) => {
         expect(String(input)).toBe("https://api.testnet.miso.fm/platform/auth/challenge");
         expect(init?.method).toBe("POST");
         expect(new Headers(init?.headers).get("authorization")).toBe("Bearer oidc-token");
         return Response.json(challenge());
-      },
+      }) as typeof fetch,
     }));
 
     expect(signed).toBe(challenge().payload);
@@ -91,7 +91,7 @@ describe("auth contract", () => {
             return { signature: "must-not-run" };
           },
         },
-        fetch: async () => Response.json(challenge("PUT", "/platform/usernames/bob")),
+        fetch: (async () => Response.json(challenge("PUT", "/platform/usernames/bob"))) as unknown as typeof fetch,
       }).pipe(Effect.flip),
     );
     expect(error).toMatchObject({ code: "invalid_challenge" });
@@ -118,7 +118,7 @@ describe("auth contract", () => {
             },
           },
         },
-        fetch: async (input, init) => {
+        fetch: (async (input, init) => {
           const url = String(input);
           if (url.endsWith("/platform/auth/challenge")) {
             calls.push("challenge");
@@ -129,7 +129,7 @@ describe("auth contract", () => {
           expect(headers.get(MISO_AUTH_HEADERS.signature)).toBe("sui-signature");
           expect(headers.get("content-type")).toBe("application/json");
           return Response.json({ ok: true });
-        },
+        }) as typeof fetch,
       },
     ));
     expect(response.ok).toBe(true);
@@ -151,10 +151,10 @@ describe("auth contract", () => {
             return { signature: "unexpected" };
           },
         },
-        fetch: async () => Response.json(
+        fetch: (async () => Response.json(
           { error: { message: "Sign in again." } },
           { status: 401 },
-        ),
+        )) as unknown as typeof fetch,
       }).pipe(Effect.flip),
     );
     expect(error).toBeInstanceOf(MisoAuthError);

@@ -23,7 +23,7 @@ const PKG = "0x" + "cd".repeat(32);
 const A = "0x" + "ab".repeat(32);
 const SHARE = `${PKG}::share::Share`;
 
-function compositionParams(over: Partial<AttachCompositionCreditParams> = {}): AttachCompositionCreditParams {
+function compositionParams(over: Partial<Pick<AttachCompositionCreditParams, "displayName" | "roles">> = {}): AttachCompositionCreditParams {
   return {
     compositionId: A,
     compositionAdminCapId: A,
@@ -37,7 +37,7 @@ function compositionParams(over: Partial<AttachCompositionCreditParams> = {}): A
   };
 }
 
-function recordingParams(over: Partial<AttachRecordingCreditParams> = {}): AttachRecordingCreditParams {
+function recordingParams(over: Partial<Pick<AttachRecordingCreditParams, "displayName" | "roles">> = {}): AttachRecordingCreditParams {
   return {
     recordingId: A,
     recordingAdminCapId: A,
@@ -52,7 +52,7 @@ function recordingParams(over: Partial<AttachRecordingCreditParams> = {}): Attac
   };
 }
 
-function releaseParams(over: Partial<AddReleaseCreditParams> = {}): AddReleaseCreditParams {
+function releaseParams(over: Partial<Pick<AddReleaseCreditParams, "displayName">> = {}): AddReleaseCreditParams {
   return {
     releaseId: A,
     releaseAdminCapId: A,

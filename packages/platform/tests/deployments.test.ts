@@ -230,8 +230,16 @@ test("available Record sales require distinct canonical package IDs", () => {
 });
 
 test("custom-deployment snapshotting: mutating the caller's object after normalization does not retarget the frozen copy", () => {
-  const custom = structuredClone(MISO_PLATFORM_DEPLOYMENTS.testnet) as Mutable<MisoPlatformDeployment>;
-  const expected = structuredClone(custom);
+  // `as unknown as`: the bundled testnet manifest's `legacy.releaseCoverArtPackages`
+  // is inferred as the literal empty tuple `readonly []` (from its own `as
+  // const`), which `Mutable<T>`'s array branch cannot directly overlap-cast
+  // to `string[]` — the runtime shape is identical either way.
+  const custom = structuredClone(MISO_PLATFORM_DEPLOYMENTS.testnet) as unknown as Mutable<MisoPlatformDeployment>;
+  // Cloned from the original literal manifest, not from `custom`, so its
+  // fields keep their exact literal types (`chainIdentifier`, ...) for the
+  // `.toBe` assertions below rather than `Mutable<MisoPlatformDeployment>`'s
+  // widened `string`.
+  const expected = structuredClone(MISO_PLATFORM_DEPLOYMENTS.testnet);
 
   expect(Object.isFrozen(custom)).toBeFalse();
   custom.chainIdentifier = "mutated-after-normalize";

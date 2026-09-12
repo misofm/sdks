@@ -84,7 +84,9 @@ test("invokeWithAdminCap supports direct caps without custody commands", () => {
   const result = invokeWithAdminCap(tx, direct, {
     target: `${ACTION}::sample::act`, arguments: [tx.object(B)], adminCapIndex: 1,
   });
-  expect(result.$kind).toBe("Result");
+  // `TransactionObjectArgument` also admits an `AsyncTransactionThunk` variant
+  // (no `$kind`) that `invokeWithAdminCap` never actually returns.
+  expect((result as { $kind: string }).$kind).toBe("Result");
   expect(labels(tx)).toEqual(["sample::act"]);
 });
 
@@ -145,12 +147,16 @@ test("new custody configures result 0, shares it, and transfers result 1", () =>
     "composition_royalty_pool_plugin::install",
     "vault::share",
   ]);
-  const commands = tx.getData().commands;
-  expect(commands[1]!.MoveCall.arguments[0]!.NestedResult).toEqual([0, 0]);
-  expect(commands[1]!.MoveCall.arguments[1]!.NestedResult).toEqual([0, 1]);
-  expect(commands[2]!.MoveCall.arguments[0]!.NestedResult).toEqual([0, 0]);
+  const commands = tx.getData().commands as Array<{
+    $kind: string;
+    MoveCall?: { arguments: Array<{ NestedResult?: [number, number] }> };
+    TransferObjects?: { objects: Array<{ NestedResult?: [number, number] }> };
+  }>;
+  expect(commands[1]!.MoveCall!.arguments[0]!.NestedResult).toEqual([0, 0]);
+  expect(commands[1]!.MoveCall!.arguments[1]!.NestedResult).toEqual([0, 1]);
+  expect(commands[2]!.MoveCall!.arguments[0]!.NestedResult).toEqual([0, 0]);
   expect(commands[3]!.$kind).toBe("TransferObjects");
-  expect(commands[3]!.TransferObjects.objects[0]!.NestedResult).toEqual([0, 1]);
+  expect(commands[3]!.TransferObjects!.objects[0]!.NestedResult).toEqual([0, 1]);
 });
 
 test("withdraw and restore use the exact Vault package, cap type, and returned cap", () => {
@@ -171,7 +177,7 @@ test("withdraw and restore use the exact Vault package, cap type, and returned c
   expect(labels(tx)).toEqual(["vault::withdraw_cap", "vault::restore_cap"]);
   expect(calls(tx).map((call) => call.package)).toEqual([VAULT, VAULT]);
   expect(calls(tx).map((call) => call.typeArguments)).toEqual([[CAP], [CAP]]);
-  const restore = tx.getData().commands[1]!.MoveCall;
+  const restore = tx.getData().commands[1]!.MoveCall as { arguments: Array<{ $kind: string; Result?: number }> };
   expect(restore.arguments[2]!.$kind).toBe("Result");
   expect(restore.arguments[2]!.Result).toBe(0);
 });
@@ -204,13 +210,16 @@ test("pool construction targets the Action and returns an unshared pool", () => 
     typeArguments: [COMPOSITION_SHARE, SUI],
     arguments: [pool],
   });
-  expect(pool.$kind).toBe("Result");
+  // `TransactionObjectArgument` also admits an `AsyncTransactionThunk` variant
+  // (no `$kind`) that a synchronous builder like `newCompositionRoyaltyPool`
+  // never actually returns; narrow for the test assertion only.
+  expect((pool as { $kind: string }).$kind).toBe("Result");
   expect(labels(tx)).toEqual([
     "vault::borrow_as_admin", "composition_royalty_pool::new_pool", "vault::put_back",
     "pool::share",
   ]);
   expect(calls(tx)[1]!.package).toBe(ACTION);
-  expect(tx.getData().commands[3]!.MoveCall.arguments[0]!.Result).toBe(1);
+  expect((tx.getData().commands[3]!.MoveCall as { arguments: Array<{ Result?: number }> }).arguments[0]!.Result).toBe(1);
 });
 
 test("Party receive/redeem Actions return caller-controlled balances", () => {
@@ -330,11 +339,11 @@ test("settlement cranks use suffixed plugin modules in exact order", () => {
     (command) =>
       command.$kind === "MoveCall" &&
       command.MoveCall.module === "release_revenue_distributor_plugin",
-  );
+  ) as { MoveCall: { arguments: Array<{ $kind: string; Input?: number }> } } | undefined;
   expect(releaseCall?.MoveCall.arguments).toHaveLength(3);
   const rootArgument = releaseCall?.MoveCall.arguments[2];
   expect(rootArgument?.$kind).toBe("Input");
-  const rootInput = tx.getData().inputs[rootArgument!.Input];
+  const rootInput = tx.getData().inputs[rootArgument!.Input!];
   expect(rootInput?.UnresolvedObject?.objectId).toBe(
     `0x${"acc".padStart(64, "0")}`,
   );

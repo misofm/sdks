@@ -32,6 +32,7 @@ const track = (no: string, recordingId: string, splitBps: number): TrackView => 
   no,
   title: `Track ${no}`,
   recordingId,
+  compositionId: `${recordingId}-composition`,
   splitBps,
   disc: 1,
 });
