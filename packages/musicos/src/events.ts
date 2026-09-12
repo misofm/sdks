@@ -10,8 +10,8 @@
  */
 import type { Schema } from "effect";
 import { Effect } from "effect";
-import { DecodeError, type Event } from "sui-effect";
-import { SuiSchema } from "sui-effect";
+import { DecodeError, type Event } from "@unconfirmed/sui-effect";
+import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as schema from "./schema.ts";
 import { matchesEventSuffix, type EventDecoder } from "./parsers.ts";
 

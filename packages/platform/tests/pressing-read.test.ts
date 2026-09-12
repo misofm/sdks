@@ -5,8 +5,8 @@ import { expect, test } from "bun:test";
 import { Effect } from "effect";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import type { Sui } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import {
   authorizeRecordShop,
   deriveListingId,

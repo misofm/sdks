@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { ConfigProvider, Effect, Exit, Layer, Cause, Option } from "effect";
-import { KNOWN_CHAIN_IDS, SuiGraphQL } from "sui-effect";
-import { layerTest } from "sui-effect/testing";
+import { KNOWN_CHAIN_IDS, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest } from "@unconfirmed/sui-effect/testing";
 import { derivePartyAdminCapId } from "@misofm/partyos";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
 import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/errors.ts";

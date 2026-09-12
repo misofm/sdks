@@ -3,7 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
-import { ObjectId, SuiAddress, type DecodeError } from "sui-effect";
+import { ObjectId, SuiAddress, type DecodeError } from "@unconfirmed/sui-effect";
 import { eventParsers } from "../src/events.ts";
 import * as wire from "./event-fixtures.ts";
 

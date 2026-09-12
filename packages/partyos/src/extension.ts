@@ -2,8 +2,8 @@
  * The Promise face, derived rather than maintained (`docs/extensions.md` §7).
  */
 import type { ClientWithCoreApi, SuiClientRegistration } from "@mysten/sui/client";
-import { SuiExtension } from "sui-effect/extension";
-import type { ExtensionFace, PromiseFace } from "sui-effect/extension";
+import { SuiExtension } from "@unconfirmed/sui-effect/extension";
+import type { ExtensionFace, PromiseFace } from "@unconfirmed/sui-effect/extension";
 import type { PartyDeployment } from "./deployments.ts";
 import { Partyos, type PartyosService } from "./Partyos.ts";
 

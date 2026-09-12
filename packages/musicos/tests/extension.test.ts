@@ -7,8 +7,8 @@
 import { describe, expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
 import { Effect } from "effect";
-import { ExtensionNotReady, ObjectId, SuiAddress } from "sui-effect";
-import { FakeOutcome, SuiCoreFake } from "sui-effect/testing";
+import { ExtensionNotReady, ObjectId, SuiAddress } from "@unconfirmed/sui-effect";
+import { FakeOutcome, SuiCoreFake } from "@unconfirmed/sui-effect/testing";
 import * as release from "../src/contracts/musicos/release.ts";
 import { musicos } from "../src/extension.ts";
 

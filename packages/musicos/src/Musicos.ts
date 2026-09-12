@@ -34,7 +34,7 @@ import {
   type ObjectUnavailable,
   type SimulationFailed,
   type TransportError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import * as release from "./contracts/musicos/release.ts";
 import {
   MISO_DEPLOYMENTS,

@@ -13,7 +13,7 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { Effect, Option } from "effect";
-import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import * as releaseDescription from "./contracts/release_description/release_description.ts";
 import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.ts";

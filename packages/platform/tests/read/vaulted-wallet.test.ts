@@ -4,8 +4,8 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { contracts } from "@misofm/musicos";
-import { Sui, SuiGraphQL } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import { Sui, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as vaultContract from "../../src/contracts/vault/vault.ts";
 import type { MisoConfig } from "../../src/read/config.ts";
 import {

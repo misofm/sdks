@@ -27,7 +27,7 @@ import {
   type ObjectDeleted,
   type ObjectNotFound,
   type ObjectUnavailable,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import { MusicosWorkNotFound } from "./errors.ts";
 import * as schema from "./schema.ts";
 import { Composition, Recording } from "./types.ts";

@@ -6,7 +6,7 @@
 // anywhere off-chain, so the names are read from the objects and humanized.
 
 import { Effect, Result } from "effect";
-import { ObjectId, Sui, SuiSchema } from "sui-effect";
+import { ObjectId, Sui, SuiSchema } from "@unconfirmed/sui-effect";
 import { Genre as GenreBcs } from "../contracts/genre/genre.ts";
 
 /** "HIP_HOP" → "Hip Hop". */

@@ -11,7 +11,7 @@
 // bridge takes, and where domain mapping goes".
 
 import { Schema, SchemaTransformation } from "effect";
-import { SuiSchema } from "sui-effect";
+import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as party from "./contracts/partyos/party.ts";
 import { partyType } from "./queries.ts";
 import { Party } from "./types.ts";

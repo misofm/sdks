@@ -16,10 +16,10 @@ this package. Which Move package generates into which SDK is decided by
 ## Install
 
 ```sh
-bun add @misofm/partyos sui-effect effect @mysten/sui
+bun add @misofm/partyos @unconfirmed/sui-effect effect @mysten/sui
 ```
 
-`sui-effect`, `@mysten/sui` and `effect` (exactly `4.0.0-rc.112`) are peer
+`@unconfirmed/sui-effect`, `@mysten/sui` and `effect` (exactly `4.0.0-rc.112`) are peer
 dependencies.
 
 ## Use
@@ -36,7 +36,7 @@ Effect caller would have caught, so a Promise consumer can still switch on
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { partyos, PartyNotFound } from "@misofm/partyos";
-import { ObjectId } from "sui-effect";
+import { ObjectId } from "@unconfirmed/sui-effect";
 
 const client = new SuiGrpcClient({ network: "testnet", baseUrl }).$extend(partyos());
 
@@ -62,7 +62,7 @@ await client.partyos.dispose();
 
 ```ts
 import { Effect, Layer } from "effect";
-import { Sui, SuiCore } from "sui-effect";
+import { Sui, SuiCore } from "@unconfirmed/sui-effect";
 import { Partyos } from "@misofm/partyos";
 
 const program = Effect.gen(function* () {
@@ -188,7 +188,7 @@ publish.
 `@misofm/partyos/testing` ships `PARTYOS_TEST_DEPLOYMENT`, `fakeParty(...)` (a
 `Party` object with real BCS content), and `fakeMembershipField(...)` (a
 `MembershipKey` / `PendingInviteKey` / `PendingMembershipKey` dynamic-field
-entry) for building a `FakeScript` against `sui-effect/testing`'s harness —
+entry) for building a `FakeScript` against `@unconfirmed/sui-effect/testing`'s harness —
 `layerExtensionTest(Partyos.layerTest(), script)` — with no network. See
 `tests/Partyos.test.ts` in this repo.
 

@@ -22,7 +22,7 @@ import {
   type ReadError,
   type Recording,
 } from "@misofm/musicos";
-import { ObjectId, Sui, SuiAddress, SuiGraphQL, type BatchItemError, type GraphQLUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, SuiAddress, SuiGraphQL, type BatchItemError, type GraphQLUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import {
   getCompositionCreditsByIds,
   getRecordingCreditsByIds,

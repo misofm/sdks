@@ -3,8 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { Sui, SuiAddress, SuiCore } from "sui-effect";
-import { layerTest, type FakeObject, type FakeScript } from "sui-effect/testing";
+import { Sui, SuiAddress, SuiCore } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject, type FakeScript } from "@unconfirmed/sui-effect/testing";
 import * as recordContract from "../../src/contracts/record/record.ts";
 import { deriveRecordId } from "../../src/pressing.ts";
 import type { MisoConfig } from "../../src/read/config.ts";

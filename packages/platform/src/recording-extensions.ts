@@ -7,7 +7,7 @@ import { bcs } from "@mysten/sui/bcs";
 import type { Transaction, TransactionArgument, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveDynamicFieldID, fromHex, toHex } from "@mysten/sui/utils";
 import { Effect, Option, Result } from "effect";
-import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";

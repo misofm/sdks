@@ -9,7 +9,7 @@
 // see ./Partyos.ts). Calls into the party package go through the generated
 // typed call fns (party.*).
 
-import type { Recipe } from "sui-effect";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import * as party from "./contracts/partyos/party.ts";
 
 /**

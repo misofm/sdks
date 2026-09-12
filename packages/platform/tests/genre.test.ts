@@ -6,8 +6,8 @@ import { bcs } from "@mysten/sui/bcs";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { Effect } from "effect";
-import type { Sui } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as releaseGenreContract from "../src/contracts/release_genre/release_genre.ts";
 import * as recordingGenreContract from "../src/contracts/recording_genre/recording_genre.ts";
 import {

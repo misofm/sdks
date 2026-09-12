@@ -5,8 +5,8 @@ import { expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { contracts } from "@misofm/musicos";
-import { SuiGraphQL } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import { SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { getRecordingTitles, getWorksByIds, parseReleaseObject } from "../../src/read/works.ts";
 
 const RELEASE = "0x" + "11".repeat(32);

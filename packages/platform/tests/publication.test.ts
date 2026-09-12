@@ -28,7 +28,7 @@ import * as contracts from "../src/contracts.ts";
 import { party } from "@misofm/partyos/contracts";
 import { derivePartyAdminCapId } from "@misofm/partyos";
 import { Schema } from "effect";
-import { Executed } from "sui-effect";
+import { Executed } from "@unconfirmed/sui-effect";
 
 /** One `changedObjects` entry for a freshly created object, `Executed`'s encoded shape. */
 function createdChange(objectId: string) {

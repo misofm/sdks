@@ -959,4 +959,17 @@ was hand-touched.
 - `sui-effect`'s own npm-swap checklist (bump `peerDependencies`, drop
   `peerDependenciesMeta`, remove the vendored tarball and its `file:`
   devDependency) is unchanged by this stage and still pending the first
-  `sui-effect` release.
+  `sui-effect` release — done in Stage 4 below.
+
+## Stage 4: npm package swap
+
+`sui-effect` published its first release as `@unconfirmed/sui-effect@0.1.0`
+(subpaths `/tx`, `/journal`, `/extension`, `/script`, `/testing` unchanged;
+API otherwise identical to the vendored 0.1.0 build). `vendor/` is deleted;
+`partyos`, `musicos` and `platform` now take `@unconfirmed/sui-effect` as an
+ordinary registry `devDependency`/`peerDependency` pair (no more `file:`
+tarball, no `peerDependenciesMeta` optional-peer entry), and every import
+specifier, the isolated-consumer fixture, and `dependency-contract.test.ts`
+were updated from `sui-effect` to `@unconfirmed/sui-effect` to match. The
+Stage 1-3 narrative above describes the vendored-tarball setup as it was at
+the time and is left as history, per this file's own rule.

@@ -32,8 +32,8 @@
 import { fromBase64, fromHex, toBase64 } from "@mysten/sui/utils";
 import { update_constants } from "@mysten/move-bytecode-template";
 import { Effect } from "effect";
-import { type Executed, type Sui, type SuiAddress, type UnexpectedEffects } from "sui-effect";
-import { Tx, type RunError, type Signer } from "sui-effect/tx";
+import { type Executed, type Sui, type SuiAddress, type UnexpectedEffects } from "@unconfirmed/sui-effect";
+import { Tx, type RunError, type Signer } from "@unconfirmed/sui-effect/tx";
 
 import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
 import { SHARE_TEMPLATE } from "./share-template.ts";

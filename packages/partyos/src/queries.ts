@@ -10,7 +10,7 @@
 
 import { bcs } from "@mysten/sui/bcs";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
-import { ObjectId } from "sui-effect";
+import { ObjectId } from "@unconfirmed/sui-effect";
 
 /** The `Party` struct tag of one partyos deployment, normalized. */
 export function partyType(partyPackageId: string): string {

@@ -37,7 +37,7 @@ import {
   type ObjectNotFound,
   type ObjectUnavailable,
   type TransportError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import type { MisoConfig } from "./config.ts";
 import { int, u64 } from "./internal/scalars.ts";
 import * as vaultContract from "../contracts/vault/vault.ts";

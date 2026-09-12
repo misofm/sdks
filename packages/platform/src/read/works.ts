@@ -17,7 +17,7 @@ import {
   type WorkAddressesByShareType,
   type WorkShareTypes,
 } from "@misofm/musicos";
-import { ObjectId, Sui, SuiGraphQL, SuiSchema, type DecodeError, type GraphQLUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, SuiGraphQL, SuiSchema, type DecodeError, type GraphQLUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 
 // `getWorkAddressesByShareTypes` (GraphQL type discovery) is owned by
 // `@misofm/musicos` now — re-exported here so existing platform imports keep

@@ -20,7 +20,7 @@ import type {
   SimulationFailed,
   SuiAddress,
   TransportError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import type { MusicosTreasuryCapNotFound } from "../src/errors.ts";
 import type { MusicosService } from "../src/Musicos.ts";
 import type { Composition, CompositionAdminCap, Recording, RecordingAdminCap, Release, ReleaseAdminCap, ReleaseRegistry } from "../src/types.ts";

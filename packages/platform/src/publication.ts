@@ -88,7 +88,7 @@ import {
   type ListingPrice,
 } from "./pressing.ts";
 import { requireRecordSalesDeployment } from "./deployments.ts";
-import { Executed } from "sui-effect";
+import { Executed } from "@unconfirmed/sui-effect";
 import * as pressingContract from "./contracts/record/pressing.ts";
 import * as listingContract from "./contracts/record_shop/listing.ts";
 

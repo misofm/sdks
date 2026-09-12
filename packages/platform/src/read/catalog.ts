@@ -57,7 +57,7 @@ import {
   type ObjectDeleted,
   type ObjectUnavailable,
   type TransportError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import { ReleaseNotFoundError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import { getRecordingTitles, parseReleaseObject } from "./works.ts";

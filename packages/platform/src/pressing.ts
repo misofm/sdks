@@ -11,7 +11,7 @@ import {
   parseStructTag,
 } from "@mysten/sui/utils";
 import { Effect, Option, Result, Schema } from "effect";
-import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError } from "sui-effect";
+import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, type U64Input } from "./vault.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";

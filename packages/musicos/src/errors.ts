@@ -9,7 +9,7 @@
 // node, a failed simulation — is one of those tags; musicos invents nothing
 // for what sui-effect already covers.
 import { Schema } from "effect";
-import { type Outcome, SuiAddress } from "sui-effect";
+import { type Outcome, SuiAddress } from "@unconfirmed/sui-effect";
 
 export {
   BuildError,
@@ -21,7 +21,7 @@ export {
   SimulationFailed,
   TransportError,
   type BatchItemError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 
 /**
  * No `TreasuryCap<shareType>` owned by `owner` was found.

@@ -13,7 +13,7 @@ extension: one `Context.Service` (`Miso`), built on `sui-effect`'s `Sui`,
 services, whose members are `Effect`s with closed error unions, whose writes
 are PTB fragments (`Recipe`s) a consumer composes and submits once, and whose
 Promise face is derived — never hand-written — by `SuiExtension.fromService`.
-See `node_modules/sui-effect/docs/extensions.md` for the contract every
+See `node_modules/@unconfirmed/sui-effect/docs/extensions.md` for the contract every
 extension in this codebase follows, and ["Migrating from 0.27"](#migrating-from-027)
 below if you're coming from the hand-written `MisoPlatformClient`.
 
@@ -63,10 +63,10 @@ just crossing a package boundary.
 ## Install
 
 ```sh
-bun add @misofm/platform sui-effect effect @mysten/sui @mysten/bcs
+bun add @misofm/platform @unconfirmed/sui-effect effect @mysten/sui @mysten/bcs
 ```
 
-Peer dependencies: `sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
+Peer dependencies: `@unconfirmed/sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
 `@mysten/sui@^2.28`, `@mysten/bcs@^2.1.1`. `@misofm/musicos` and
 `@misofm/partyos` resolve transitively through this package, so applications
 get exactly one object-model SDK, one Party-identity SDK, and one compatible
@@ -114,7 +114,7 @@ singletons.
 
 ```ts
 import { Effect } from "effect";
-import { Sui, SuiCore, SuiGraphQL } from "sui-effect";
+import { Sui, SuiCore, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { Miso } from "@misofm/platform";
 import { getMisoPlatformDeployment } from "@misofm/platform/deployments";
 
@@ -738,11 +738,11 @@ same way through `client.miso` after `$extend(miso())`.
 | `getPressing`/`getListing`/`getRecord`/`getSale` failing `ObjectTypeMismatchError \| BcsDecodeError \| SuiRpcError` | `DecodeError \| ObjectUnavailable \| TransportError` (plus `RecordSalesUnavailableError` when this deployment has no Record sales) — one decode error, not-found stays `null` |
 | `getSale`/batch reads on `getObjectsContent` (silently drops errored ids) | `sui.getObjects`, a `Result` per id — each read decides per item: `getSale` fails the whole read on a genuine `ObjectUnavailable`; a soft read like `resolveGenreNames` skips it |
 | `getBalance` returning decimal strings | `Balance` with `bigint`; `read/*` JSON-safe views still return strings — only the low tier changed |
-| `SuiGraphQL` from `@misofm/effect` | `SuiGraphQL` from `sui-effect` (`GraphQLUnavailableError` → `GraphQLUnavailable`; `SuiRpcError { operation }` → `TransportError { method }`) |
+| `SuiGraphQL` from `@misofm/effect` | `SuiGraphQL` from `@unconfirmed/sui-effect` (`GraphQLUnavailableError` → `GraphQLUnavailable`; `SuiRpcError { operation }` → `TransportError { method }`) |
 | a `chainIdentifier`-less registration on `devnet`/`localnet`/a custom network | `miso({ chainId })` required, or registration throws synchronously (warm) naming the network |
 
 `@misofm/effect` is gone from `dependencies`; `@mysten/sui`, `effect`, and
-`sui-effect` are peers instead.
+`@unconfirmed/sui-effect` are peers instead.
 
 ### Extension types
 
@@ -775,7 +775,7 @@ sniffing. sui-effect's own taxonomy (`DecodeError`, `TransportError`,
 `ObjectNotFound`/`ObjectDeleted`/`ObjectUnavailable`, `GraphQLUnavailable`,
 `ExecutionFailed`, and the `Tx.run` union: `BuildError`, `SimulationFailed`,
 `PolicyDenied`, `SigningError`, `NotApplied`, `SubmissionUnknown`,
-`JournalError`, `UnexpectedEffects`) is re-exported from `sui-effect` so this
+`JournalError`, `UnexpectedEffects`) is re-exported from `@unconfirmed/sui-effect` so this
 is the only import a consumer needs:
 
 ```ts
@@ -904,8 +904,8 @@ no separate install step and no peer version for consumers to reconcile.
 
 ## Testing
 
-Tests run on `sui-effect/testing`'s in-memory fake — no network, no real
-signer. `layerTest(script)` (from `sui-effect/testing`) provides `Sui`/
+Tests run on `@unconfirmed/sui-effect/testing`'s in-memory fake — no network, no real
+signer. `layerTest(script)` (from `@unconfirmed/sui-effect/testing`) provides `Sui`/
 `SuiCore`/`SuiCoreFake` for `Effect`-level tests against `Miso.layer`/
 `layerTest`; a `$extend`-level test builds `SuiCoreFake.layer(script)` and
 calls `fake.client.$extend(miso({ deployment }))` directly, exactly the way a
@@ -913,7 +913,7 @@ consumer writes it:
 
 ```ts
 import { Effect } from "effect";
-import { SuiCoreFake } from "sui-effect/testing";
+import { SuiCoreFake } from "@unconfirmed/sui-effect/testing";
 import { miso } from "@misofm/platform/client";
 
 const fake = await Effect.runPromise(
@@ -927,7 +927,7 @@ await client.miso.dispose();
 
 `FakeOutcome.succeed(...)`/`FakeOutcome.failWith(...)`/`FakeOutcome.transportError(...)`
 script `Tx.run`'s `execute`; `TestClock` (from `effect/testing`) plus
-`Journal.layerMemory` (from `sui-effect/tx`) drive a submission through a
+`Journal.layerMemory` (from `@unconfirmed/sui-effect/tx`) drive a submission through a
 resubmit/reconcile schedule without waiting on real time (see
 `tests/share.test.ts`'s `initializeShareCurrencies` retry case). `Miso.layer`/
 `layerTest` need `SuiGraphQL` too now that `read.*` joins the service — compose

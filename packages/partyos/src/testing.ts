@@ -4,7 +4,7 @@
  */
 import type { SuiClientTypes } from "@mysten/sui/client";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
-import type { FakeObject } from "sui-effect/testing";
+import type { FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as party from "./contracts/partyos/party.ts";
 import { PARTYOS_TEST_DEPLOYMENT } from "./Partyos.ts";
 import type { PartyKind } from "./types.ts";

@@ -15,7 +15,7 @@ import {
   type DecodeError,
   type Recipe,
   type SuiService,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import * as party from "./contracts/partyos/party.ts";
 import {
   getPartyDeployment,

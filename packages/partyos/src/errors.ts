@@ -8,7 +8,7 @@
 // "unclassified".
 
 import { Schema } from "effect";
-import { DecodeError, ObjectId, ObjectUnavailable, TransportError, type Outcome } from "sui-effect";
+import { DecodeError, ObjectId, ObjectUnavailable, TransportError, type Outcome } from "@unconfirmed/sui-effect";
 
 /**
  * No `Party` object with this id exists for the bound deployment: it was

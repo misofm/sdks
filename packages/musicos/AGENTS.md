@@ -2,10 +2,10 @@
 
 `@misofm/musicos` is a [sui-effect](https://github.com/unconfirmedlabs/sui-effect)
 extension for the `musicos` Move package (Composition, Recording, Release,
-Track). Read `node_modules/sui-effect/docs/extensions.md` in full before
+Track). Read `node_modules/@unconfirmed/sui-effect/docs/extensions.md` in full before
 changing anything here — it is the contract this package follows — then
-`node_modules/sui-effect/LLMS.md` for every sui-effect signature and
-`node_modules/sui-effect/AGENTS.md` for the library's own rules. This file is
+`node_modules/@unconfirmed/sui-effect/LLMS.md` for every sui-effect signature and
+`node_modules/@unconfirmed/sui-effect/AGENTS.md` for the library's own rules. This file is
 the musicos-specific addendum.
 
 ## Ground rules
@@ -94,7 +94,7 @@ passed to `streamOwnedObjects` is the bare cap tag.
 
 ## Testing
 
-`sui-effect/testing` is the whole harness — no hand-rolled fakes, no network.
+`@unconfirmed/sui-effect/testing` is the whole harness — no hand-rolled fakes, no network.
 `tests/musicos.test.ts` is `layerExtensionTest(Musicos.layerTest({ packageId }), script)`;
 `FakeObject.content` is built with the generated codecs' own `.serialize(...).toBytes()`,
 never hand-written bytes. `tests/extension.test.ts` drives the derived
@@ -109,6 +109,6 @@ comparison, not a string equality this package wrote.
 `bun run typecheck`, `test`, `build` green in this package; `bun run
 codegen:check` (from the repo root) shows no diff under `src/contracts`;
 `bun run test:consumer` (from the repo root) installs the packed tarball into
-an isolated fixture with one copy of `effect` and `sui-effect`. `LLMS.md` (if
+an isolated fixture with one copy of `effect` and `@unconfirmed/sui-effect`. `LLMS.md` (if
 present) documents every public signature; a stale one is a bug the same as
 a stale `README.md`.

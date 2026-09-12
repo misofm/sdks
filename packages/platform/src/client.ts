@@ -26,8 +26,8 @@
 import type { ClientWithCoreApi, SuiClientRegistration } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Effect, Layer } from "effect";
-import { Sui, SuiGraphQL } from "sui-effect";
-import { SuiExtension, type ExtensionFace, type PromiseFace } from "sui-effect/extension";
+import { Sui, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { SuiExtension, type ExtensionFace, type PromiseFace } from "@unconfirmed/sui-effect/extension";
 import { getMisoPlatformDeployment, type MisoPlatformDeployment } from "./deployments.ts";
 import { Miso, type MisoService } from "./Miso.ts";
 

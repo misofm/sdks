@@ -25,7 +25,7 @@
 // is intentionally not used here.
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
-import type { Recipe } from "sui-effect";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import { contracts } from "@misofm/musicos";
 import { custodyOf, disperseShares, finalizeRelease, recordingAuthorityOf, requiredCommandResult, type AdminCustodyInput, type RecordingAuthorityInput, type ShareRecipient } from "./transactions.ts";
 import { disposeNewAdminCap, invokeWithAdminCap } from "./vault.ts";

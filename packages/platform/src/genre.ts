@@ -44,7 +44,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID, deriveObjectID, normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { Effect, Schema } from "effect";
-import { ObjectId, Sui, type ObjectUnavailable, type DecodeError, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type ObjectUnavailable, type DecodeError, type TransportError } from "@unconfirmed/sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import { PlatformDeployment } from "./deployments.ts";

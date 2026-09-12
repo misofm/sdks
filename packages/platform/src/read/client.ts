@@ -16,7 +16,7 @@
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Layer } from "effect";
-import { Sui, SuiCore, SuiGraphQL, type NetworkMismatch, type TransportError } from "sui-effect";
+import { Sui, SuiCore, SuiGraphQL, type NetworkMismatch, type TransportError } from "@unconfirmed/sui-effect";
 import { miso, type MisoClient as MisoExtensionClient } from "../client.ts";
 import { Miso, type MisoLayerError } from "../Miso.ts";
 import { getMisoPlatformDeployment, type MisoPlatformDeployment } from "../deployments.ts";

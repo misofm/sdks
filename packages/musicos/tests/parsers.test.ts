@@ -8,7 +8,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { Effect } from "effect";
-import { ObjectId, SuiAddress } from "sui-effect";
+import { ObjectId, SuiAddress } from "@unconfirmed/sui-effect";
 import * as parse from "../src/parsers.ts";
 import * as wire from "./event-fixtures.ts";
 

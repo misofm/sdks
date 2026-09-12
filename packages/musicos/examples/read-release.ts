@@ -7,7 +7,7 @@
 
 import { SuiGrpcClient } from "@mysten/sui/grpc"
 import { Effect } from "effect"
-import { ObjectId, Sui, SuiCore, SuiAddress } from "sui-effect"
+import { ObjectId, Sui, SuiCore, SuiAddress } from "@unconfirmed/sui-effect"
 import { Musicos, musicos } from "../src/index.ts"
 
 // --- Effect ---

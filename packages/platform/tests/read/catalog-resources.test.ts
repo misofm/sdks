@@ -3,8 +3,8 @@
 
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
-import type { Sui } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { deriveSaleIds } from "../../src/pressing.ts";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import * as pressing from "../../src/contracts/record/pressing.ts";

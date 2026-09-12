@@ -9,8 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Effect, Layer } from "effect";
-import { GraphQLUnavailable, SuiGraphQL } from "sui-effect";
-import { layerTest } from "sui-effect/testing";
+import { GraphQLUnavailable, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest } from "@unconfirmed/sui-effect/testing";
 import * as composition from "../src/contracts/musicos/composition.ts";
 import * as recording from "../src/contracts/musicos/recording.ts";
 import { MusicosWorkNotFound } from "../src/errors.ts";

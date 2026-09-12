@@ -36,8 +36,8 @@
         "@mysten/bcs": "2.1.1",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
+        "@unconfirmed/sui-effect": "0.1.0",
         "effect": "4.0.0-rc.112",
-        "sui-effect": "file:../../vendor/sui-effect-0.1.0.tgz",
         "typedoc": "^0.28.20",
         "typedoc-plugin-markdown": "^4.13.0",
         "typescript": "^7.0.2",
@@ -45,13 +45,10 @@
       "peerDependencies": {
         "@mysten/bcs": "^2.1.1",
         "@mysten/sui": "^2.28",
+        "@unconfirmed/sui-effect": "^0.1.0",
         "effect": ">=4.0.0-rc.112 <4.1",
-        "sui-effect": "^0.1.0",
         "typescript": "^5.7 || ^6 || ^7",
       },
-      "optionalPeers": [
-        "sui-effect",
-      ],
     },
     "packages/partyos": {
       "name": "@misofm/partyos",
@@ -62,25 +59,22 @@
       "devDependencies": {
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.4.0",
+        "@unconfirmed/sui-effect": "0.1.0",
         "effect": "4.0.0-rc.112",
-        "sui-effect": "file:../../vendor/sui-effect-0.1.0.tgz",
         "typedoc": "^0.28.20",
         "typedoc-plugin-markdown": "^4.13.0",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@mysten/sui": "2.29.0",
+        "@unconfirmed/sui-effect": "^0.1.0",
         "effect": "4.0.0-rc.112",
-        "sui-effect": "^0.1.0",
         "typescript": "^5.7 || ^6 || ^7",
       },
-      "optionalPeers": [
-        "sui-effect",
-      ],
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.27.0",
+      "version": "0.28.0",
       "dependencies": {
         "@misofm/musicos": "0.4.0",
         "@misofm/partyos": "0.4.0",
@@ -91,20 +85,17 @@
         "@mysten/move-bytecode-template": "^0.4.0",
         "@mysten/sui": "2.29.0",
         "@types/bun": "^1.3.14",
+        "@unconfirmed/sui-effect": "0.1.0",
         "effect": "4.0.0-rc.112",
-        "sui-effect": "file:../../vendor/sui-effect-0.1.0.tgz",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@mysten/move-bytecode-template": "^0.4.0",
         "@mysten/sui": "2.29.0",
+        "@unconfirmed/sui-effect": "^0.1.0",
         "effect": "4.0.0-rc.112",
-        "sui-effect": "^0.1.0",
         "typescript": "^5.7 || ^6 || ^7",
       },
-      "optionalPeers": [
-        "sui-effect",
-      ],
     },
     "packages/streaming": {
       "name": "@misofm/streaming",
@@ -295,6 +286,8 @@
 
     "@typescript/typescript-win32-x64": ["@typescript/typescript-win32-x64@7.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g=="],
 
+    "@unconfirmed/sui-effect": ["@unconfirmed/sui-effect@0.1.0", "", { "peerDependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.28", "effect": "4.0.0-rc.112" } }, "sha512-ztgyHXhOoBQSGSGoHvOC5cK4QthK12jd+LE5gF+5311Xre6CVUcqG2jmApJejkER0ojM/XoeV7ofvgq1t5/LrQ=="],
+
     "@videojs/vhs-utils": ["@videojs/vhs-utils@4.1.2", "", { "dependencies": { "@babel/runtime": "^7.12.5", "global": "^4.4.0" } }, "sha512-1Dsv5dtWOq0LP1G37O46FQFA2tKAZON5UMe6dFPxT7JvPhEx8QIXcFQxan8+hHI3fX6aomFRFrUBJNgRYQDSXA=="],
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
@@ -372,8 +365,6 @@
     "pure-rand": ["pure-rand@8.4.2", "", {}, "sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng=="],
 
     "redis": ["redis@6.2.1", "", { "dependencies": { "@redis/bloom": "6.2.1", "@redis/client": "6.2.1", "@redis/json": "6.2.1", "@redis/search": "6.2.1", "@redis/time-series": "6.2.1" } }, "sha512-Z9VHtgYs48PiQC77X9O2Er8Hj4T+5BtFjT91/vi5Is1D04N72cA946ZslM1ImJw8ZctFBZWAVjM7S5wJNeHMpg=="],
-
-    "sui-effect": ["sui-effect@../../vendor/sui-effect-0.1.0.tgz", { "peerDependencies": { "@mysten/bcs": "^2.1.1", "@mysten/sui": "^2.28", "effect": ">=4.0.0-rc.112 <4.1" } }, "sha512-h0+OvBG9a0UQ5kEzDarpqG3EXxTxVKMwFD9C/vW0xC4FIEfDBhfOJzrTPNd9D8bGRM8mC+GcQQKM0HZonXJK3A=="],
 
     "toml": ["toml@5.0.0", "", {}, "sha512-bsqEd+g7fzlrw7LEynQ6W6aOK/lTOlepz5x1sJyIV9fTZVJS2Q76nuju6FK+gZhW5bUpvB7mCEqdR0u4WziMFw=="],
 

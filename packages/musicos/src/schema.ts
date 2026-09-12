@@ -28,7 +28,7 @@
 // struct it wraps), and a domain type is not a BCS layout.
 
 import { Schema, SchemaTransformation } from "effect";
-import { SuiSchema } from "sui-effect";
+import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as composition from "./contracts/musicos/composition.ts";
 import * as recording from "./contracts/musicos/recording.ts";
 import * as release from "./contracts/musicos/release.ts";

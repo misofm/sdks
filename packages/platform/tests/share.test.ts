@@ -13,10 +13,10 @@ import { normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { SuiClientTypes } from "@mysten/sui/client";
 import { Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import type { Sui, SuiCore } from "sui-effect";
-import { FakeOutcome, layerTest, SuiTest } from "sui-effect/testing";
-import type { SuiCoreFake } from "sui-effect/testing";
-import { Journal, Signer } from "sui-effect/tx";
+import type { Sui, SuiCore } from "@unconfirmed/sui-effect";
+import { FakeOutcome, layerTest, SuiTest } from "@unconfirmed/sui-effect/testing";
+import type { SuiCoreFake } from "@unconfirmed/sui-effect/testing";
+import { Journal, Signer } from "@unconfirmed/sui-effect/tx";
 import { createShareCurrency, initializeShareCurrencies, publishShareCurrencies } from "../src/share.ts";
 
 const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;

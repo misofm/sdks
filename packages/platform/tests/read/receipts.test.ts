@@ -3,8 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { KNOWN_CHAIN_IDS, SuiGraphQL } from "sui-effect";
-import { layerTest, SuiTest } from "sui-effect/testing";
+import { KNOWN_CHAIN_IDS, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest, SuiTest } from "@unconfirmed/sui-effect/testing";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import {
   findRecordSale,

@@ -8,7 +8,7 @@
  * is the same tagged error instance an Effect caller would have caught.
  */
 import type { ClientWithCoreApi, SuiClientRegistration } from "@mysten/sui/client";
-import { SuiExtension, type ExtensionFace, type PromiseFace } from "sui-effect/extension";
+import { SuiExtension, type ExtensionFace, type PromiseFace } from "@unconfirmed/sui-effect/extension";
 import { Musicos, type MusicosOptions, type MusicosService } from "./Musicos.ts";
 
 /**

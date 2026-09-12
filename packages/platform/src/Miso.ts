@@ -38,8 +38,8 @@ import {
   type SuiService,
   type TransportError,
   type UnexpectedEffects,
-} from "sui-effect";
-import { Tx, type RunError } from "sui-effect/tx";
+} from "@unconfirmed/sui-effect";
+import { Tx, type RunError } from "@unconfirmed/sui-effect/tx";
 
 import {
   getMisoPlatformDeployment,

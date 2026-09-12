@@ -4,8 +4,8 @@
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
 import { bcs } from "@mysten/sui/bcs";
-import type { Sui } from "sui-effect";
-import { layerTest, type FakeObject } from "sui-effect/testing";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as releaseKind from "../../src/contracts/release_kind/release_kind.ts";
 import {
   getReleaseKind,

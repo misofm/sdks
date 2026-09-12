@@ -5,7 +5,7 @@
 // branded through the BCS bridge in `./schema.ts` rather than plain strings.
 
 import { Schema } from "effect";
-import { ObjectId } from "sui-effect";
+import { ObjectId } from "@unconfirmed/sui-effect";
 
 export const PartyKind = Schema.Literals(["individual", "group"]);
 export type PartyKind = typeof PartyKind.Type;

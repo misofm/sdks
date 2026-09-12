@@ -31,7 +31,7 @@
 import { Effect, Option, Result } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
-import { ObjectId, Sui, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
 import type {
   Transaction,
   TransactionArgument,

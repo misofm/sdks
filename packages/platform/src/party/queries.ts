@@ -18,7 +18,7 @@
 import { Effect, Option, Stream } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import { normalizeStructTag } from "@mysten/sui/utils";
-import { ObjectId, Sui, SuiSchema, type DecodeError, type TransportError } from "sui-effect";
+import { ObjectId, Sui, SuiSchema, type DecodeError, type TransportError } from "@unconfirmed/sui-effect";
 import { Profile as ProfileBcs, ProfileKey as ProfileKeyBcs } from "../contracts/party_profile/party_profile.ts";
 import { Media as MediaBcs, MediaKey as MediaKeyBcs } from "../contracts/party_media/party_media.ts";
 import { ArtistRole as ArtistRoleBcs, RolesKey as RolesKeyBcs } from "../contracts/party_roles/party_roles.ts";

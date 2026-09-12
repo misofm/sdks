@@ -20,7 +20,7 @@
 
 import type { Option } from "effect";
 import { Effect } from "effect";
-import { Sui, type ObjectId, type Recipe, type DecodeError, type SuiService, type TransportError } from "sui-effect";
+import { Sui, type ObjectId, type Recipe, type DecodeError, type SuiService, type TransportError } from "@unconfirmed/sui-effect";
 import { contracts, derivePartyAdminCapId, type PartyosService } from "@misofm/partyos";
 import type { PartyExtensionsDeployment } from "../deployments.ts";
 import * as queries from "./queries.ts";

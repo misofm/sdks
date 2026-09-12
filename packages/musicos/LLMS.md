@@ -27,7 +27,7 @@ when there is none. `layerConfig` is the same layer with `MUSICOS_PACKAGE_ID`
 (`Config.nested("MUSICOS")`, `Config.nonEmptyString("PACKAGE_ID")`)
 overriding the bundled choice. `layerTest` is the real service over a fixed
 (or given) test package id — compose it with `layerExtensionTest` from
-`sui-effect/testing`.
+`@unconfirmed/sui-effect/testing`.
 
 ### `MusicosOptions` (interface)
 
@@ -86,7 +86,7 @@ Non-generic types (`Release`, `ReleaseRegistry`, `ReleaseAdminCap`) decode
 through an exact type-tag check; `Composition`, `Recording` and their two
 admin caps are generic, and read through a **bare** expected tag that
 matches every instantiation (see `docs/extensions.md`'s "Generic Move
-types" in `node_modules/sui-effect`). `get*ByIds` returns one `Result` per
+types" in `node_modules/@unconfirmed/sui-effect`). `get*ByIds` returns one `Result` per
 id, in request order — nothing is silently dropped. `getOwned*AdminCaps`
 streams every page of `owner`'s objects filtered by the bare cap type.
 
@@ -171,7 +171,7 @@ bundles no manifest for the client's network. Replaces the predecessor
 Also re-exported from this subpath: `BuildError`, `DecodeError`,
 `GraphQLUnavailable`, `ObjectDeleted`, `ObjectNotFound`, `ObjectUnavailable`,
 `SimulationFailed`, `TransportError`, and the `BatchItemError` type — all
-from `sui-effect`, so `@misofm/musicos/errors` is still the one place to
+from `@unconfirmed/sui-effect`, so `@misofm/musicos/errors` is still the one place to
 import the package's whole error vocabulary from.
 
 ## `@misofm/musicos/transactions`
@@ -193,7 +193,7 @@ export declare function publishRelease(tx: Transaction, params: { release, admin
 `create*` primitives append exactly one Move call and return every by-value
 result, undispersed; `publish*` consumes and shares. `Musicos` has no submit
 member — compose these (and fragments from other extensions) into one
-`Transaction`, then `Tx.run(recipe, { signer })` from `sui-effect/tx`.
+`Transaction`, then `Tx.run(recipe, { signer })` from `@unconfirmed/sui-effect/tx`.
 
 ## `@misofm/musicos/parsers` and `@misofm/musicos/events`
 
@@ -288,7 +288,7 @@ deployment manifest (`bindModulePackage`, `MisoPackageBindings`,
 ## `@misofm/musicos` (deprecated compatibility)
 
 ```ts
-/** @deprecated Use `Recipe` from `sui-effect`. */
+/** @deprecated Use `Recipe` from `@unconfirmed/sui-effect`. */
 export type TxThunk = Recipe
 ```
 

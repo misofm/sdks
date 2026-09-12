@@ -10,7 +10,7 @@
 import { Transaction, type TransactionArgument, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { Effect, Schema } from "effect";
-import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 
 import { RoyaltyPool as RoyaltyPoolBcs } from "./contracts/royalty_pool/pool.ts";
 import { Stake as RoyaltyStakeBcs } from "./contracts/royalty_pool/stake.ts";

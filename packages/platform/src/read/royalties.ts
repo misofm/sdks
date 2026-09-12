@@ -21,7 +21,7 @@
 
 import { normalizeStructTag, normalizeSuiAddress, parseStructTag } from "@mysten/sui/utils";
 import { Effect } from "effect";
-import { GraphQLUnavailable, SuiGraphQL, TransportError } from "sui-effect";
+import { GraphQLUnavailable, SuiGraphQL, TransportError } from "@unconfirmed/sui-effect";
 import { MalformedRoyaltyClaimedEventError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import type { RoyaltyClaim, RoyaltyClaimEntry, RoyaltyClaimPage } from "./types.ts";

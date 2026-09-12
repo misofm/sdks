@@ -18,7 +18,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { Effect, Result } from "effect";
-import { ObjectId, Sui, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
 import type { TxThunk } from "./transactions.ts";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";

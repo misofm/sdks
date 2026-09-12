@@ -68,7 +68,7 @@ export * as contracts from "./contracts.ts";
 // still imports these names from `@misofm/musicos`. Neither is part of the
 // target shape misofm/sdks#34 describes.
 
-import type { Recipe } from "sui-effect";
+import type { Recipe } from "@unconfirmed/sui-effect";
 
 /** @deprecated Use `Recipe` from `sui-effect`; every builder in `./transactions.ts` is already one. Kept for platform's `packages/platform/src/transactions.ts`. */
 export type TxThunk = Recipe;

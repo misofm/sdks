@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Schema } from "effect";
-import { SuiSchema } from "sui-effect";
+import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as compositionContract from "../src/contracts/musicos/composition.ts";
 import * as recordingContract from "../src/contracts/musicos/recording.ts";
 import * as releaseContract from "../src/contracts/musicos/release.ts";

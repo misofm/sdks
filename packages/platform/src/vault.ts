@@ -20,7 +20,7 @@ import type {
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { Effect, Schema } from "effect";
-import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "sui-effect";
+import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import * as vault from "./contracts/vault/vault.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
 import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";

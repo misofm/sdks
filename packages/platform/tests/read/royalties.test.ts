@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { SuiGraphQL } from "sui-effect";
+import { SuiGraphQL } from "@unconfirmed/sui-effect";
 import { listRoyaltyClaims, royaltyClaimedEventType } from "../../src/read/royalties.ts";
 import type { MisoConfig } from "../../src/read/config.ts";
 

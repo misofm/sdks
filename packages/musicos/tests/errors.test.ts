@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { TestSchema } from "effect/testing";
-import { SuiAddress } from "sui-effect";
+import { SuiAddress } from "@unconfirmed/sui-effect";
 import { MusicosDeploymentInvalid, MusicosTreasuryCapNotFound } from "../src/errors.ts";
 
 describe("MusicosTreasuryCapNotFound", () => {

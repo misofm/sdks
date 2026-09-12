@@ -11,7 +11,7 @@
 // `roles` and `tags` are opt-in via `include`.
 
 import { Effect, Option, Result } from "effect";
-import { ObjectId, Sui, type TransportError } from "sui-effect";
+import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
 import { Partyos, type PartyosDeploymentError, type PartyReadError } from "@misofm/partyos";
 import { getCtas, getGenres, getLinks, getProfile, getRoles, getTags } from "../party/queries.ts";
 import { resolveGenreNames } from "./genres.ts";

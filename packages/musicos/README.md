@@ -13,16 +13,16 @@ extension: one `Context.Service` (`Musicos`), built on `sui-effect`'s `Sui`,
 whose members are `Effect`s with closed error unions, whose writes are PTB
 fragments a consumer composes and submits once, and whose Promise face is
 derived — never hand-written — by `SuiExtension.fromService`. See
-`node_modules/sui-effect/docs/extensions.md` for the contract every extension
+`node_modules/@unconfirmed/sui-effect/docs/extensions.md` for the contract every extension
 in this codebase follows.
 
 ## Install
 
 ```sh
-bun add @misofm/musicos sui-effect effect @mysten/sui @mysten/bcs
+bun add @misofm/musicos @unconfirmed/sui-effect effect @mysten/sui @mysten/bcs
 ```
 
-Peer dependencies: `sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
+Peer dependencies: `@unconfirmed/sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
 `@mysten/sui@^2.28`, `@mysten/bcs@^2.1.1`.
 
 ## Usage
@@ -31,8 +31,8 @@ Peer dependencies: `sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
 
 ```ts
 import { Effect } from "effect"
-import { ObjectId } from "sui-effect"
-import { Sui, SuiCore } from "sui-effect"
+import { ObjectId } from "@unconfirmed/sui-effect"
+import { Sui, SuiCore } from "@unconfirmed/sui-effect"
 import { Musicos } from "@misofm/musicos"
 
 const program = Effect.gen(function* () {
@@ -58,7 +58,7 @@ your program already has.
 
 ```ts
 import { SuiGrpcClient } from "@mysten/sui/grpc"
-import { ObjectId, SuiAddress } from "sui-effect"
+import { ObjectId, SuiAddress } from "@unconfirmed/sui-effect"
 import { musicos } from "@misofm/musicos"
 
 const client = new SuiGrpcClient({ network: "testnet", baseUrl: "https://..." }).$extend(musicos())
@@ -97,7 +97,7 @@ then submitted once:
 
 ```ts
 import { Transaction } from "@mysten/sui/transactions"
-import { Tx } from "sui-effect/tx"
+import { Tx } from "@unconfirmed/sui-effect/tx"
 import { createComposition, publishComposition } from "@misofm/musicos/transactions"
 
 const recipe = (tx: Transaction) => {
@@ -160,7 +160,7 @@ with, since naming one is exactly what the search came up empty on:
 
 ```ts
 import { Effect } from "effect"
-import { SuiGraphQL } from "sui-effect"
+import { SuiGraphQL } from "@unconfirmed/sui-effect"
 import { getCompositionByShareType } from "@misofm/musicos"
 
 const program = getCompositionByShareType(shareType, packageId).pipe(
@@ -237,7 +237,7 @@ composing `Effect` programs at a configuration boundary.
 | `get*ByIds` returning `Record<string, T>`, errored ids dropped | `ReadonlyArray<Result<T, BatchItemError>>` in request order — nothing is silently dropped |
 | `getShareCurrencyTreasuryCap` throwing | Fails typed `musicos/TreasuryCapNotFound` (or `DecodeError` for a malformed `shareType`) |
 | `ObjectNotFoundError`, `BcsDecodeError`, `SuiRpcError`, `DeploymentError` | `ObjectNotFound` / `ObjectDeleted` / `ObjectUnavailable`, `DecodeError`, `TransportError`, `musicos/DeploymentInvalid` |
-| `TxThunk`; `./execute` (`buildTx`, `signAndExecute`, `ExecResult`, ...) | `Recipe` (a deprecated `TxThunk` alias is kept); `Tx.run(recipe, { signer })` from `sui-effect/tx`, `Executed.created(type)` and friends |
+| `TxThunk`; `./execute` (`buildTx`, `signAndExecute`, `ExecResult`, ...) | `Recipe` (a deprecated `TxThunk` alias is kept); `Tx.run(recipe, { signer })` from `@unconfirmed/sui-effect/tx`, `Executed.created(type)` and friends |
 | `parseXEvent(bytes): T` (throws) | `parseXEvent(bytes): Effect<T, DecodeError>` |
 | `deriveTargetReleaseId(pkg, params)` | `musicos.view.deriveTargetReleaseId(params)` |
 | `getReleaseAdminCapById` reading `release_id` from the `json` include | Reads it from BCS `content`; no visible change |

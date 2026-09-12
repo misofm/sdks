@@ -12,7 +12,7 @@
 // keeps matching.
 
 import { Schema } from "effect";
-import type { Outcome } from "sui-effect";
+import type { Outcome } from "@unconfirmed/sui-effect";
 
 // Re-export sui-effect's own taxonomy so a platform consumer never needs a
 // second import for the errors platform reads/writes surface directly. This
@@ -35,7 +35,7 @@ export {
   TransportError,
   type BatchItemError,
   type GetObjectError,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 
 /** Record sales (Record + Record Shop) are unavailable on this deployment. */
 export class RecordSalesUnavailableError extends Schema.TaggedError<RecordSalesUnavailableError>()(

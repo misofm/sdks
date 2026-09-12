@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { ConfigProvider, Effect, Exit, Layer, Option, Cause } from "effect";
-import { KNOWN_CHAIN_IDS } from "sui-effect";
-import { layerTest } from "sui-effect/testing";
+import { KNOWN_CHAIN_IDS } from "@unconfirmed/sui-effect";
+import { layerTest } from "@unconfirmed/sui-effect/testing";
 import { MusicosDeploymentInvalid } from "../src/errors.ts";
 import { Musicos } from "../src/Musicos.ts";
 

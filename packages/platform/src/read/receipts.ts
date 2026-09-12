@@ -33,7 +33,7 @@ import {
   type BatchItemError,
   type DecodeError,
   type TransactionNotFound,
-} from "sui-effect";
+} from "@unconfirmed/sui-effect";
 import { getPressingDetail } from "./catalog.ts";
 import { int } from "./internal/scalars.ts";
 import { requireRecordSalesDeployment } from "../deployments.ts";
