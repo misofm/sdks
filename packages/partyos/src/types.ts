@@ -16,7 +16,7 @@ export class Party extends Schema.Class<Party>("@misofm/partyos/Party")({
   /** Human-readable name (not verified). */
   name: Schema.String,
   /** Member party ids — present only when `kind === "group"`. */
-  members: Schema.optional(Schema.Array(ObjectId)),
+  members: Schema.optionalKey(Schema.Array(ObjectId)),
   /** Unix ms when the party was created. */
   createdAtMs: Schema.Number,
 }) {}

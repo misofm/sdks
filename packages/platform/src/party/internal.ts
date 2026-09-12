@@ -36,11 +36,12 @@ function unwrapCode(v: unknown): string | undefined {
 
 // deno-lint-ignore no-explicit-any -- generated parse output is loosely typed
 export function mapProfile(partyId: string, d: any): Profile {
+  const country = unwrapCode(d.country);
   return {
     partyId,
     bioShort: d.bio_short,
-    bioLong: d.bio_long ?? undefined,
-    country: unwrapCode(d.country),
+    ...(d.bio_long == null ? {} : { bioLong: d.bio_long }),
+    ...(country === undefined ? {} : { country }),
     languages: Array.isArray(d.languages)
       ? d.languages.map((l: unknown) => unwrapCode(l)).filter((c: unknown): c is string => Boolean(c))
       : [],

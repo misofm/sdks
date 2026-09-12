@@ -113,8 +113,8 @@ export class MisoChainIdentifierMismatchError extends Schema.TaggedError<MisoCha
 export class MalformedRecordSoldEventError extends Schema.TaggedError<MalformedRecordSoldEventError>()(
   "MalformedRecordSoldEventError",
   {
-    digest: Schema.optional(Schema.String),
-    reason: Schema.optional(Schema.String),
+    digest: Schema.optionalKey(Schema.String),
+    reason: Schema.optionalKey(Schema.String),
   },
 ) {
   readonly outcome: Outcome = "not_applied";
@@ -137,8 +137,8 @@ export type MisoAuthErrorCode = typeof MisoAuthErrorCode.Type;
 export class MisoAuthError extends Schema.TaggedError<MisoAuthError>()("MisoAuthError", {
   code: MisoAuthErrorCode,
   reason: Schema.String,
-  status: Schema.optional(Schema.Number),
-  cause: Schema.optional(Schema.Defect()),
+  status: Schema.optionalKey(Schema.Number),
+  cause: Schema.optionalKey(Schema.Defect()),
 }) {
   /** An HTTP authorization failure never submits a transaction. */
   readonly outcome: Outcome = "not_applied";
@@ -190,7 +190,7 @@ export class RecordPurchaseNotFoundError extends Schema.TaggedError<RecordPurcha
 /** An object exists at the requested Pressing id, but is not a Pressing from the configured Record package. */
 export class ForeignPressingError extends Schema.TaggedError<ForeignPressingError>()("ForeignPressingError", {
   pressingId: Schema.String,
-  actualType: Schema.optional(Schema.String),
+  actualType: Schema.optionalKey(Schema.String),
 }) {
   readonly outcome: Outcome = "not_applied";
   override get message(): string {
