@@ -118,6 +118,11 @@ export class MalformedRecordSoldEventError extends Schema.TaggedError<MalformedR
   },
 ) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    const digest = this.digest ? ` (transaction ${this.digest})` : "";
+    const reason = this.reason ? `: ${this.reason}` : "";
+    return `@misofm/platform: malformed RecordSoldEvent${digest}${reason}.`;
+  }
 }
 
 /** Authenticated-fetch / API-authorization signing or verification failure. */
@@ -154,6 +159,9 @@ export class ReleaseNotFoundError extends Schema.TaggedError<ReleaseNotFoundErro
   releaseId: Schema.String,
 }) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `@misofm/platform: no Release exists at id ${this.releaseId}.`;
+  }
 }
 
 /** The fullnode and the indexer both have no record of this transaction digest. */
@@ -161,6 +169,9 @@ export class ReceiptNotFoundError extends Schema.TaggedError<ReceiptNotFoundErro
   digest: Schema.String,
 }) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `@misofm/platform: no receipt found for transaction ${this.digest}.`;
+  }
 }
 
 /** The transaction exists, but its effects contain no `record_shop::listing::RecordSoldEvent`. */
@@ -171,6 +182,9 @@ export class RecordPurchaseNotFoundError extends Schema.TaggedError<RecordPurcha
   },
 ) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `@misofm/platform: transaction ${this.digest} contains no RecordSoldEvent.`;
+  }
 }
 
 /** An object exists at the requested Pressing id, but is not a Pressing from the configured Record package. */

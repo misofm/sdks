@@ -33,6 +33,9 @@ export class MusicosTreasuryCapNotFound extends Schema.TaggedError<MusicosTreasu
   { shareType: Schema.String, owner: SuiAddress },
 ) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `No TreasuryCap<${this.shareType}> owned by ${this.owner} was found.`;
+  }
 }
 
 /**
@@ -48,6 +51,9 @@ export class MusicosWorkNotFound extends Schema.TaggedError<MusicosWorkNotFound>
   { kind: Schema.Literals(["composition", "recording"]), shareType: Schema.String },
 ) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `No ${this.kind} carries share type ${this.shareType}.`;
+  }
 }
 
 /**

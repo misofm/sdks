@@ -22,6 +22,9 @@ export class PartyNotFound extends Schema.TaggedError<PartyNotFound>()("partyos/
   partyId: ObjectId,
 }) {
   readonly outcome: Outcome = "not_applied";
+  override get message(): string {
+    return `No Party object with id ${this.partyId} exists for this deployment.`;
+  }
 }
 
 /**
