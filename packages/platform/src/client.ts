@@ -35,12 +35,6 @@ import type {} from "@mysten/bcs";
 import type { Signer } from "@mysten/sui/cryptography";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import type { ParallelTransactionExecutor } from "@mysten/sui/transactions";
-import {
-  miso as protocolMiso,
-  type MisoProtocolClient,
-} from "@misofm/musicos/client";
-import { PartyosClient } from "@misofm/partyos";
-import { PartyPlatformClient } from "./party/index.ts";
 
 import * as recordContract from "./contracts/record/record.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";
@@ -115,7 +109,6 @@ import type {
   PublishCompositionAndRecordingParams,
   PublishReleaseParams,
 } from "./transactions.ts";
-import * as share from "./share.ts";
 import {
   publishReleaseGraph,
   type PublishReleaseGraphParams,
@@ -161,18 +154,16 @@ import {
   type SetReleaseCoverParams,
   type SetReleaseTrackCoverParams,
 } from "./cover.ts";
+import { Effect, Layer } from "effect";
 import {
-  executeViaExecutor as executePlatformViaExecutor,
-  type PlatformExecResult,
-} from "./execute.ts";
-import { Effect } from "effect";
-import {
-  SuiClient,
-  SuiRpcError,
-  type BcsDecodeError,
-  type ObjectTypeMismatchError,
-  type TransactionFailedError,
-} from "@misofm/effect";
+  Sui,
+  SuiCore,
+  TransportError,
+  type DecodeError,
+  type NetworkMismatch,
+  type ObjectDeleted,
+  type ObjectUnavailable,
+} from "sui-effect";
 import {
   MisoChainIdentifierMismatchError,
   MisoClientNotReadyError,
@@ -390,8 +381,6 @@ export type ConfiguredReleaseGraphParams = Omit<
 export class MisoPlatformClient {
   readonly #client: ClientWithCoreApi;
   readonly #config: MisoPlatformConfig;
-  readonly #protocol?: MisoProtocolClient;
-  readonly #party?: PartyPlatformClient;
   readonly #chainIdentifier?: string;
   /** Bundled/custom deployment selected for the full facade, when available. */
   readonly deployment?: MisoPlatformDeployment;
@@ -399,13 +388,22 @@ export class MisoPlatformClient {
     "unvalidated";
   /** Set once in the constructor via `Effect.cached`, so every caller of
    * `ready()` shares the same in-flight/completed chain read. */
-  readonly #readyEffect: Effect.Effect<void, MisoChainIdentifierMismatchError | SuiRpcError>;
-  readonly #layer: ReturnType<typeof SuiClient.layer>;
+  readonly #readyEffect: Effect.Effect<void, MisoChainIdentifierMismatchError | TransportError>;
+  /** `Sui` over this client, for the pressing-read methods (`#run`). Built lazily:
+   * `Sui.layerNoDeps` reads the chain identifier once, at first use. */
+  readonly #suiLayer: Layer.Layer<Sui, NetworkMismatch | TransportError>;
 
+  // `protocol` (the converted `Musicos` service) and `party` (the converted
+  // `MisoPartyService`, `../Miso.ts`) no longer live on this class — WP3
+  // "party and protocol composition" (misofm/sdks#35) moved both onto the
+  // `Miso` service (`Miso.layer`/`Miso.layerTest` compose `Musicos`/`Partyos`
+  // internally). This class predates that service and is deleted outright in
+  // stage 3 (WP6 "facade derivation"); until then it keeps its pressing/vault/
+  // publish surface but no longer constructs a protocol or party client of
+  // its own.
   constructor(
     client: ClientWithCoreApi,
     config: MisoPlatformConfig,
-    protocol?: MisoProtocolClient,
     deployment?: MisoPlatformDeployment,
   ) {
     const configSnapshot = immutableSnapshot(config);
@@ -417,30 +415,10 @@ export class MisoPlatformClient {
     if (configSnapshot.operations?.status === "available") {
       requireOperationsDeployment(configSnapshot.operations);
     }
-    // A pressing-only facade must not implicitly register a fail-closed core
-    // extension. Supply a core deployment/misoPackageId when `protocol` is
-    // needed; otherwise this remains a safe, independent pressing client.
-    this.#protocol =
-      protocol ??
-      (configSnapshot.misoPackageId
-        ? protocolMiso({
-            deployment: { packageId: configSnapshot.misoPackageId },
-          }).register(client)
-        : undefined);
     this.deployment = deploymentSnapshot;
-    // The one place `PartyPlatformClient` is constructed: from this platform
-    // deployment's `partyos` (core) and `party` (extensions) sections, not
-    // from the object-model protocol client.
-    this.#party = deploymentSnapshot
-      ? new PartyPlatformClient(
-          client,
-          new PartyosClient(client, deploymentSnapshot.partyos),
-          deploymentSnapshot.party,
-        )
-      : undefined;
     this.#chainIdentifier =
       deploymentSnapshot?.chainIdentifier ?? configSnapshot.chainIdentifier;
-    this.#layer = SuiClient.layer(client);
+    this.#suiLayer = Sui.layerNoDeps.pipe(Layer.provide(SuiCore.layerFromClient(client)));
     // Built once; `Effect.cached` shares the same in-flight/completed chain
     // read across every caller of `ready()` — the outer `Effect.cached(...)`
     // itself only sets up the memoization ref, so running it synchronously
@@ -459,7 +437,7 @@ export class MisoPlatformClient {
           const expected = this.#chainIdentifier;
           return Effect.tryPromise({
             try: (signal) => this.#client.core.getChainIdentifier({ signal }),
-            catch: (cause) => new SuiRpcError({ operation: "getChainIdentifier", cause }),
+            catch: (cause) => TransportError.fromUnknown("getChainIdentifier", cause),
           }).pipe(
             Effect.flatMap(({ chainIdentifier }) =>
               chainIdentifier === expected
@@ -474,24 +452,17 @@ export class MisoPlatformClient {
     );
   }
 
-  /** Permissionless protocol APIs bound to the same validated ledger. */
-  get protocol(): MisoProtocolClient | undefined {
-    if (!this.#protocol) return undefined;
-    this.#requireReady("protocol APIs");
-    return this.#protocol;
-  }
-
   /**
    * Memoized exact-ledger readiness gate. Registration already rejects a
    * synchronous network-label mismatch; this Core API read protects every
    * client-bound write surface from a mislabeled or custom endpoint.
    */
-  ready(): Effect.Effect<void, MisoChainIdentifierMismatchError | SuiRpcError> {
+  ready(): Effect.Effect<void, MisoChainIdentifierMismatchError | TransportError> {
     return this.#readyEffect;
   }
 
   /** Compatibility hook; prefer `client.miso.ready()`. */
-  validateChainIdentifier(): Effect.Effect<string, MisoChainIdentifierMismatchError | SuiRpcError> {
+  validateChainIdentifier(): Effect.Effect<string, MisoChainIdentifierMismatchError | TransportError> {
     return this.ready().pipe(Effect.map(() => this.#chainIdentifier!));
   }
 
@@ -524,27 +495,16 @@ export class MisoPlatformClient {
   }
 
   /**
-   * Runs the exact-ledger readiness gate, then provides `SuiClient` from this
+   * Runs the exact-ledger readiness gate, then provides `Sui` from this
    * client's `ClientWithCoreApi`, so a read method's program has `R = never`.
    */
   #run<A, E>(
-    effect: Effect.Effect<A, E, SuiClient>,
-  ): Effect.Effect<A, E | MisoChainIdentifierMismatchError | SuiRpcError> {
+    effect: Effect.Effect<A, E, Sui>,
+  ): Effect.Effect<A, E | MisoChainIdentifierMismatchError | NetworkMismatch | TransportError> {
     return this.ready().pipe(
       Effect.flatMap(() => effect),
-      Effect.provide(this.#layer),
+      Effect.provide(this.#suiLayer),
     );
-  }
-
-  /** Party identity and profile APIs, backed by the network SDK. */
-  get party(): PartyPlatformClient {
-    if (!this.#party) {
-      throw new Error(
-        "misoPlatform: Party APIs require the complete platform deployment. Use miso({ deployment }).",
-      );
-    }
-    this.#requireReady("party APIs");
-    return this.#party;
   }
 
   #recordSales() {
@@ -624,7 +584,7 @@ export class MisoPlatformClient {
     pressingId: string,
   ): Effect.Effect<
     Pressing | null,
-    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+    DecodeError | ObjectUnavailable | TransportError | MisoChainIdentifierMismatchError | NetworkMismatch
   > {
     return this.#run(getPressing(pressingId, this.recordPackageId));
   }
@@ -634,7 +594,7 @@ export class MisoPlatformClient {
     listingId: string,
   ): Effect.Effect<
     Listing | null,
-    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+    DecodeError | ObjectUnavailable | TransportError | MisoChainIdentifierMismatchError | NetworkMismatch
   > {
     return this.#run(getListing(listingId, this.recordShopPackageId));
   }
@@ -644,7 +604,7 @@ export class MisoPlatformClient {
     recordId: string,
   ): Effect.Effect<
     PressingRecord | null,
-    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+    DecodeError | ObjectUnavailable | TransportError | MisoChainIdentifierMismatchError | NetworkMismatch
   > {
     return this.#run(getRecord(recordId, this.recordPackageId));
   }
@@ -652,7 +612,7 @@ export class MisoPlatformClient {
   /** Run + one currency's offer in a single round trip, by address math. */
   getSale(p: Configured<GetSaleParams>): Effect.Effect<
     { pressing: Pressing | null; listing: Listing | null },
-    ObjectTypeMismatchError | BcsDecodeError | SuiRpcError | MisoChainIdentifierMismatchError
+    DecodeError | ObjectDeleted | ObjectUnavailable | TransportError | MisoChainIdentifierMismatchError | NetworkMismatch
   > {
     return this.#run(
       getSale({
@@ -917,23 +877,13 @@ export class MisoPlatformClient {
     return vaultActions;
   }
 
-  // ── Share currency provisioning (executes; Signer pattern) ─────────────────
-
-  /** Publishes + initializes a fresh share currency (two txs). */
-  createShareCurrency(
-    signer: Signer,
-    params: share.CreateShareCurrencyParams,
-  ): Effect.Effect<share.ShareCurrency, SuiRpcError | TransactionFailedError | MisoChainIdentifierMismatchError> {
-    return this.#run(share.createShareCurrency(signer, params));
-  }
-
-  /** Execute a composed platform PTB only after exact-ledger validation. */
-  executeViaExecutor(
-    executor: ParallelTransactionExecutor,
-    ...thunks: TxThunk[]
-  ): Effect.Effect<PlatformExecResult, SuiRpcError | MisoChainIdentifierMismatchError> {
-    return this.ready().pipe(Effect.flatMap(() => executePlatformViaExecutor(executor, ...thunks)));
-  }
+  // Share-currency provisioning (`createShareCurrency`, `publishShareCurrencies`,
+  // `initializeShareCurrencies`) is no longer wrapped here — no consumer called
+  // this class's `createShareCurrency`, and the standalone `share.ts` functions
+  // now run through `Tx.run` with a sui-effect `Signer` (misofm/sdks#35 WP4),
+  // a submission lifecycle (journal, sender lock, reconcile) `#run`'s plain
+  // `Sui`-provide has no equivalent for. Call
+  // `share.createShareCurrency(params, { signer })` directly.
 
   // ── Generated layer ───────────────────────────────────────────────────────
 
@@ -1327,8 +1277,11 @@ export { MisoPlatformClient as MisoClient };
 /**
  * Registers the complete Miso facade at `client.miso`.
  *
- * Platform operations live directly on `client.miso`; the lower-level
- * permissionless protocol SDK is available at `client.miso.protocol`.
+ * Platform operations live directly on `client.miso`. The protocol and party
+ * object-model surfaces (`client.miso.protocol`, `client.miso.party` in the
+ * predecessor) now live on the `Miso` service (`../Miso.ts`) instead of this
+ * class — see `Miso.layer`/`Miso.layerTest`, which compose the converted
+ * `Musicos`/`Partyos` services internally.
  */
 export function miso<const Name extends string = "miso">(
   options: MisoOptions<Name> = {},
@@ -1343,10 +1296,6 @@ export function miso<const Name extends string = "miso">(
       if (deployment.network !== client.network) {
         throw new MisoNetworkMismatchError({ clientNetwork: client.network, deploymentNetwork: deployment.network });
       }
-      const protocol = protocolMiso({
-        deployment: deployment.protocol,
-        graphqlClient: options.graphqlClient,
-      }).register(client);
       return new MisoPlatformClient(
         client,
         {
@@ -1376,7 +1325,6 @@ export function miso<const Name extends string = "miso">(
           genreRegistryId: deployment.objects.genreRegistry,
           oriPackageId: deployment.packages.ori,
         },
-        protocol,
         deployment,
       );
     },
@@ -1385,7 +1333,7 @@ export function miso<const Name extends string = "miso">(
 
 /**
  * @deprecated Prefer zero-config `miso()`, which registers the complete facade
- * at `client.miso` and exposes the protocol layer at `client.miso.protocol`.
+ * at `client.miso`.
  */
 export function misoPlatform(config: MisoPlatformConfig) {
   return {
@@ -1395,12 +1343,7 @@ export function misoPlatform(config: MisoPlatformConfig) {
       if (configSnapshot.network && configSnapshot.network !== client.network) {
         throw new MisoNetworkMismatchError({ clientNetwork: client.network, deploymentNetwork: configSnapshot.network });
       }
-      const protocol = configSnapshot.misoPackageId
-        ? protocolMiso({
-            deployment: { packageId: configSnapshot.misoPackageId },
-          }).register(client)
-        : undefined;
-      return new MisoPlatformClient(client, configSnapshot, protocol);
+      return new MisoPlatformClient(client, configSnapshot);
     },
   };
 }
