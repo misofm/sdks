@@ -94,8 +94,16 @@ export type PartyTxBuilders = PartyosService["tx"] & {
  * The party surface at `client.miso.party`: the converted `@misofm/partyos`
  * core (delegated, unchanged) plus this package's own party EXTENSION reads
  * and transaction fragments, bound to one `PartyExtensionsDeployment`.
+ *
+ * Declared as an object type alias, not an `interface` — sui-effect 0.1.0's
+ * `PromiseFace<S>` recurses only into members assignable to
+ * `Record<string, unknown>`, and an `interface` (unlike a type alias's object
+ * literal) is not, so `client.miso.party` would keep typing every member here
+ * as `Effect`-returning while the derived Promise face maps them to
+ * Promise-returning methods at runtime (misofm/sdks#35 verification, A1). See
+ * `docs/CONVERSION.md` "Stage 5".
  */
-export interface MisoPartyService {
+export type MisoPartyService = {
   // === Core (delegated to `Partyos`) ===
   readonly getPartyById: PartyosService["getPartyById"];
   readonly getPartiesByIds: PartyosService["getPartiesByIds"];
@@ -168,7 +176,7 @@ export interface MisoPartyService {
     readonly LinkSetEvent: typeof platformLinkMod.LinkSetEvent;
     readonly LinkClearedEvent: typeof platformLinkMod.LinkClearedEvent;
   };
-}
+};
 
 /**
  * Assembles {@link MisoPartyService} from the converted `Partyos` service and

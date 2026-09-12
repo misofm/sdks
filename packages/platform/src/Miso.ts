@@ -243,7 +243,7 @@ type ConfiguredUnsetRecordingStreamingTranscode = DistributiveOmit<UnsetRecordin
 export type ConfiguredReleaseGraphParams = Omit<PublishReleaseGraphParams, "misoPackageId" | "minatoPackageId">;
 
 /** The 7 sales reads plus PTB builders, bound to `deployment.recordSales` (`RecordSalesUnavailableError` when unavailable). */
-export interface MisoSalesTx {
+export type MisoSalesTx = {
   readonly purchaseRecord: (p: Configured<PurchaseRecordParams>) => TxThunk;
   readonly openPressing: (p: Configured<OpenPressingParams>) => TxThunk;
   readonly openListing: (p: Configured<OpenListingParams>) => TxThunk;
@@ -251,9 +251,9 @@ export interface MisoSalesTx {
   readonly revokeRecordShop: (p: Configured<PressingAdministrationParams>) => TxThunk;
   readonly setListingPrice: (p: Configured<SetListingPriceParams>) => TxThunk;
   readonly setListingState: (p: Configured<SetListingStateParams>) => TxThunk;
-}
+};
 
-export interface MisoTx extends MisoSalesTx {
+export type MisoTx = MisoSalesTx & {
   readonly publishShareCurrency: typeof publishShareCurrency;
   readonly initializeShareCurrency: typeof initializeShareCurrency;
   readonly publishComposition: (p: ConfiguredPublish<PublishCompositionParams>) => TxThunk;
@@ -273,9 +273,9 @@ export interface MisoTx extends MisoSalesTx {
   readonly unsetRecordingStreamingTranscode: (p: ConfiguredUnsetRecordingStreamingTranscode) => TxThunk;
   readonly setRecordingGenres: (p: ConfiguredRecordingGenres) => TxThunk;
   readonly clearRecordingGenres: (p: ConfiguredClearRecordingGenres) => TxThunk;
-}
+};
 
-export interface MisoIds {
+export type MisoIds = {
   readonly pressing: (releaseId: string, edition: number) => string;
   readonly pressingAdminCap: (pressingId: string) => string;
   readonly record: (pressingId: string, number: number) => string;
@@ -284,10 +284,10 @@ export interface MisoIds {
   readonly vault: (capId: string, capType: string) => string;
   readonly vaultAdminCap: (vaultId: string) => string;
   readonly genre: (canonicalName: string) => string;
-}
+};
 
 /** Generated Move-call bindings, gated by which parts of the deployment are configured — `undefined` when their package isn't. */
-export interface MisoCall {
+export type MisoCall = {
   readonly record: ReturnType<typeof bindModulePackage<typeof recordContract, readonly ["destroy", "releaseId", "pressingId", "edition", "number", "purchaseCurrency", "purchasePrice", "purchasedBy", "purchasedTimestampMs", "deriveAddress"]>> | undefined;
   readonly listing:
     | ReturnType<
@@ -336,10 +336,10 @@ export interface MisoCall {
   readonly coverArt: ReturnType<typeof bindModulePackage<typeof coverArtContract, readonly []>>;
   readonly releaseCoverArt: ReturnType<typeof bindModulePackage<typeof releaseCoverArtContract, readonly ["setCover", "unsetCover", "setTrackCover", "unsetTrackCover", "hasCoverArt"]>>;
   readonly releaseCredits: ReturnType<typeof bindModulePackage<typeof releaseCreditsContract, readonly ["addCredit", "removeCredit", "hasCredits"]>>;
-}
+};
 
 /** Generated BCS definitions, for parsing objects or events yourself. */
-export interface MisoBcs {
+export type MisoBcs = {
   readonly Record: typeof recordContract.Record;
   readonly Pressing: typeof pressingContract.Pressing;
   readonly PressingAdminCap: typeof pressingContract.PressingAdminCap;
@@ -381,7 +381,7 @@ export interface MisoBcs {
   readonly ReleaseRevenueDistributedEvent: typeof releaseRevenueDistributorContract.ReleaseRevenueDistributedEvent;
   readonly ReleaseCoinsReceivedEvent: typeof releaseRevenueDistributorContract.ReleaseCoinsReceivedEvent;
   readonly ReleaseFundsRedeemedEvent: typeof releaseRevenueDistributorContract.ReleaseFundsRedeemedEvent;
-}
+};
 
 /**
  * `vault.ts`'s builders, `getVaultAdminCap`, and `resolveReceivingCoins`,
@@ -392,10 +392,10 @@ export interface MisoBcs {
  * map ("callers that tested `if (client.miso.vault)` must test
  * `deployment.operations.status`").
  */
-export interface MisoVault extends Omit<typeof vaultActions, "getVaultAdminCap" | "resolveReceivingCoins"> {
+export type MisoVault = Omit<typeof vaultActions, "getVaultAdminCap" | "resolveReceivingCoins"> & {
   readonly getVaultAdminCap: (vaultAdminCapId: string, capType: string) => Effect.Effect<vaultActions.VaultAdminCap | null, DecodeError | ObjectUnavailable | TransportError>;
   readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], TransportError>;
-}
+};
 
 const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | Musicos | Partyos> =>
   Effect.gen(function* () {
@@ -748,8 +748,22 @@ export interface MisoService {
   readonly network: MisoPlatformDeployment["network"];
   /** The chain identifier this instance was validated against (`deployment.chainIdentifier`). */
   readonly chainId: string;
-  /** The converted `@misofm/musicos` protocol service, always present. */
-  readonly protocol: MusicosService;
+  /**
+   * The converted `@misofm/musicos` protocol service, always present.
+   *
+   * Typed as a mapped copy of `MusicosService`, not the interface itself:
+   * sui-effect 0.1.0's `PromiseFace<S>` recurses only into members assignable
+   * to `Record<string, unknown>`, and an `interface` (unlike a mapped type,
+   * which resolves to a fresh object type) is not — so `client.miso.protocol`
+   * would keep typing every member as `Effect`-returning while the derived
+   * Promise face maps them to Promise-returning methods at runtime
+   * (misofm/sdks#35 verification, A1; fixed on the 0.1.0 library's behaviour
+   * here since `MusicosService` itself is not this package's to redeclare —
+   * `@misofm/musicos`, not `@unconfirmed/sui-effect`, so 0.1.1's own
+   * `PromiseFace` fix does not retroactively change this; this mapped-type
+   * wrapping stays correct either way). See `docs/CONVERSION.md` "Stage 5".
+   */
+  readonly protocol: { readonly [K in keyof MusicosService]: MusicosService[K] };
   /** The party surface: `@misofm/partyos` core plus this package's own party extensions. */
   readonly party: MisoPartyService;
 
