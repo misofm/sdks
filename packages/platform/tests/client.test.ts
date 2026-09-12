@@ -359,15 +359,14 @@ describe("B4 (misofm/sdks#35 verification): the old facade surface, walked", () 
     expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
 
     await client.miso.dispose();
-    // Cold immediately after dispose(): a plain-value member is a
-    // placeholder again, naming itself when coerced to the string it is
-    // typed to be — exactly as it would before the very first call.
-    expect(typeof client.miso.chainId).toBe("function");
-    expect(() => String(client.miso.chainId)).toThrow(ExtensionNotReady);
+    // Since @unconfirmed/sui-effect 0.1.1 a warm registration re-runs its
+    // warm build on the next use after dispose() instead of degrading to a
+    // cold face, so a synchronous member is real again immediately (on 0.1.0
+    // it was a placeholder until the first Effect call).
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
 
-    // The next call rebuilds a fresh runtime — `ready()` (the deprecated
-    // warm-up, an Effect member) works cold, then every synchronous member
-    // is real again.
+    // And an Effect member still works after the rebuild.
     await client.miso.ready();
     expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
     expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
