@@ -288,3 +288,397 @@ still owes
   failing `bun run test:consumer` for reasons unrelated to this stage;
   WP6/WP7 is where it gets its full rewrite.
 - `misofm/app`/`misofm/cli` consumer-edit list (WP7).
+
+## Stage 2 (this run): WP3 party/protocol composition, WP4 publication and
+pressing writes as fragments, WP5 vault and credits
+
+### Setup carried out before WP3–WP5
+
+- **`sui-effect/integration` merged** into `sui-effect/platform` (no
+  lockfile conflict; a clean `ort` merge bringing in musicos's final
+  verification-test commits, `82f437b`/`884f959`).
+- **Vendored tarball refreshed** to the final pre-release build
+  (`vendor/sui-effect-0.1.0.tgz`, `93e8ac4`) and `bun install --force`
+  (bun's own tarball-hash cache key did not change on a same-named,
+  same-version, different-content re-pack, so a plain `bun install`
+  reported "no changes" until `--force` was used — worth flagging
+  upstream, see "Skill and library feedback" below).
+- **`@misofm/partyos` and `@misofm/musicos` gates re-run against the
+  refreshed tarball: green with zero changes needed.** `bun run
+  typecheck && bun run test` for both packages passed exactly as before
+  (36 + 101 tests). None of the setup step's named behaviour changes
+  (`Tx.build` always simulating, a `SubmitConfig.nonce` out of range or a
+  gRPC `NOT_FOUND` becoming `BuildError`, `NotApplied { inputConsumed }`
+  needing a scripted consuming transaction, `SuiSchema.matchesType`/
+  `SuiGraphQL.query`/`SuiError.toJson`, dynamic-field matching on
+  `name.bcs`) required a test-side fix in either package — the
+  `sui-effect/integration` merge above had already carried musicos's own
+  adjustments for the identical tarball, and partyos's WP2 conversion
+  (already merged before this run started) had none of the moved
+  assertions to begin with (it never asserted a `simulateTransaction`
+  call count, never built two transactions expecting different digests,
+  and its one `NotApplied`-adjacent path was already scripted with
+  `SuiTest.recordTransaction`).
+
+### What stage 2 built
+
+- **WP3 — party and protocol composition.**
+  - `src/party/client.ts` rewritten: the `PartyPlatformClient` class is
+    **deleted**. `bindModulePackage` (the generated-call-binding helper)
+    survives as a standalone export. A new `MisoPartyService` interface
+    and `makeMisoParty(sui, partyos, deployment)` factory replace it — not
+    a `Context.Service` of its own (the issue's `MisoPartyService` is a
+    member *type* of `Miso`, not a second service to register), a plain
+    object `Miso`'s own `make` assembles from the `Sui` and converted
+    `Partyos` it already holds, per `docs/extensions.md` §12 step 3
+    ("the service's members are thin: they close over the layer's `Sui`
+    ... and call the standalone function"). It has:
+    - the 7 core delegations (`getPartyById`, `getPartiesByIds`,
+      `derivePartyAdminCapId`, `getMemberships`, `getPendingInvites`,
+      `getPendingMemberships`, `isMember`) — 6 straight from `Partyos`
+      (already `R = never`), one (`derivePartyAdminCapId`) a bound call
+      into `@misofm/partyos`'s free `derivePartyAdminCapId` function;
+    - the 7 party-extension reads (`getProfile`/`getMedia`/`getRoles`/
+      `getTags`/`getGenres`/`getCtas`/`getLinks`), each `party/queries.ts`'s
+      already-converted (stage 1) `Effect<A, E, Sui>` function with
+      `Effect.provideService(Sui, sui)` applied at bind time;
+    - `tx`: 25 fragments (9 delegated from `Partyos.tx`, 16 first-party
+      extension builders — profile/media/roles/tags/genres/CTAs/platform
+      links, unchanged from the predecessor since they were already
+      `Recipe`-shaped `TxThunk`s reading no client);
+    - `call` (11 bound generated-call namespaces, `party` now bound via
+      `@misofm/partyos`'s own exported `contracts.party` since the
+      converted `Partyos` service has no `call` member of its own to
+      delegate — see deviation below) and `bcs` (21 codecs, **without**
+      the predecessor's `...this.#core.bcs` spread, since `PartyosService`
+      exposes no `bcs` member either — a narrower, honest surface, not a
+      silent drop).
+  - `Miso.ts`'s `party` member upgrades from the raw `Partyos` service to
+    `MisoPartyService`; both `make` (the checked layer) and
+    `makeUnchecked` (`layerTest`) now call `makeMisoParty(sui, partyos,
+    deployment.party)`.
+  - `tests/Miso.test.ts`'s exact-chain test asserted through
+    `m.party.deployment.partyos`, which no longer exists on the richer
+    type; it now proves the same partyos-package binding through
+    `m.party.derivePartyAdminCapId(id)`, comparing against the free
+    `derivePartyAdminCapId(id, TESTNET.partyos.partyos)` — a call that
+    needs no chain read, so it stays a synchronous assertion.
+
+- **WP4 — publication and pressing writes as fragments.**
+  - `src/share.ts` rewritten onto `Tx.run`. The three submit-on-behalf
+    functions now take a signer (and optional `gasOwner`/`sponsor` for a
+    sponsored write) as a parameter object instead of a raw SDK `Signer`
+    plus a `ParallelTransactionExecutor`:
+    - `createShareCurrency(params, { signer })` — two `Tx.run`s (publish,
+      then initialize), `Effect<ShareCurrency, RunError | UnexpectedEffects>`;
+      `ShareCurrency.gasUsed` is now `bigint`, summed from
+      `Executed.gasUsedTotal` across both runs.
+    - `publishShareCurrencies(count, { signer, ... })` — batched at 5
+      publishes per `Tx.run` (unchanged cap), package ids read off
+      `Executed.packagesPublished()`.
+    - `initializeShareCurrencies(packageIds, metaOf, { signer, onBatch?
+      })` — batched at 10 per `Tx.run`; `onBatch` is now an
+      `Effect.Effect<void, E>` per the issue's own target shape. A
+      failing batch still reports every already-succeeded batch through
+      `onBatch` before the whole call fails — but now fails with **that
+      batch's own typed error** (the first one encountered) rather than
+      throwing a hand-aggregated plain `Error` string (a deliberate
+      behaviour refinement past the predecessor: a caller can now
+      `catchTag`/read `outcome` on what actually went wrong, per the
+      issue's "fails typed" acceptance wording).
+    - Every `Tx.run` call takes `{ signer, gasOwner, sponsor }` uniformly,
+      so a sponsored batch is a call-site concern, not a second code
+      path.
+  - `src/execute.ts` and its `./execute` subpath (package.json `exports`
+    and `src/index.ts`'s re-export) are **deleted**. Nothing needed it
+    once `share.ts` stopped calling `executeViaExecutor`; `client.ts`'s
+    own `executeViaExecutor` wrapper method is deleted too (see below).
+  - `src/publication.ts`'s `parseAtomicPublicationResult(p, result)`
+    takes a sui-effect `Executed` instead of the deleted
+    `PlatformExecResult`: `allCreatedByType(result, prefix)` +
+    `findByShareType` (substring matching) is replaced by one
+    `expectOneCreated(result, exactType, description)` helper built on
+    `Executed.created(type)` (exact-tag match, since every call site here
+    already has the full share/currency type to name); `createdByExactType`
+    likewise becomes `expectOneCreated`. `result.gasUsed` (`number`) →
+    `result.gasUsedTotal` (`bigint`); `result.digest` (already a string)
+    → `String(result.digest)` (now a branded `Digest`).
+    `AtomicPublicationResult.gasUsed` is `bigint`.
+  - `src/transactions.ts` and `src/pressing.ts`'s builders needed **no
+    change**: every one of them already returned `TxThunk`, and
+    `TxThunk = Recipe` was already established (re-exported from
+    `@misofm/musicos`) before this stage — the "typed `Recipe`"
+    acceptance criterion was structurally satisfied already. Only
+    `src/release-graph.ts`'s `publishReleaseGraph` had an inline
+    structural type (`(tx: Transaction) => void`) instead of the named
+    `Recipe`; retyped for consistency, no behaviour change.
+  - **`publishCatalog` via `Tx.run` is not added this stage** — see
+    deviations below; `publishAtomicCatalog` (the fragment) and
+    `parseAtomicPublicationResult` (now `Executed`-shaped) are the pieces
+    the issue's target `Miso.publishCatalog` member would compose, and
+    remain available as standalone functions for a caller to run through
+    `Tx.run` directly today.
+  - New `tests/share.test.ts` (4 tests, on `sui-effect/testing`'s
+    `layerTest`/`FakeOutcome`/`SuiTest`/`Journal.layerMemory` harness, no
+    network): `createShareCurrency`'s two `Tx.run`s producing the right
+    package/currency/treasury ids; `publishShareCurrencies` batching 6
+    requested packages as 5 + 1 across two `Tx.run`s;
+    `initializeShareCurrencies`'s happy path (`onBatch` fires once) and
+    its one-failing-batch path (11 package ids batch as 10 + 1; the
+    second batch's `transportError` is retryable, so the test forks the
+    program, drives `TestClock` past `SubmitConfig.resubmit`'s schedule
+    instead of waiting on real time, and asserts the first batch's 10
+    currencies were already reported through `onBatch` before the typed
+    failure lands).
+  - `tests/publication.test.ts`'s hand-built mock result (a
+    `PlatformExecResult`-shaped object cast with `as unknown as`) is
+    replaced with a real `Executed` built via
+    `Schema.decodeUnknownSync(Executed)` from a minimal but fully
+    schema-valid encoded shape (a `buildExecuted` test helper) — the cast
+    could not simply widen to the new type, since `Executed`'s accessors
+    (`created`, `gasUsedTotal`, ...) are real methods a plain object does
+    not have.
+
+- **WP5 — vault and credits.**
+  - `src/vault.ts`: `getVaultAdminCap` and `resolveReceivingCoins` (the
+    only two `@misofm/effect`-backed members left in the file — every
+    write in it was already a plain `(tx, params) => ...` fragment
+    function, untouched) move onto `Sui`: `sui.getObjectOption(id, {
+    expectedType })` + `SuiSchema.decode(SuiSchema.bcs(vault.VaultAdminCap),
+    ...)` replaces `getOptionalObjectContent` + `assertObjectType` +
+    `decodeBcs`; `sui.core.getObjects({ objectIds })` replaces the raw
+    `client.core.getObjects` promise wrapped by hand into a `SuiRpcError`
+    (the sui-effect mechanical tier already wraps it as a `TransportError`
+    Effect, so the manual `Effect.tryPromise`/error-construction disappears
+    entirely).
+  - `src/credits.ts` needed **no change**: stage 1 already converted its
+    reads and every writer in it was already `TxThunk`-shaped.
+  - `src/genre.ts` and `src/royalty.ts` (named as deferred-but-owed in
+    stage 1's own "what stage 2 owes") converted too, since the task's
+    package.json cleanup target ("zero files importing `@misofm/effect`")
+    could not be met otherwise: `getReleaseGenres`/`getRecordingGenres`
+    onto `sui.getObjectOption` (raw bytes, no schema — these read a
+    dynamic field's own object by its *derived* id, the same shape as
+    before, just through `Sui`); `getRoyaltyPoolById`/
+    `getRoyaltyStakeById`/`getRoutedStakeById` onto
+    `sui.getObjectOption` + `SuiSchema.decode(SuiSchema.bcs(rawBcsType),
+    ...)` — the predecessor's `{ parse: (bytes) => mapX(...) }` object
+    never actually qualified as a bridge codec (`docs/extensions.md` §3:
+    "a hand-rolled `{ parse(bytes) {…} }` wrapper does not qualify"), so
+    this is also a correctness fix, not just a mechanical port.
+  - **No `vault` *namespace object* was assembled** on `Miso` this
+    stage — see deviations below; `vault.ts`'s functions stay standalone,
+    same as `pressing.ts`'s.
+  - `tests/genre.test.ts`'s one hand-rolled `ClientWithCoreApi` stub is
+    replaced with `sui-effect/testing`'s `layerTest`/`FakeObject`, per the
+    "replace every hand-rolled client stub in tests with `SuiTest`
+    fixtures" acceptance criterion. `royalty.ts` and `vault.ts`'s
+    converted reads have **no test coverage before or after this
+    stage** — `tests/royalty.test.ts` and `tests/vault.test.ts` only ever
+    exercised the pure PTB builders in those files; this is a pre-existing
+    gap this stage did not introduce but also did not close (see
+    "Skill and library feedback").
+
+- **`@misofm/effect` removed from `package.json` `dependencies`.** All
+  seven files stage 1 named (`client.ts`, `execute.ts`, `genre.ts`,
+  `party/client.ts`, `royalty.ts`, `share.ts`, `vault.ts`) reached zero
+  imports: five by conversion above, `execute.ts` by deletion, and
+  `client.ts` by the conversion described next (a stage-3-assigned item
+  this run pulled forward — see deviations). `bun install` after the
+  edit reports no lockfile changes beyond the removed dependency line;
+  platform typecheck and test stayed green.
+
+- **`client.ts` (`MisoPlatformClient`): party/protocol removed, pressing
+  reads converted, the class itself kept.** This file's own conversion
+  was stage 1's own table entry assigned wholesale to stage 3 ("WP6 —
+  this whole class is deleted and replaced by `Miso` +
+  `SuiExtension.fromService`"), but two of its four causes were squarely
+  WP3/`@misofm/effect`-removal work, so this run did them now rather than
+  leave the file with *more* errors than it already had:
+  - `#protocol: MisoProtocolClient` and `#party: PartyPlatformClient`
+    fields, their getters, and the constructor logic that built them
+    (`protocolMiso({...}).register(client)`, `new
+    PartyosClient(client, ...)`, `new PartyPlatformClient(...)`) are
+    **removed outright** — both surfaces now live on `Miso` (this
+    stage's WP3 work), and the issue's own consumer table already showed
+    no in-repo consumer reaches `client.miso.protocol`/`.party` through
+    this specific class (app/cli reach them through the *facade*, which
+    is `Miso`'s job in the target shape, not this predecessor's).
+  - `executeViaExecutor` and `createShareCurrency` methods are **removed
+    outright** too — the issue's own consumer table states "No consumer
+    calls ... `executeViaExecutor` or `createShareCurrency`", and both
+    wrapped now-deleted (`execute.ts`) or now-reshaped (`share.ts`)
+    functions.
+  - `#run`/`#layer` (used only by the four pressing-read methods once
+    the above were removed) move from `@misofm/effect`'s
+    `SuiClient.layer(client)` to `Sui.layerNoDeps.pipe(Layer.provide(
+    SuiCore.layerFromClient(client)))`; `getPressing`/`getListing`/
+    `getRecord`/`getSale`'s declared error unions are corrected to match
+    what `pressing.ts`'s (already stage-1-converted) reads actually
+    produce (`DecodeError | ObjectUnavailable | TransportError`, plus
+    `NetworkMismatch` from `Sui.layerNoDeps`'s own chain-identifier
+    check, alongside the class's existing `MisoChainIdentifierMismatchError`).
+    This is the one piece of this conversion that is genuinely
+    "facade derivation"-shaped work pulled forward from stage 3 — see
+    deviations.
+  - **`MisoPlatformClient` the class, `misoPlatform()`, and
+    `MisoClientNotReadyError` are *not* deleted.** The class still has a
+    real job (pressing reads, `ids`/`tx`/`call`/`bcs`/`vault` gated by
+    `#requireReady`) with no `Miso`-service replacement yet, and
+    `#requireReady` still throws `MisoClientNotReadyError` for every one
+    of those synchronous surfaces — deleting either now would delete
+    working functionality with nothing to replace it, which the task's
+    own conditional ("remove `MisoClientNotReadyError` *if* `client.ts`
+    no longer needs it") anticipates.
+
+### Platform typecheck error count
+
+**Before (start of this stage): 46 errors**, exactly the five-file
+breakdown stage 1 recorded (`party/client.ts` 15, `client.ts` 10,
+`share.ts` 11, `execute.ts` 5, `publication.ts` 5).
+
+**After (end of this stage): 0 errors.** Every error stage 1 deferred to
+stage 2 is fixed; the `client.ts` pressing-read mismatches stage 1's own
+table assigned to stage 3 are fixed too (see above) rather than carried
+forward — so there is nothing left to list "assigned to stage 3" in the
+typecheck sense. What stage 3 still owes is facade *derivation*
+(deleting the class, deriving the Promise face), not typecheck-error
+remediation of the class as it stands.
+
+Reproduce: `bun run --filter '@misofm/platform' typecheck 2>&1 | grep -c
+"error TS"` at the worktree root.
+
+### Gate results
+
+- `bun run typecheck && bun run test` for `@misofm/partyos` and
+  `@misofm/musicos` on the refreshed tarball: **green, no changes
+  needed** (36 + 101 tests; see "Setup" above for why).
+- Platform typecheck error count: **46 → 0**, strictly decreased.
+- Platform tests: **319 pass, 0 new fail.** The only remaining failure
+  is `tests/client.test.ts`, unchanged by this stage (confirmed via
+  `git diff` on the file — zero lines touched) and pre-existing since
+  before stage 1 began: it imports `PartyosClient` from `@misofm/partyos`,
+  a class that stopped existing when partyos converted, so the whole
+  file fails to load (`SyntaxError` at the import, not a test failure).
+  `tests/publication.test.ts`, stage 1's other named pre-existing
+  failure, is fixed this stage as a side effect of `parseAtomicPublicationResult`
+  taking `Executed` (see WP4 above) — its mock now decodes as one.
+- `git diff --stat -- packages/*/src/contracts`: **empty.**
+- `docs/CONVERSION-STATUS.md` (this file) committed last.
+
+### Deviations from the issue, with reasons
+
+1. **`MisoPartyService` is not a second `Context.Service`.** The issue's
+   prose could be read either way; its own service-interface table lists
+   `party: MisoPartyService` as a *member* of `MisoService`, with no
+   separate `layer`/`layerTest` of its own named anywhere for it — unlike
+   `Miso`, `SuiGraphQL` and (implicitly) `Musicos`/`Partyos`, which do get
+   their own layers. Making it a full service would mean either
+   registering it independently (which nothing in the issue's migration
+   map or facade section asks for) or building a throwaway layer just to
+   immediately unwrap it inside `Miso.make` — `docs/extensions.md` §12's
+   "assemble the service from those functions" idiom is a plainer fit,
+   and it is what this stage built.
+2. **`client.ts`'s pressing-read/`#run` conversion was pulled forward
+   from stage 3.** Stage 1's own table assigned all 10 of `client.ts`'s
+   baseline errors to stage 3 ("WP6 — this whole class is deleted").
+   This stage's explicit brief said `@misofm/effect` importers "must
+   reach zero" by its end, which is not possible while `client.ts` still
+   imports `SuiClient`/`SuiRpcError`/`BcsDecodeError`/
+   `ObjectTypeMismatchError`/`TransactionFailedError` from it. The
+   contained part of that conversion (four read methods plus `#run`,
+   not the whole class) turned out tractable without touching anything
+   `ids`/`tx`/`call`/`vault`-shaped, so it was done now rather than left
+   as a documented, deferred blocker on the dependency-removal
+   requirement. The class itself, `misoPlatform()`, and
+   `MisoClientNotReadyError` are still there, still doing real work, and
+   are still stage 3's to delete.
+3. **`Miso.publishCatalog` (a service member wrapping
+   `publishAtomicCatalog` through `Tx.run`) was not added.** The issue's
+   target `MisoService` interface names it, but nothing in WP3–WP5's own
+   acceptance criteria asks for it (WP4's acceptance criterion is about
+   `publishAtomicCatalog` itself submitting exactly once when a *caller*
+   runs it through `Tx.run`, which the fragment already supports
+   unchanged) and the WP1 skeleton's own scope note already deferred the
+   rest of `MisoService`'s members (`tx.*`, `call`/`bcs`, `vault`, `read.*`,
+   `createShareCurrency`, `publishCatalog`) to "stage 2/3" without pinning
+   which. Adding one isolated service member ahead of the `Miso` service's
+   own `tx`/`vault`/`call` surface (still entirely unbuilt) seemed more
+   likely to need rework once that surface exists than to be worth doing
+   in isolation now.
+4. **No `vault` namespace object on `Miso`.** Same reasoning as #3: the
+   issue's target `vault` member is `vault.ts`'s builders **bound** to
+   `deployment.operations`, which is exactly the kind of binding this
+   stage did build for `party` — but doing it for `vault` in isolation,
+   with no `Miso.tx`/`Miso.call` surface yet to sit beside it and no
+   `OperationsUnavailableError`-throwing wrapper convention established
+   elsewhere on the service yet, would mean re-deciding that shape once
+   `tx.*`/`call`/`bcs` land in stage 3 rather than reusing a decision
+   already made. `vault.ts`'s functions stay standalone and fully
+   converted (this stage's actual WP5 scope: get them off
+   `@misofm/effect`), exactly like `pressing.ts`'s.
+5. **`initializeShareCurrencies`'s partial-failure behaviour changed**
+   from throwing a hand-aggregated plain `Error` string (every failing
+   batch's message joined) to failing with the **first** typed batch
+   error and dropping the others. A `Schema.TaggedError` union has no
+   clean way to carry "these N batches failed for M different typed
+   reasons" without inventing a wrapper error the taxonomy does not name;
+   the first-typed-error rule is what the issue's own acceptance
+   wording ("fails typed") asks for, and `onBatch` already reported every
+   batch that *did* succeed before the failure surfaces, which is the
+   part a resume actually needs.
+6. **`royalty.ts` and `vault.ts`'s converted reads
+   (`getRoyaltyPoolById`/`getRoyaltyStakeById`/`getRoutedStakeById`,
+   `getVaultAdminCap`, `resolveReceivingCoins`) have no test coverage.**
+   Pre-existing (their test files only ever covered the pure PTB
+   builders in the same files); this stage converted them correctly
+   (confirmed by typecheck and by the package's `build`) but did not add
+   new tests for them, given the stage's time budget was spent on the
+   genuinely new, previously-untested `Tx.run` behaviour in `share.ts`.
+7. **`tests/client.test.ts` left broken.** Pre-existing since before
+   stage 1 (unmodified by this stage — `git diff` on the file is empty);
+   it is the file the issue's own WP6 acceptance criterion names for a
+   full rewrite ("`client.test.ts` rewritten against
+   `client.$extend(miso({ deployment }))`"), and several of its tests
+   (`"MisoPlatformClient.party delegates core reads to PartyosClient..."`,
+   `"protocol and nested Party surfaces cannot read or build before
+   readiness"`) assert against members this stage removed from the class
+   for exactly the reason WP6 will delete the class outright. Rewriting
+   it now would be throwaway work against a class stage 3 deletes.
+8. **Isolated-consumer fixture untouched** (as stage 1 found it): still
+   references `PartyosClient`, `MisoPlatformClient`, `PartyPlatformClient`
+   and other now-deleted names; `bun run test:consumer` was already
+   failing before this stage and stays that way. WP6/WP7 scope per the
+   issue.
+
+## What stage 3 (WP6 facade derivation and README, WP7 consumer smoke)
+still owes
+
+- `MisoService` fully assembled on `Miso`: `getPressing`/`getListing`/
+  `getRecord`/`getSale`, `ids.*`, `tx.*`, `call`/`bcs`, a bound `vault`
+  namespace (`OperationsUnavailableError` from every member when
+  unavailable), `createShareCurrency`/`publishShareCurrencies`/
+  `initializeShareCurrencies` as service members over the now-`Tx.run`-shaped
+  `share.ts`, `publishCatalog`, `read.*`, `events` — this is where
+  `Miso.layer`'s requirement channel finally needs `SuiGraphQL` too, once
+  `read.*` joins the service.
+- `miso()` registration via `SuiExtension.fromService`, with the
+  deprecated `ready: Effect.void` warm-up member the migration map calls
+  for.
+- `read/client.ts`'s `MisoClient.layer` widened to `Miso | Sui | SuiCore |
+  SuiGraphQL` (needs a complete `MisoPlatformDeployment`, not just the
+  package-id subset `MisoConfig` carries today).
+- Delete `client.ts`'s `MisoPlatformClient` class outright (its
+  remaining surface — pressing reads, `ids`/`tx`/`call`/`bcs`/`vault`,
+  all now typechecking cleanly against `Sui` per this stage — folds into
+  `MisoService`), `misoPlatform()`, and `MisoClientNotReadyError` (kept
+  through stages 1 and 2 for source compatibility with the
+  still-standing class — see deviation #2).
+- README rewrite (Usage on the service and the face, error table, layer
+  table, 0.28 migration section); `package.json` version bump to
+  `0.28.0` (`@misofm/effect` is already gone from `dependencies` as of
+  this stage).
+- Isolated-consumer fixture (`tests/fixtures/isolated-consumer/`)
+  rewrite (`imports.ts`/`verify.mjs`); `tests/client.test.ts` rewrite
+  against `client.$extend(miso({ deployment }))`.
+- `misofm/app`/`misofm/cli` consumer-edit list (WP7).
