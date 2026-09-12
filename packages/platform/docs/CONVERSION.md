@@ -1,9 +1,11 @@
-# `@misofm/platform` sui-effect conversion — status
+# `@misofm/platform` sui-effect conversion
 
 Tracks misofm/sdks#35 ("Convert `@misofm/platform` to a sui-effect
-extension") across its three planned runs on `sui-effect/platform`. This
-file is updated at the end of each stage; do not delete history from it —
-append.
+extension") across its three planned runs on `sui-effect/platform`. Stage 3
+(WP6 facade derivation, WP7 consumer smoke) is the last of the three; this
+file is now the permanent record of the conversion (renamed from
+`CONVERSION-STATUS.md`, which framed it as in-progress) — do not delete
+history from it, append instead.
 
 ## Stage 1 (this run): WP1 foundation/errors, WP2 reads and catalog
 
@@ -682,3 +684,279 @@ still owes
   rewrite (`imports.ts`/`verify.mjs`); `tests/client.test.ts` rewrite
   against `client.$extend(miso({ deployment }))`.
 - `misofm/app`/`misofm/cli` consumer-edit list (WP7).
+
+## Stage 3 (this run): WP6 facade derivation and README, WP7 consumer smoke
+
+### What stage 3 built
+
+- **`MisoService` fully assembled on `Miso`** (`src/Miso.ts`, `assemble()`):
+  `getPressing`/`getListing`/`getRecord`/`getSale` (bound to
+  `deployment.recordSales`, failing typed `RecordSalesUnavailableError`
+  instead of the predecessor's synchronous throw, since these are `Effect`
+  members); `ids.*` (sync, throws `RecordSalesUnavailableError`/
+  `OperationsUnavailableError` — the same synchronous-gate shape the
+  predecessor used, now closing over `deployment` directly instead of a
+  `#requireReady` proxy); `tx.*` (all 7 sales builders, both share-currency
+  fragments, 4 publish builders, `publishReleaseGraph`, 12 extension
+  setters — ported from `client.ts`'s own `tx` object almost verbatim, minus
+  the deleted readiness gate, since `warm`/`$ready()` supersede it); `call`/
+  `bcs` (ported from `client.ts` unchanged in shape — still `undefined` for
+  an unconfigured section, exactly like the predecessor); `vault` (always an
+  object now — `vaultActions` plus `getVaultAdminCap`/`resolveReceivingCoins`
+  bound to `Sui`, wrapped in a `gateAvailability` Proxy that throws
+  `OperationsUnavailableError` from every member call when
+  `deployment.operations.status !== "available"`, replacing the
+  predecessor's `vault: typeof vaultActions | undefined`);
+  `createShareCurrency`/`publishShareCurrencies`/`initializeShareCurrencies`
+  (thin `withSui` wrappers over the already-`Tx.run`-shaped `share.ts`
+  functions stage 2 built); `publishCatalog` (new: `Tx.run(publishAtomicCatalog(...))`
+  then `parseAtomicPublicationResult`, in one member); `read.*` (new: the 27
+  `read/*` functions bound to one `MisoConfig` derived from `deployment` via
+  the new `configFromDeployment` — see below — through a uniform
+  `withEnv` helper that provides both `Sui` and `SuiGraphQL`, since which of
+  the two each function actually reads varies and providing an unused
+  service is harmless); `events` (`platformEventParsers`, unchanged); the
+  deprecated `ready: Effect.void` warm-up member the migration map calls for.
+  `Miso.layer`/`layerNoDeps`/`layerConfig`/`layerTest` all widen their
+  requirement channel from `Sui` to `Sui | SuiGraphQL` now that `read.*` and
+  the catalog reads need it. The incoming `deployment` is now recursively
+  frozen (`immutableSnapshot`) inside `assemble`, restoring the predecessor's
+  own "later caller mutation cannot retarget an existing client" guarantee,
+  which the WP1/WP2/WP3 skeleton had not carried forward.
+- **`src/read/config.ts`**: new `configFromDeployment(deployment, overrides?)`,
+  factored out of `misoConfig(network, overrides?)` (which now just calls it
+  with a bundled-table lookup) so `Miso.read.*` and `createMisoClient` share
+  one derivation instead of two, and so a custom `MisoPlatformDeployment`
+  (not just a bundled network) can back the `read.*` namespace.
+- **`src/client.ts` rewritten wholesale** as the `miso()` registration:
+  `SuiExtension.fromService(Miso, { name, layer, sui?, warm })`, same options
+  shape as the sibling extensions (`name?`, `deployment?`, `chainId?`, plus
+  `graphqlClient?` for the GraphQL-backed paths). `MisoClient` is now the
+  `PromiseFace<MisoService> & ExtensionFace` type alias. `MisoPlatformClient`,
+  `misoPlatform()`, `MisoPlatformConfig`, `bindModulePackage` (the class's own
+  copy — a second one now lives in `Miso.ts` for `call`/`bcs`), and both
+  `requireReadyOn*` proxies are deleted outright.
+- **`src/errors.ts`**: `MisoClientNotReadyError` deleted (nothing imports it
+  once `client.ts`'s ready-state machine is gone).
+- **`src/read/client.ts`**: `MisoClient.layer` widened from `Sui | SuiGraphQL`
+  to `Miso | Sui | SuiCore | SuiGraphQL` (`Miso.layer(deployment)` composed
+  over `Sui.layerNoDeps`/`SuiCore.layerGrpc`/`SuiGraphQL.layer` via
+  `Layer.provideMerge`, so every service stays visible in the output);
+  `createMisoClient` now also returns `client` (`sui.$extend(miso({
+  deployment, graphqlClient }))`) and accepts an optional `deployment`
+  override, since `MisoConfig` alone (a package-id subset) cannot
+  reconstruct the `operations`/`packages` sections `Miso.layer` needs for an
+  unbundled network — the gap stage 1/2 flagged and left open.
+- **`src/index.ts`**: exports the finished `Miso`/`MisoService` surface (plus
+  `MisoTx`/`MisoIds`/`MisoCall`/`MisoBcs`/`MisoVault` member-shape types) and
+  `miso`/`MisoOptions`/`MisoClient` from `client.ts`; drops `misoPlatform`/
+  `MisoPlatformClient`/`MisoClientNotReadyError`/`MisoPlatformConfig`.
+- **Tests.** `tests/client.test.ts` rewritten on the harness (WP6's own
+  acceptance list): a warm registration on the fake (`SuiCoreFake.layer(...).client.$extend(miso(...))`)
+  with nested namespaces reachable and a platform `tx` fragment composed with
+  a `party` fragment in one PTB; a cold (non-warm, direct
+  `SuiExtension.fromService`) registration proving `ExtensionNotReady` before
+  `$ready()`; a submit-on-behalf member (`createShareCurrency`) through
+  `Tx.run` with a scripted `execute`; rejection identity through the face
+  (`_tag` preserved for both a platform tag, `RecordSalesUnavailableError`,
+  and a composed sibling service's own tag, `partyos/PartyNotFound`); the
+  network-mismatch path, both under `warm` (synchronous throw at `$extend`)
+  and lazily (deferred to the first call) — see "Deviations" below. Pure
+  `deployments.ts` validation (frozen snapshot, `requireRecordSalesDeployment`/
+  `requireOperationsDeployment`) moved to a new `tests/deployments.test.ts`,
+  since none of it exercises the facade. `tests/Miso.test.ts`'s `layerTest(...)`
+  compositions gained `SuiGraphQL.layerUnavailable`, needed once `Miso.layer`
+  widened its requirement.
+- **Isolated-consumer fixture** (`tests/fixtures/isolated-consumer/`):
+  `imports.ts`/`verify.mjs` updated for all three deleted classes it still
+  referenced — `PartyosClient` (`@misofm/partyos`, deleted by that package's
+  own conversion), `MisoPlatformClient`/`PartyPlatformClient`
+  (`@misofm/platform`, deleted this stage) — replaced with `Partyos`/
+  `partyos()`, `Miso`/`miso()`, and `MisoPartyService`/`makeMisoParty`, plus
+  the same "registration builds synchronously, no network" probe `musicos()`
+  already had, now also for `partyos()` and `miso()`.
+- **README rewritten**: `## Install` with peers, an `## Usage` section split
+  into `### Effect` (`yield* Miso`) and `### Promise` (`$extend(miso())`,
+  `warm`, the network/deployment-mismatch timing), the namespace/error
+  tables, a `### Migrating from 0.27` section (moved/removed/behaviour-changed
+  tables), and a `## Testing` section on the harness. Every remaining
+  section that named `MisoPlatformClient`/`PartyPlatformClient`/
+  `PartyosClient`/`misoPlatform`/`executeViaExecutor`/`ParallelTransactionExecutor`/
+  `@misofm/effect` in current (non-migration-table) prose was updated to the
+  new surface. Root `README.md` and `CLAUDE.md`'s platform rows updated to
+  describe it as a sui-effect extension.
+- **`package.json`**: version `0.28.0`. `@misofm/effect` was already removed
+  from `dependencies` in stage 2.
+- This file renamed from `CONVERSION-STATUS.md` to `CONVERSION.md` (this
+  edit) as the permanent record, per this stage's own brief.
+
+### Facade surface: preserved vs. removed
+
+Every name the in-repo consumer grep (`misofm/app`, `misofm/cli`,
+`misofm/api`) actually reaches survives, unchanged in spelling:
+`client.miso.ready()` (kept, deprecated no-op — see below),
+`client.miso.party`, `client.miso.protocol` (the `!` non-null assertions at
+every call site are now redundant, not wrong — `protocol`/`party` are never
+undefined), `client.miso.ids.genre`, `client.miso.deployment`. **Nothing an
+in-repo consumer calls today was removed.**
+
+Removed from the package (no in-repo consumer reaches any of these — see the
+issue's own consumer table, confirmed again by this stage's grep):
+`MisoPlatformClient`, `misoPlatform()`, `MisoPlatformConfig`,
+`MisoClientNotReadyError`, `client.miso.validateChainIdentifier()`,
+`executeViaExecutor` (the class method), `@misofm/platform/execute` (the
+whole subpath, deleted in stage 2), `PartyPlatformClient`.
+
+**A real, mechanical consumer-edit surface remains, and none of it is a name
+change** — `SuiExtension.fromService`'s derived Promise face turns every
+`Effect` member into a Promise-returning method, where the predecessor's
+`miso()` attached the raw `MisoPlatformClient` class instance (genuinely
+`Effect`-returning methods, no Promise translation at all). Every
+`Effect.runPromise(client.miso.<member>(...))` call site must drop the
+`Effect.runPromise` wrapper and just `await` the call directly:
+
+| Repo | File:line | Today | After this conversion |
+| --- | --- | --- | --- |
+| cli | `config.ts:362` | `await Effect.runPromise(client.miso.ready())` | `await client.miso.ready()` |
+| cli | `show.ts:33,66,74,107` | `await Effect.runPromise(config.client.miso.protocol!.get*(...))` | `await config.client.miso.protocol.get*(...)` (the `!` is now optional, not wrong) |
+| cli | `resolve.ts:967` | `await Effect.runPromise(config.client.miso.protocol!.getCompositionById(...))` | `await config.client.miso.protocol.getCompositionById(...)` |
+| cli | `resolve.ts:1293` | `await Effect.runPromise(config.client.miso.party.getPartyById(...))` | `await config.client.miso.party.getPartyById(...)` |
+| cli | `exec.ts:20` | `export * from "@misofm/platform/execute"` | delete the line — the subpath was removed in stage 2, this re-export is already broken independent of this stage |
+| cli | `resolve.ts:1343,1371,1440` (the "two share-currency call sites" plus the `executeViaExecutor` call) | `dependencies.publishShareCurrencies(executor, signerAddress, count)` / `dependencies.initializeShareCurrencies(executor, signerAddress, ids, metaOf, onBatch)` / `dependencies.executeViaExecutor(executor, transaction)` — all against `@misofm/platform/share`'s stage-2-converted signatures, which cli was never updated for | `publishShareCurrencies(count, { signer })` / `initializeShareCurrencies(ids, metaOf, { signer, onBatch: (batch, gasUsed) => Effect<void, E> })`; `executeViaExecutor` is gone — the whole `createExecutor`/executor-threading shape in `resolve.ts`'s `dependencies` object needs to become a `Signer` instead, which is genuinely cli's own conversion's work, not a one-line fix |
+| app | (none) | — | no `client.miso.*` call site in `misofm/app` wraps a member in `Effect.runPromise` — `lib/sui-client.ts`'s own `readySuiClient()`/`lib/party.ts`'s `readyPartyClient()` already treat `client.miso.ready()`/`client.miso.party` as Promise-shaped, so app needs **no edit** |
+
+This table is the "written list of every remaining consumer edit" WP7 asks
+for; none of it was applied here (`misofm/app`/`misofm/cli`/`misofm/api` are
+sibling repos outside this worktree, and the stage 3 brief's own gates name
+only this workspace) — it feeds those repos' own conversion issues.
+
+### Gate results
+
+```
+$ bun run typecheck
+@misofm/effect typecheck: Exited with code 0
+@misofm/streaming typecheck: Exited with code 0
+@misofm/partyos typecheck: Exited with code 0
+@misofm/musicos typecheck: Exited with code 0
+@misofm/platform typecheck: Exited with code 0
+@misofm/transcoding typecheck: Exited with code 0
+
+$ bun run test
+@misofm/streaming test:  27 pass, 0 fail (99 expect() calls, 3 files)
+@misofm/effect test:  23 pass, 0 fail (41 expect() calls, 2 files)
+@misofm/partyos test:  36 pass, 0 fail (76 expect() calls, 2 files)
+@misofm/transcoding test:  52 pass, 0 fail (166 expect() calls, 9 files)
+@misofm/musicos test:  101 pass, 0 fail (234 expect() calls, 13 files)
+@misofm/platform test:  334 pass, 0 fail (1088 expect() calls, 35 files)
+
+$ bun run build
+@misofm/streaming build: Exited with code 0
+@misofm/effect build: Exited with code 0
+@misofm/musicos build: Exited with code 0
+@misofm/partyos build: Exited with code 0
+@misofm/platform build: Exited with code 0
+@misofm/transcoding build: Exited with code 0
+
+$ git diff --stat -- packages/*/src/contracts
+(empty)
+
+$ bun run test:consumer
+isolated consumer verified: single @mysten/sui@2.29.0 installed
+isolated consumer verified: single effect@4.0.0-rc.112 installed
+isolated consumer verified: single @misofm/effect@0.2.0 installed
+isolated consumer verified: single @misofm/musicos@0.4.0 installed
+isolated consumer verified: single @misofm/partyos@0.4.0 installed
+isolated consumer verified: single @misofm/platform@0.28.0 installed
+isolated consumer verified: single @misofm/streaming@0.3.0 installed
+isolated consumer verified: single @misofm/transcoding@0.4.0 installed
+isolated consumer dependency identity verified
+test:consumer: OK — 6 package(s) packed, installed, and verified in isolation
+```
+
+Platform: **319 → 334 tests passing** (client.test.ts's 943-line rewrite plus
+the new `deployments.test.ts` net add 15; nothing regressed).
+`codegen:check` was not run — it needs sibling Move checkouts absent from
+this environment, exactly as stage 1/2 recorded; `git diff --stat --
+packages/*/src/contracts` (above) is empty, confirming no generated file
+was hand-touched.
+
+### Deviations from the issue, with reasons
+
+1. **Network/deployment mismatch throws synchronously at `$extend` again,
+   for `testnet`/`mainnet`** — contradicting the issue's own migration-map
+   row ("network-label mismatch is no longer a synchronous throw at
+   `$extend`; it rejects the first call"). This stage's own brief hands
+   `miso()` the exact `warm: { chainId }` snippet, matching `partyos()`'s own
+   choice; `warm` builds the whole layer synchronously inside `register`
+   (sui-effect's own documented contract — "Build the runtime **inside
+   `register`**, synchronously"), so ANY layer failure, not only the two
+   named async/no-chain-id preconditions, surfaces as a synchronous throw
+   when the chain id is knowable (the built-in table covers `mainnet`/
+   `testnet`) — confirmed empirically in `tests/client.test.ts`. The
+   migration-map wording describes a **lazy** registration, which still
+   defers to the first call exactly as written (also tested). Both paths are
+   covered; the deviation is that `miso()`'s own chosen default (`warm`,
+   per this stage's brief) no longer matches that one migration-map
+   sentence for the common case.
+2. **`vault`'s gating is a whole-namespace availability Proxy, not
+   per-builder deployment-id binding.** The predecessor's `get vault()`
+   already returned the bare, UNBOUND `vault.ts` module (every builder still
+   takes its package ids as explicit parameters) or `undefined`; this stage
+   keeps that same unbound shape and only changes the failure mode from
+   "namespace is `undefined`" to "every member throws
+   `OperationsUnavailableError`" — matching the migration map's own wording
+   exactly, without inventing a new per-builder id-binding design the issue
+   never asked for.
+3. **The two still-optional deployment package fields
+   (`recordingGenre`, `recordingStreamingTranscode`) throw a plain `Error`,
+   not a tagged one, from `tx.setRecordingGenres`/`setRecordingStreamingTranscode`
+   etc. when absent.** Same as the predecessor's `#requiredConfig` behaviour;
+   inventing a new tagged error with an `outcome` for this one corner (every
+   other package id in `MisoPlatformDeployment` is required, so this is the
+   only place a bound `tx.*` builder can still be missing a package
+   entirely) was judged out of this stage's scope — nothing in the issue's
+   target shape or WP6 acceptance criteria names it.
+4. **`Miso.read.*` binds every config-consuming `read/*` function, but a
+   handful of pure, config-free helpers (`currencyInfo`, `primaryArtistNames`,
+   `toTracks`, `isRecordSoldEventType`, `recordSoldCurrencyType`,
+   `findRecordSales`, `findRecordSale`, `breakdown`) are exposed unbound**
+   (still taking their existing explicit parameters) rather than partially
+   applying an id like `recordShopPackageId` from the deployment for
+   convenience. They have no `MisoConfig` parameter to capture in the first
+   place, so "config captured from the layer" does not apply to them; adding
+   a second, narrower binding convention for this handful was judged not
+   worth the surface-area increase.
+5. **`createMisoClient`'s `CreateMisoClientOptions` gained an optional
+   `deployment?: MisoPlatformDeployment`**, not named in the issue's own
+   `read/client.ts` prose. Required to close the gap stage 1/2's own notes
+   flagged ("needs a complete `MisoPlatformDeployment`, not just the
+   package-id subset `MisoConfig` carries") — the bundled-network path
+   resolves one automatically via `getMisoPlatformDeployment`, so this is
+   additive, not a breaking change to the existing options shape.
+6. **The isolated-consumer fixture's `partyos`-related breakage
+   (`PartyosClient` no longer exported) was fixed here too**, not left for
+   `sui-effect/partyos`'s own (already-merged) conversion to revisit. The
+   fixture is one shared file across all three converted packages, and this
+   stage's own gate (`bun run test:consumer` green) cannot pass while any
+   one of the three is still broken in it.
+7. **App/cli/api are not edited.** Per this stage's own scope ("work only
+   in this worktree"), and because none of the four required gates
+   (`typecheck`/`test`/`build`/`test:consumer`) touch those sibling repos —
+   the "written list of every remaining consumer edit" table above is the
+   substitute WP7 asks for in that case.
+
+### What remains (follow-up issues, not this one)
+
+- The consumer-edit table above, applied inside `misofm/app`/`misofm/cli`/
+  `misofm/api`'s own conversion issues.
+- `royalty.ts`/`vault.ts`'s converted reads still have no dedicated test
+  coverage (flagged in stage 2, unchanged this stage — this stage's own new
+  test budget went to the facade rewrite).
+- `MisoConfig`'s `grpcUrl`/`graphqlUrl`/`apiBaseUrl`/`money` fields are still
+  hard-coded Testnet defaults regardless of `network`/`deployment.network`
+  (a pre-existing gap, noted in `read/config.ts`'s own `configFromDeployment`
+  doc comment; `overrides` is the workaround today).
+- `sui-effect`'s own npm-swap checklist (bump `peerDependencies`, drop
+  `peerDependenciesMeta`, remove the vendored tarball and its `file:`
+  devDependency) is unchanged by this stage and still pending the first
+  `sui-effect` release.
