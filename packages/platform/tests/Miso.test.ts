@@ -11,25 +11,30 @@ import { describe, expect, test } from "bun:test";
 import { ConfigProvider, Effect, Exit, Layer, Cause, Option } from "effect";
 import { KNOWN_CHAIN_IDS } from "sui-effect";
 import { layerTest } from "sui-effect/testing";
+import { derivePartyAdminCapId } from "@misofm/partyos";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
 import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/errors.ts";
 import { Miso } from "../src/Miso.ts";
 
 const TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
 const REAL_TESTNET_CHAIN_ID = KNOWN_CHAIN_IDS["testnet"]!;
+const SOME_PARTY_ID = `0x${"11".repeat(32)}`;
 
 const errorOf = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.isFailure(exit) ? Option.getOrUndefined(Cause.findErrorOption(exit.cause)) : undefined;
 
 describe("Miso.layer: the exact-chain startup check", () => {
   test("succeeds and binds protocol/party when network and chainId match the deployment", async () => {
-    const { network, chainId, protocolPackageId, partyId } = await Effect.runPromise(
+    const { network, chainId, protocolPackageId, partyAdminCapId } = await Effect.runPromise(
       Effect.provide(
         Effect.map(Miso, (m) => ({
           network: m.network,
           chainId: m.chainId,
           protocolPackageId: m.protocol.packageId,
-          partyId: m.party.deployment.partyos,
+          // `MisoPartyService` has no `.deployment` of its own (WP3); prove it
+          // is bound to this deployment's `partyos` package the same way
+          // `party/client.ts` does — via a synchronous derivation.
+          partyAdminCapId: m.party.derivePartyAdminCapId(SOME_PARTY_ID),
         })),
         Layer.provide(Miso.layer(TESTNET), layerTest({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
         { local: true },
@@ -38,7 +43,7 @@ describe("Miso.layer: the exact-chain startup check", () => {
     expect(network).toBe("testnet");
     expect(chainId).toBe(REAL_TESTNET_CHAIN_ID);
     expect(String(protocolPackageId)).toBe(TESTNET.protocol.musicos);
-    expect(partyId).toBe(TESTNET.partyos.partyos);
+    expect(String(partyAdminCapId)).toBe(String(derivePartyAdminCapId(SOME_PARTY_ID, TESTNET.partyos.partyos)));
   });
 
   test("fails with MisoNetworkMismatchError when the client's network differs from the deployment's", async () => {

@@ -22,7 +22,7 @@
  */
 import { Config, Context, Effect, Layer } from "effect";
 import { Musicos, type MusicosDeploymentInvalid, type MusicosService } from "@misofm/musicos";
-import { Partyos, type PartyosDeploymentError, type PartyosService } from "@misofm/partyos";
+import { Partyos, type PartyosDeploymentError } from "@misofm/partyos";
 import { Sui } from "sui-effect";
 import {
   getMisoPlatformDeployment,
@@ -31,6 +31,7 @@ import {
   type MisoPlatformDeployment,
 } from "./deployments.ts";
 import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "./errors.ts";
+import { makeMisoParty, type MisoPartyService } from "./party/client.ts";
 
 /** Everything {@link Miso.layer} (and {@link Miso.layerConfig}) can fail with, at build time. */
 export type MisoLayerError =
@@ -53,15 +54,12 @@ export interface MisoService {
    */
   readonly protocol: MusicosService;
   /**
-   * The converted `@misofm/partyos` core service.
-   *
-   * TODO(stage 2, WP3 "party and protocol composition"): replace with the
-   * richer `MisoPartyService` — the 7 core delegations kept, plus the
-   * platform's own party EXTENSION reads (profile/media/roles/tags/genres/
-   * ctas/links, today's `party/queries.ts`) and `tx`/`call`/`bcs` bound to
-   * `deployment.party`.
+   * The party surface: the converted `@misofm/partyos` core (7 delegations)
+   * plus this package's own party EXTENSION reads (profile/media/roles/tags/
+   * genres/ctas/links) and 25 `tx` fragments, bound to `deployment.party`
+   * (WP3 "party and protocol composition" — see `party/client.ts`).
    */
-  readonly party: PartyosService;
+  readonly party: MisoPartyService;
 }
 
 const make = (deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | Musicos | Partyos> =>
@@ -78,7 +76,8 @@ const make = (deployment: MisoPlatformDeployment): Effect.Effect<MisoService, Mi
       return yield* new MisoChainIdentifierMismatchError({ actual: sui.chainId, expected: deployment.chainIdentifier });
     }
     const protocol = yield* Musicos;
-    const party = yield* Partyos;
+    const partyos = yield* Partyos;
+    const party = makeMisoParty(sui, partyos, deployment.party);
     return { deployment, network: deployment.network, chainId: deployment.chainIdentifier, protocol, party };
   });
 
@@ -87,7 +86,8 @@ const makeUnchecked = (deployment: MisoPlatformDeployment): Effect.Effect<MisoSe
   Effect.gen(function* () {
     const sui = yield* Sui;
     const protocol = yield* Musicos;
-    const party = yield* Partyos;
+    const partyos = yield* Partyos;
+    const party = makeMisoParty(sui, partyos, deployment.party);
     return { deployment, network: deployment.network, chainId: sui.chainId, protocol, party };
   });
 
