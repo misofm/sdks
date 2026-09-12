@@ -49,7 +49,6 @@ export type {
 export * from "./deployments.ts";
 export * from "./pressing.ts";
 export * from "./transactions.ts";
-export * from "./execute.ts";
 export * from "./share.ts";
 export * from "./share-template.ts";
 export * from "./release-graph.ts";

@@ -50,10 +50,6 @@
       "types": "./dist/transactions.d.ts",
       "default": "./dist/transactions.js"
     },
-    "./execute": {
-      "types": "./dist/execute.d.ts",
-      "default": "./dist/execute.js"
-    },
     "./share": {
       "types": "./dist/share.d.ts",
       "default": "./dist/share.js"
@@ -155,7 +151,6 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "dependencies": {
-    "@misofm/effect": "0.2.0",
     "@misofm/streaming": "0.3.0",
     "@mysten/bcs": "^2.1.1",
     "@misofm/musicos": "0.4.0",

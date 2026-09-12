@@ -27,7 +27,66 @@ import { derivePressingAdminCapId, derivePressingId } from "../src/pressing.ts";
 import * as contracts from "../src/contracts.ts";
 import { party } from "@misofm/partyos/contracts";
 import { derivePartyAdminCapId } from "@misofm/partyos";
-import type { PlatformExecResult } from "../src/execute.ts";
+import { Schema } from "effect";
+import { Executed } from "sui-effect";
+
+/** One `changedObjects` entry for a freshly created object, `Executed`'s encoded shape. */
+function createdChange(objectId: string) {
+  return {
+    objectId,
+    inputState: "DoesNotExist",
+    inputVersion: null,
+    inputDigest: null,
+    inputOwner: null,
+    outputState: "ObjectWrite",
+    outputVersion: "1",
+    outputDigest: "11111111111111111111111111111111",
+    outputOwner: { $kind: "AddressOwner", AddressOwner: A },
+    idOperation: "Created",
+  };
+}
+
+/** Builds a real `Executed` from the fields this suite's tests care about. */
+function buildExecuted(input: {
+  readonly digest?: string;
+  readonly gasUsed?: string;
+  readonly objectTypes: Record<string, string>;
+  readonly events?: { readonly eventType: string; readonly bcs: Uint8Array }[];
+}): Executed {
+  const digest = input.digest ?? "11111111111111111111111111111111";
+  return Schema.decodeUnknownSync(Executed)({
+    digest,
+    effects: {
+      version: 2,
+      status: { success: true },
+      gasUsed: {
+        computationCost: input.gasUsed ?? "7",
+        storageCost: "0",
+        storageRebate: "0",
+        nonRefundableStorageFee: "0",
+      },
+      transactionDigest: digest,
+      gasObject: null,
+      eventsDigest: null,
+      dependencies: [],
+      lamportVersion: null,
+      changedObjects: Object.keys(input.objectTypes).map(createdChange),
+      unchangedConsensusObjects: [],
+      auxiliaryDataDigest: null,
+    },
+    events: (input.events ?? []).map((event) => ({
+      packageId: A,
+      module: "test",
+      sender: A,
+      eventType: event.eventType,
+      bcs: event.bcs,
+    })),
+    balanceChanges: [],
+    objectTypes: input.objectTypes,
+    checkpoint: null,
+    timestampMs: null,
+  });
+}
 
 const A = "0x" + "ab".repeat(32);
 const RECORD_PACKAGE = "0x" + "bc".repeat(32);
@@ -574,18 +633,7 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
     [recordingPoolId]: `${deployment.packages.royaltyPool}::pool::RoyaltyPool<${SHARE_2},0x2::sui::SUI>`,
     [routedStakeId]: `${deployment.packages.routedStake}::routed_stake::RoutedStake<${SHARE_2},${SHARE_1}>`,
   };
-  const result = {
-    digest: "digest",
-    gasUsed: 7,
-    objectTypes,
-    changedObjects: Object.keys(objectTypes).map((objectId) => ({
-      objectId,
-      idOperation: "Created",
-      outputState: "ObjectWrite",
-    })),
-    balanceChanges: [],
-    events,
-  } as unknown as PlatformExecResult;
+  const result = buildExecuted({ objectTypes, events });
 
   const parsed = parseAtomicPublicationResult(input, result);
   expect(parsed.compositions.c1).toMatchObject({

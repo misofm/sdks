@@ -82,7 +82,6 @@
       "name": "@misofm/platform",
       "version": "0.27.0",
       "dependencies": {
-        "@misofm/effect": "0.2.0",
         "@misofm/musicos": "0.4.0",
         "@misofm/partyos": "0.4.0",
         "@misofm/streaming": "0.3.0",
