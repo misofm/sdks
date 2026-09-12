@@ -115,6 +115,7 @@ singletons.
 ```ts
 import { Effect } from "effect";
 import { Sui, SuiCore, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { ObjectId } from "@unconfirmed/sui-effect";
 import { Miso } from "@misofm/platform";
 import { getMisoPlatformDeployment } from "@misofm/platform/deployments";
 
@@ -124,8 +125,9 @@ const program = Effect.gen(function* () {
   const miso = yield* Miso;
 
   // The permissionless object-model and Party surfaces are part of the same service.
-  const release = yield* miso.protocol.getReleaseById(releaseId);
-  const party = yield* miso.party.getPartyById(partyId);
+  // Ids are branded: brand a trusted string with ObjectId.make, decode untrusted input.
+  const release = yield* miso.protocol.getReleaseById(ObjectId.make(releaseId));
+  const party = yield* miso.party.getPartyById(ObjectId.make(partyId));
 
   // Read: run + one currency's offer, one round trip, no registry lookup.
   const { pressing, listing } = yield* miso.getSale({ releaseId, edition, currencyType: USD_COIN_TYPE });
@@ -153,7 +155,7 @@ instead of inspecting a thrown message:
 
 ```ts
 const releaseOrNull = miso.protocol
-  .getReleaseById(releaseId)
+  .getReleaseById(ObjectId.make(releaseId))
   .pipe(Effect.catchTag("ObjectNotFound", () => Effect.succeed(null)));
 ```
 
@@ -168,8 +170,8 @@ const client = new SuiGrpcClient({ network: "testnet", baseUrl }).$extend(miso()
 
 // The face keeps a member's argument types, and every namespace is nested:
 // client.miso.protocol.*, client.miso.party.*, client.miso.read.*.
-const release = await client.miso.protocol.getReleaseById(releaseId);
-const party = await client.miso.party.getPartyById(partyId);
+const release = await client.miso.protocol.getReleaseById(ObjectId.make(releaseId));
+const party = await client.miso.party.getPartyById(ObjectId.make(partyId));
 const { pressing, listing } = await client.miso.getSale({ releaseId, edition, currencyType: USD_COIN_TYPE });
 
 // Write: a Recipe, so it composes with protocol/party calls in the same PTB.
@@ -209,13 +211,14 @@ no `warm`) if you want that check deferred to the first call instead, and
 rejects typed (`MisoPlatformDeploymentInvalidError`), not with an unhandled
 defect.
 
-`dispose()` is not final: it releases the runtime `warm` built, but the
-registration itself is unchanged. After `dispose()`, `client.miso` is **cold**
-again — the next call rebuilds a fresh runtime lazily, so a synchronous
-member read immediately after `dispose()` throws `ExtensionNotReady` (as it
-would before the first call on a lazy, non-`warm` registration) until either
-an `Effect` member is awaited or `client.miso.$ready()` runs again. Dispose
-when the consumer is actually done, not between calls.
+`dispose()` is not final: it releases the runtime the registration built, but
+the registration itself is unchanged. Because `miso()` registers `warm`, the
+next use after `dispose()` re-runs the warm build synchronously (since
+`@unconfirmed/sui-effect` 0.1.1), so a synchronous member read straight after
+`dispose()` is real again. Only a lazy, non-`warm` registration goes cold and
+throws `ExtensionNotReady` on a synchronous read until an `Effect` member is
+awaited or `$ready()` runs. Dispose when the consumer is actually done, not
+between calls.
 
 Verified package and singleton IDs are bundled in
 `MISO_PLATFORM_DEPLOYMENTS.testnet`. `miso()`/`Miso.layer` select that
