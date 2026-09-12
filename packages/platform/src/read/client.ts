@@ -16,7 +16,10 @@
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Layer } from "effect";
-import { Sui, SuiGraphQL, type NetworkMismatch, type TransportError } from "sui-effect";
+import { Sui, SuiCore, SuiGraphQL, type NetworkMismatch, type TransportError } from "sui-effect";
+import { miso, type MisoClient as MisoExtensionClient } from "../client.ts";
+import { Miso, type MisoLayerError } from "../Miso.ts";
+import { getMisoPlatformDeployment, type MisoPlatformDeployment } from "../deployments.ts";
 import { misoConfig, networkFrom, type MisoConfig, type MisoConfigOverrides, type Network } from "./config.ts";
 
 function definedOverrides<T extends object>(value: T): Partial<T> {
@@ -25,15 +28,7 @@ function definedOverrides<T extends object>(value: T): Partial<T> {
 
 export interface MisoClient {
   config: MisoConfig;
-  /**
-   * gRPC data plane. TODO(stage 2/3, WP6 "facade derivation"): the
-   * predecessor's `.sui` was `$extend`-registered with `miso()`, giving
-   * `sui.miso.*` and `client.party`; those land once `Miso`'s
-   * `SuiExtension.fromService` registration and the richer `MisoPartyService`
-   * (WP3) exist. Until then this is the bare `SuiGrpcClient` and the
-   * standalone `read/*` functions this package exports are the supported
-   * path — see `docs/CONVERSION-STATUS.md`.
-   */
+  /** gRPC data plane. */
   sui: SuiGrpcClient;
   /** GraphQL RPC, for `Effect.provide(SuiGraphQL.layer(client.graphql))`. */
   graphql: SuiGraphQLClient;
@@ -41,14 +36,19 @@ export interface MisoClient {
    * source compatibility with callers migrating from the pre-Effect client. */
   graphqlRaw: SuiGraphQLClient;
   /**
-   * `Sui | SuiGraphQL`, ready to provide to any of this package's standalone
-   * `read/*` functions: `Effect.provide(getReleaseDetail(id, config), client.layer)`.
-   * TODO(stage 2/3): widen to `Miso | Sui | SuiCore | SuiGraphQL` once
-   * `MisoConfig` carries a complete `MisoPlatformDeployment` (today it only
-   * carries the package-id subset `Miso.layer` would need) — the issue's
-   * target shape for this helper.
+   * The `client.$extend(miso({ deployment, graphqlClient }))` face — the
+   * documented app-edge entry point for a Promise consumer: `client.miso.*`.
    */
-  layer: Layer.Layer<Sui | SuiGraphQL, NetworkMismatch | TransportError>;
+  client: SuiGrpcClient & { readonly miso: MisoExtensionClient };
+  /**
+   * `Miso | Sui | SuiCore | SuiGraphQL`, ready to provide to an Effect
+   * consumer that wants `yield* Miso` directly (the read service) instead of
+   * going through the Promise face — or to any of this package's standalone
+   * `read/*` functions, which only ever need the narrower `Sui | SuiGraphQL`
+   * a superset layer still satisfies:
+   * `Effect.provide(getReleaseDetail(id, config), client.layer)`.
+   */
+  layer: Layer.Layer<Miso | Sui | SuiCore | SuiGraphQL, MisoLayerError | NetworkMismatch | TransportError>;
 }
 
 export interface CreateMisoClientOptions extends MisoConfigOverrides {
@@ -56,13 +56,21 @@ export interface CreateMisoClientOptions extends MisoConfigOverrides {
   network?: Network | string;
   /** Complete verified configuration for a custom or unbundled deployment. */
   config?: MisoConfig;
+  /**
+   * The complete deployment `Miso`/`client.miso` build from. Defaults to the
+   * bundled manifest for `network` — required alongside a custom `config` on
+   * a network with no bundled entry, since `MisoConfig` alone (a package-id
+   * subset) cannot reconstruct the `operations`/`packages` sections
+   * `Miso.layer` needs.
+   */
+  deployment?: MisoPlatformDeployment;
 }
 
 /**
  * Build the client from a bundled network or a complete verified custom config.
  */
 export function createMisoClient(options: CreateMisoClientOptions = {}): MisoClient {
-  const { network, config: providedConfig, ...overrides } = options;
+  const { network, config: providedConfig, deployment: providedDeployment, ...overrides } = options;
   const requestedNetwork = networkFrom(network);
   // A caller-supplied verified deployment may still override transport URLs or
   // the discover shelf; undefined fields never erase verified config values.
@@ -74,20 +82,23 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
       `@misofm/platform/read: provided config is for ${config.network}, not ${requestedNetwork}.`,
     );
   }
+  const deployment = providedDeployment ?? getMisoPlatformDeployment(requestedNetwork);
 
   const sui = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
   const graphqlRaw = new SuiGraphQLClient({ url: config.graphqlUrl, network: config.network });
 
-  const layer = Layer.mergeAll(
-    Sui.layer({ network: config.network, baseUrl: config.grpcUrl }),
-    SuiGraphQL.layer(graphqlRaw),
-  );
+  const suiPlusCore = Sui.layerNoDeps.pipe(Layer.provideMerge(SuiCore.layerGrpc({ network: config.network, baseUrl: config.grpcUrl })));
+  const base = Layer.merge(suiPlusCore, SuiGraphQL.layer(graphqlRaw));
+  const layer = Miso.layer(deployment).pipe(Layer.provideMerge(base));
+
+  const client = sui.$extend(miso({ deployment, graphqlClient: graphqlRaw }));
 
   return {
     config,
     sui,
     graphql: graphqlRaw,
     graphqlRaw,
+    client,
     layer,
   };
 }
