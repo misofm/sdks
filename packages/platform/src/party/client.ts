@@ -63,7 +63,11 @@ export function bindModulePackage<M extends object, K extends readonly (keyof M)
     if ((unavailable as readonly string[]).includes(key)) continue;
     out[key] =
       typeof value === "function"
-        ? (options: { package?: string }) => (value as (o: unknown) => unknown)({ package: pkg, ...options })
+        // `pkg` always wins — matches `Miso.ts`'s own `bindModulePackage`
+        // (C item, misofm/sdks#35 verification): the bound package is fixed,
+        // not a default a caller can quietly override via an unsafe cast
+        // past `BoundModule`'s `Omit<Options, "package">`.
+        ? (options: { package?: string }) => (value as (o: unknown) => unknown)({ ...options, package: pkg })
         : value;
   }
   return out as BoundModule<M, K[number]>;

@@ -64,13 +64,22 @@ export interface CreateMisoClientOptions extends MisoConfigOverrides {
    * `Miso.layer` needs.
    */
   deployment?: MisoPlatformDeployment;
+  /**
+   * The chain identifier the node must report — forwarded to both the
+   * standalone `layer` (`Sui.layerNoDepsWith({ chainId })`) and `client.miso`
+   * (`miso({ chainId })`), so the two transports this client builds (and the
+   * warm registration on `devnet`/`localnet`/a custom network) agree on the
+   * same pinned id rather than each asserting independently. Omit on
+   * `mainnet`/`testnet`, where both already have a built-in default.
+   */
+  chainId?: string;
 }
 
 /**
  * Build the client from a bundled network or a complete verified custom config.
  */
 export function createMisoClient(options: CreateMisoClientOptions = {}): MisoClient {
-  const { network, config: providedConfig, deployment: providedDeployment, ...overrides } = options;
+  const { network, config: providedConfig, deployment: providedDeployment, chainId, ...overrides } = options;
   const requestedNetwork = networkFrom(network);
   // A caller-supplied verified deployment may still override transport URLs or
   // the discover shelf; undefined fields never erase verified config values.
@@ -87,11 +96,17 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
   const sui = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
   const graphqlRaw = new SuiGraphQLClient({ url: config.graphqlUrl, network: config.network });
 
-  const suiPlusCore = Sui.layerNoDeps.pipe(Layer.provideMerge(SuiCore.layerGrpc({ network: config.network, baseUrl: config.grpcUrl })));
+  // Reuse the one gRPC client instance `client` itself extends below —
+  // `SuiCore.layerFromClient(sui)`, not a second `SuiCore.layerGrpc(...)`
+  // transport pointed at the same endpoint (C item, misofm/sdks#35
+  // verification): an Effect consumer using `layer` and a Promise consumer
+  // using `client` then share one connection, not two.
+  const suiLayer = chainId !== undefined ? Sui.layerNoDepsWith({ chainId }) : Sui.layerNoDeps;
+  const suiPlusCore = suiLayer.pipe(Layer.provideMerge(SuiCore.layerFromClient(sui)));
   const base = Layer.merge(suiPlusCore, SuiGraphQL.layer(graphqlRaw));
   const layer = Miso.layer(deployment).pipe(Layer.provideMerge(base));
 
-  const client = sui.$extend(miso({ deployment, graphqlClient: graphqlRaw }));
+  const client = sui.$extend(miso({ deployment, graphqlClient: graphqlRaw, chainId }));
 
   return {
     config,

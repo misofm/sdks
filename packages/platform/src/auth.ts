@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { isValidSuiAddress, normalizeSuiAddress } from "@mysten/sui/utils";
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { MisoAuthError, type MisoAuthErrorCode } from "./errors.ts";
 
 export type { MisoAuthErrorCode };
@@ -58,7 +58,17 @@ export function isValidAuthorizationTarget(method: string, path: string): boolea
   );
 }
 
-/** Accept only fresh timestamps in one canonical spelling. */
+/**
+ * Accept only fresh timestamps in one canonical spelling.
+ *
+ * A plain sync utility, not `Effect`-returning, so it takes `nowMs` as an
+ * explicit parameter rather than reading `Clock` itself — a caller outside
+ * an Effect program (client-side validation, say) can still use it standalone.
+ * `Date.now()` is only this parameter's fallback default for such a caller;
+ * `parseChallenge` below (the only in-package caller, and the one Effect
+ * needs to control for testing) always resolves `nowMs` from `Clock` first
+ * and passes it explicitly (C item, misofm/sdks#35 verification).
+ */
 export function parseFreshAuthorizationIssuedAt(input: unknown, nowMs: number = Date.now()): string | null {
   if (typeof input !== "string") return null;
   const issuedAtMs = Date.parse(input);
@@ -115,7 +125,10 @@ const parseChallenge = Effect.fn("parseChallenge")(function* (
     });
   }
 
-  const nowMs = expected.nowMs ?? Date.now();
+  // `Clock`, not `Date.now()` — deterministic and `TestClock`-controllable
+  // (C item, misofm/sdks#35 verification); `expected.nowMs` still wins when
+  // a caller supplies one explicitly.
+  const nowMs = expected.nowMs ?? (yield* Clock.currentTimeMillis);
   const issuedAt = parseFreshAuthorizationIssuedAt(body.issuedAt, nowMs);
   const expiresAtMs = Date.parse(body.expiresAt);
   const canonicalAddress = normalizeSuiAddress(body.address);

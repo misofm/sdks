@@ -117,6 +117,20 @@ type _PlatformPartyService = MisoPartyService;
 // The registration `miso()` returns (`@misofm/platform/client`), the same
 // "typechecks without calling .register" probe as `musicos()`/`partyos()`.
 type _MisoExtensionRegistration = ReturnType<typeof miso>;
+
+// A namespace method reached THROUGH the derived Promise face, not just the
+// bare `MisoClient` alias above — misofm/sdks#35 verification, A1: before the
+// fix, `MisoClient["protocol"]`/`["party"]`/`["vault"]` stayed typed as their
+// raw Effect-returning service shape (an `interface`, unmapped by
+// `PromiseFace`) instead of recursing into Promise-returning methods, and a
+// bare type-alias reference to `MisoClient` alone would never have caught
+// that: only indexing into a nested member does. `ReturnsPromise`/`Assert`
+// fail this file's typecheck if any of these three regress.
+type ReturnsPromise<F> = F extends (...args: never[]) => Promise<unknown> ? true : false;
+type Assert<T extends true> = T;
+type _PlatformClientProtocolMemberIsPromise = Assert<ReturnsPromise<MisoClient["protocol"]["getReleaseById"]>>;
+type _PlatformClientPartyMemberIsPromise = Assert<ReturnsPromise<MisoClient["party"]["getPartyById"]>>;
+type _PlatformClientVaultMemberIsPromise = Assert<ReturnsPromise<MisoClient["vault"]["getVaultAdminCap"]>>;
 type _PlatformContractsRecordReleaseIdOptions = Parameters<typeof platformRecord.releaseId>[0];
 type _PlatformRecordSoldCurrencyByte = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_currency"][number];
 type _PlatformShareEvent = ReturnType<typeof platformShare.ShareInitializedEvent.parse>;

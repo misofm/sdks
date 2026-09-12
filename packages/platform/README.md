@@ -209,6 +209,14 @@ no `warm`) if you want that check deferred to the first call instead, and
 rejects typed (`MisoPlatformDeploymentInvalidError`), not with an unhandled
 defect.
 
+`dispose()` is not final: it releases the runtime `warm` built, but the
+registration itself is unchanged. After `dispose()`, `client.miso` is **cold**
+again — the next call rebuilds a fresh runtime lazily, so a synchronous
+member read immediately after `dispose()` throws `ExtensionNotReady` (as it
+would before the first call on a lazy, non-`warm` registration) until either
+an `Effect` member is awaited or `client.miso.$ready()` runs again. Dispose
+when the consumer is actually done, not between calls.
+
 Verified package and singleton IDs are bundled in
 `MISO_PLATFORM_DEPLOYMENTS.testnet`. `miso()`/`Miso.layer` select that
 verified map from the client's network by default; pass an explicit
