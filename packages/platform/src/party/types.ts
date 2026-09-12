@@ -11,9 +11,9 @@ import { Schema } from "effect";
 export class Profile extends Schema.Class<Profile>("@misofm/platform/Profile")({
   partyId: Schema.String,
   bioShort: Schema.String,
-  bioLong: Schema.optional(Schema.String),
+  bioLong: Schema.optionalKey(Schema.String),
   /** ISO 3166-1 alpha-2 country code, e.g. "GB". */
-  country: Schema.optional(Schema.String),
+  country: Schema.optionalKey(Schema.String),
   /** ISO 639-1 language codes, e.g. ["en"]. */
   languages: Schema.Array(Schema.String),
 }) {}
