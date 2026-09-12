@@ -16,6 +16,7 @@ import {
   extractTypeParams2,
   getWorkAddressesByShareTypes,
   Musicos,
+  MusicosWorkNotFound,
   type MusicosDeploymentInvalid,
   type MusicosService,
   type OwnedReadError,
@@ -84,7 +85,7 @@ export const getReleaseTrackCredits = Effect.fn("getReleaseTrackCredits")(functi
   options: GetReleaseTrackCreditsOptions,
 ): Effect.fn.Return<
   Record<string, ReleaseTrackCredits>,
-  ReadError | MusicosDeploymentInvalid | GraphQLUnavailable | TransportError,
+  ReadError | MusicosDeploymentInvalid | MusicosWorkNotFound | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const release = yield* withMusicos(options.misoPackageId, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
@@ -104,7 +105,7 @@ export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordi
   options: GetReleaseTrackCreditsOptions,
 ): Effect.fn.Return<
   Record<string, ReleaseTrackCredits>,
-  BatchItemError | GraphQLUnavailable | TransportError,
+  BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError,
   Sui | SuiGraphQL
 > {
   const recordingIds = [...new Set(recordingIdsInput)];
@@ -134,7 +135,7 @@ export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordi
   );
   for (const shareType of compositionShareTypes) {
     if (!addresses.compositions[shareType]) {
-      throw new Error(`Composition not found for share type: ${shareType}`);
+      return yield* Effect.fail(new MusicosWorkNotFound({ kind: "composition", shareType }));
     }
   }
   const compositionIds = [

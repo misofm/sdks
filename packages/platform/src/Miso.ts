@@ -32,6 +32,7 @@ import { Partyos, type PartyosDeploymentError, type PartyosService } from "@miso
 import {
   Sui,
   SuiGraphQL,
+  type BatchItemError,
   type DecodeError,
   type ObjectDeleted,
   type ObjectUnavailable,
@@ -394,7 +395,7 @@ export type MisoBcs = {
  */
 export type MisoVault = Omit<typeof vaultActions, "getVaultAdminCap" | "resolveReceivingCoins"> & {
   readonly getVaultAdminCap: (vaultAdminCapId: string, capType: string) => Effect.Effect<vaultActions.VaultAdminCap | null, DecodeError | ObjectUnavailable | TransportError | OperationsUnavailableError>;
-  readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], TransportError | OperationsUnavailableError>;
+  readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], BatchItemError | TransportError | OperationsUnavailableError>;
 };
 
 const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | Musicos | Partyos> =>

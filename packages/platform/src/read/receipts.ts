@@ -21,7 +21,7 @@
 // math the chain does.
 
 import * as listingContract from "../contracts/record_shop/listing.ts";
-import { extractTypeParams2, Musicos, type MusicosDeploymentInvalid, type MusicosService } from "@misofm/musicos";
+import { extractTypeParams2, Musicos, type MusicosDeploymentInvalid, type MusicosService, type MusicosWorkNotFound } from "@misofm/musicos";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
 import { Effect, Result } from "effect";
 import {
@@ -541,6 +541,7 @@ type ReceiptError =
   | MalformedRecordSoldEventError
   | DecodeError
   | ReleaseNotFoundError
+  | MusicosWorkNotFound
   | BatchItemError
   | GraphQLUnavailable
   | TransportError;
@@ -550,7 +551,7 @@ const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   PurchaseReceipt | null,
-  DecodeError | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const detail = yield* getPressingDetail(sale.pressingId, config);

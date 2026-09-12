@@ -3,6 +3,11 @@
 
 import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";
+import { Effect } from "effect";
+import { normalizeSuiObjectId } from "@mysten/sui/utils";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
+import * as vaultContract from "../src/contracts/vault/vault.ts";
 import * as vaultApi from "../src/vault.ts";
 import * as releasePluginContract from "../src/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import * as releaseDistributorContract from "../src/contracts/release_revenue_distributor/release_revenue_distributor.ts";
@@ -347,4 +352,70 @@ test("settlement cranks use suffixed plugin modules in exact order", () => {
   expect(rootInput?.UnresolvedObject?.objectId).toBe(
     `0x${"acc".padStart(64, "0")}`,
   );
+});
+
+// ── `getVaultAdminCap` / `resolveReceivingCoins` (B4/B9, misofm/sdks#35 ────
+// verification): these two reads had no test coverage at all before this
+// stage (flagged in docs/CONVERSION.md's stage 2/3 deviations).
+
+function run<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<A> {
+  return Effect.runPromise(Effect.provide(effect, layerTest({ objects }), { local: true }));
+}
+function flipRun<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<E> {
+  return Effect.runPromise(Effect.provide(Effect.flip(effect), layerTest({ objects }), { local: true }));
+}
+
+const CAP_TYPE = `${A}::release::ReleaseAdminCap`;
+const VAULT_ADMIN_CAP_ID = `0x${"55".repeat(32)}`;
+const VAULT_ID = `0x${"66".repeat(32)}`;
+
+test("getVaultAdminCap decodes the exact vault id it wraps", async () => {
+  const object: FakeObject = {
+    objectId: VAULT_ADMIN_CAP_ID,
+    type: `${VAULT}::vault::VaultAdminCap<${CAP_TYPE}>`,
+    version: 1n,
+    content: vaultContract.VaultAdminCap.serialize({ id: VAULT_ADMIN_CAP_ID, vault_id: VAULT_ID }).toBytes(),
+  };
+  const cap = await run([object], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(cap).toMatchObject({ id: VAULT_ADMIN_CAP_ID, vaultId: VAULT_ID });
+});
+
+test("getVaultAdminCap is null when no such object exists", async () => {
+  const cap = await run([], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(cap).toBeNull();
+});
+
+test("getVaultAdminCap fails typed DecodeError for the wrong cap type", async () => {
+  const object: FakeObject = {
+    objectId: VAULT_ADMIN_CAP_ID,
+    type: `${VAULT}::vault::VaultAdminCap<${A}::other::Other>`,
+    version: 1n,
+    content: vaultContract.VaultAdminCap.serialize({ id: VAULT_ADMIN_CAP_ID, vault_id: VAULT_ID }).toBytes(),
+  };
+  const error = await flipRun([object], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(error._tag).toBe("DecodeError");
+});
+
+test("resolveReceivingCoins resolves every coin's exact version and digest", async () => {
+  const coinA = normalizeSuiObjectId("0xc01");
+  const coinB = normalizeSuiObjectId("0xc02");
+  const objects: FakeObject[] = [
+    { objectId: coinA, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 3n, digest: "digestA", content: new Uint8Array() },
+    { objectId: coinB, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 7n, digest: "digestB", content: new Uint8Array() },
+  ];
+  const refs = await run(objects, vaultApi.resolveReceivingCoins([coinA, coinB]));
+  expect(refs).toEqual([
+    { objectId: coinA, version: "3", digest: "digestA" },
+    { objectId: coinB, version: "7", digest: "digestB" },
+  ]);
+});
+
+test("resolveReceivingCoins: B9 (misofm/sdks#35 verification) — an unresolvable coin fails typed BatchItemError, not a defect", async () => {
+  const coinA = normalizeSuiObjectId("0xc01");
+  const missing = normalizeSuiObjectId("0xdead");
+  const objects: FakeObject[] = [
+    { objectId: coinA, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 3n, digest: "digestA", content: new Uint8Array() },
+  ];
+  const error = await flipRun(objects, vaultApi.resolveReceivingCoins([coinA, missing]));
+  expect(error._tag).toBe("ObjectNotFound");
 });

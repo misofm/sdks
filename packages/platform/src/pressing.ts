@@ -454,6 +454,20 @@ function requireId(label: string, actual: string, expected: string): void {
     throw new Error(`${label} ${actual} does not match expected ${expected}`);
 }
 
+/**
+ * `requireId`, as a typed `DecodeError` instead of a throw — for a
+ * consistency check made directly inside an `Effect.gen` body (`getSale`),
+ * where a bare throw would become an unrecoverable defect rather than a
+ * typed failure a caller can `catchTag` (B9, misofm/sdks#35 verification).
+ * `requireId` itself stays throwing: every other call site is already inside
+ * `decodeInto`'s `Effect.try`-wrapped mapper, where the throw is the
+ * intended, already-safe idiom.
+ */
+function requireIdOrFail(label: string, actual: string, expected: string, objectId: string): Effect.Effect<void, DecodeError> {
+  if (sameId(actual, expected)) return Effect.void;
+  return Effect.fail(new DecodeError({ objectId: ObjectId.make(objectId), issue: `${label} ${actual} does not match expected ${expected}` }));
+}
+
 function requireListingCurrency(
   type: string,
   recordShopPackageId: string,
@@ -702,7 +716,7 @@ export const getSale = Effect.fn("getSale")(function* (
     const expectedType = `${p.recordPackageId}::pressing::Pressing`;
     yield* checkType(pressingId, pressingFound.type, expectedType);
     pressing = yield* decodeInto(() => mapPressing(pressingId, p.recordPackageId, pressingFound.content), Pressing, pressingId, expectedType);
-    requireId("Sale pressing release", pressing.releaseId, p.releaseId);
+    yield* requireIdOrFail("Sale pressing release", pressing.releaseId, p.releaseId, pressingId);
   }
 
   const listingFound = yield* nullableObject(listingResult!);
@@ -715,11 +729,14 @@ export const getSale = Effect.fn("getSale")(function* (
       listingId,
       `${p.recordShopPackageId}::listing::Listing<Currency>`,
     );
-    requireId("Sale listing release", listing.releaseId, p.releaseId);
-    requireId("Sale listing pressing", listing.pressingId, pressingId);
+    yield* requireIdOrFail("Sale listing release", listing.releaseId, p.releaseId, listingId);
+    yield* requireIdOrFail("Sale listing pressing", listing.pressingId, pressingId, listingId);
     if (listing.currencyType !== normalizeStructTag(p.currencyType)) {
-      throw new Error(
-        `Sale listing currency ${listing.currencyType} does not match requested ${normalizeStructTag(p.currencyType)}`,
+      return yield* Effect.fail(
+        new DecodeError({
+          objectId: ObjectId.make(listingId),
+          issue: `Sale listing currency ${listing.currencyType} does not match requested ${normalizeStructTag(p.currencyType)}`,
+        }),
       );
     }
   }

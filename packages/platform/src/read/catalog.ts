@@ -45,7 +45,7 @@ import {
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
 import { getTrackCreditsByRecordingIds } from "../catalog.ts";
-import { Musicos, type MusicosDeploymentInvalid, type MusicosService, type ReadError } from "@misofm/musicos";
+import { Musicos, type MusicosDeploymentInvalid, type MusicosService, type MusicosWorkNotFound, type ReadError } from "@misofm/musicos";
 import type { Release } from "@misofm/musicos";
 import {
   DecodeError,
@@ -389,7 +389,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
   releaseId: string,
   config: MisoConfig,
   options: GetReleaseOptions = {},
-): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
   const { release, cover, credits, kind } = yield* getReleaseResources(releaseId, config, [
     "cover",
     "credits",
@@ -450,7 +450,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
 const getTrackCreditsForRecordingIds = Effect.fn("getTrackCreditsForRecordingIds")(function* (
   recordingIds: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<Record<string, TrackCredits>, BatchItemError | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<Record<string, TrackCredits>, BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
   const { compositionCredits, recordingCredits } = config.protocol;
   const tracks = yield* getTrackCreditsByRecordingIds(recordingIds, {
     misoPackageId: config.deployment.musicos,
@@ -482,7 +482,7 @@ export const getTrackCredits = Effect.fn("getTrackCredits")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   Record<string, TrackCredits>,
-  ReadError | MusicosDeploymentInvalid | BatchItemError | GraphQLUnavailable | TransportError,
+  ReadError | MusicosDeploymentInvalid | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const release = yield* withMusicos(config.deployment.musicos, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
@@ -499,7 +499,7 @@ export const getPressingDetail = Effect.fn("getPressingDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   PressingDetail | null,
-  DecodeError | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
@@ -520,7 +520,7 @@ export const getPressingSaleDetail = Effect.fn("getPressingSaleDetail")(function
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  DecodeError | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
@@ -577,7 +577,7 @@ export const getSaleDetail = Effect.fn("getSaleDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  DecodeError | ObjectDeleted | ObjectUnavailable | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ObjectDeleted | ObjectUnavailable | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);
@@ -677,7 +677,7 @@ export const getRecordAlbum = Effect.fn("getRecordAlbum")(function* (
   options: GetRecordAlbumOptions = {},
 ): Effect.fn.Return<
   RecordAlbum | null,
-  DecodeError | ObjectUnavailable | ReleaseNotFoundError | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ObjectUnavailable | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);

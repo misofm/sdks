@@ -20,7 +20,7 @@ import type {
 } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { Effect, Schema } from "effect";
-import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
+import { ObjectId, Sui, SuiSchema, type BatchItemError, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import * as vault from "./contracts/vault/vault.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
 import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
@@ -1000,15 +1000,15 @@ export interface ReceivingObjectRef {
 /** Resolve owned coins to the exact references required by a Receiving input. */
 export const resolveReceivingCoins = Effect.fn("resolveReceivingCoins")(function* (
   coinIds: readonly string[],
-): Effect.fn.Return<ReceivingObjectRef[], TransportError, Sui> {
+): Effect.fn.Return<ReceivingObjectRef[], BatchItemError | TransportError, Sui> {
   const sui = yield* Sui;
-  const { objects } = yield* sui.core.getObjects({ objectIds: [...coinIds] });
-  return objects.map((coin, index) => {
-    if (coin instanceof Error || !coin) {
-      throw new Error(`resolveReceivingCoins: could not resolve ${coinIds[index]}`);
-    }
-    return { objectId: coin.objectId, version: coin.version, digest: coin.digest };
-  });
+  // `getObjectsOrFail`: every id must resolve, same "hard read" idiom
+  // `getSale` uses — a coin the caller named to receive but that the node
+  // cannot produce is a typed `BatchItemError`, not a hand-rolled defect
+  // from a raw `sui.core.getObjects` per-item `Error | null` check (B9,
+  // misofm/sdks#35 verification).
+  const objects = yield* sui.getObjectsOrFail(coinIds.map((id) => ObjectId.make(id)));
+  return objects.map((object) => ({ objectId: object.id, version: String(object.version), digest: object.digest }));
 });
 
 export function receivingCoins(

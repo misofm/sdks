@@ -142,6 +142,37 @@ test("reads exact Pressing, Listing, and concrete Record provenance", async () =
   expect(sale.listing?.pricing.kind).toBe("floor");
 });
 
+test("getSale fails typed DecodeError (not a defect) for an inconsistent Listing", async () => {
+  // B9, misofm/sdks#35 verification: `getSale`'s post-decode consistency
+  // checks (`requireId`/the currency comparison) used to `throw` directly
+  // inside the `Effect.gen` body, which is an unrecoverable defect, not a
+  // typed failure a caller can `catchTag`. This fixture's Listing sits at
+  // the address the requested currency derives (so it IS found and
+  // decodes), but its own `Listing<Currency>` type tag names a different
+  // currency — `mapListing`'s own internal derived-id check (itself already
+  // a safely-`decodeInto`-wrapped throw) is what actually catches this
+  // particular fixture first, since a real network's address derivation
+  // makes the getSale-level currency comparison itself unreachable without
+  // a hash collision; either way, the contract this test pins is "getSale
+  // never dies for a malformed/inconsistent read — it fails typed".
+  const OTHER_CURRENCY = "0x7777777777777777777777777777777777777777777777777777777777777777::fakeusd::FakeUsd";
+  const adversarialObjects: FakeObject[] = [
+    { objectId: PRESSING, type: `${RECORD_PACKAGE}::pressing::Pressing`, version: 1n, content: pressingBytes },
+    { objectId: LISTING, type: `${SHOP_PACKAGE}::listing::Listing<${OTHER_CURRENCY}>`, version: 1n, content: listingBytes },
+  ];
+  const error = await flip(
+    adversarialObjects,
+    getSale({
+      releaseId: RELEASE,
+      edition: EDITION,
+      currencyType: CURRENCY,
+      recordPackageId: RECORD_PACKAGE,
+      recordShopPackageId: SHOP_PACKAGE,
+    }),
+  );
+  expect(error._tag).toBe("DecodeError");
+});
+
 test("exact readers reject the wrong package and Listing currency", async () => {
   const pressingError = await flip(fixtureObjects, getPressing(PRESSING, "0xc"));
   expect(pressingError._tag).toBe("DecodeError");
