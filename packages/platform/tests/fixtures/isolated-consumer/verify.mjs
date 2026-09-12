@@ -100,7 +100,15 @@ invariant(
 );
 
 invariant(Object.keys(partyosRoot).length > 0, "@misofm/partyos root export did not load");
-invariant(hasExport(partyosRoot, "PartyosClient"), "@misofm/partyos root missing PartyosClient");
+invariant(hasExport(partyosRoot, "Partyos"), "@misofm/partyos root missing the Partyos service");
+invariant(hasExport(partyosRoot, "partyos"), "@misofm/partyos root missing the partyos() registration");
+
+// `partyos()` builds a `SuiClientRegistration` synchronously — no network —
+// the same proof `musicos()` gets above.
+const partyosRegistration = partyosRoot.partyos();
+invariant(partyosRegistration.name === "partyos", 'partyos() registration name is not "partyos"');
+invariant(typeof partyosRegistration.register === "function", "partyos() registration has no register()");
+
 invariant(hasExport(partyosContracts, "party"), "@misofm/partyos/contracts missing party");
 invariant(!("uid" in partyosContracts.party), "@misofm/partyos/contracts leaked the raw `uid` accessor");
 
@@ -108,7 +116,15 @@ invariant(Object.keys(partyosErrors).length > 0, "@misofm/partyos/errors export 
 invariant(hasExport(partyosErrors, "PartyNotFoundError"), "@misofm/partyos/errors missing PartyNotFoundError");
 
 invariant(Object.keys(platformRoot).length > 0, "@misofm/platform root export did not load");
-invariant(hasExport(platformRoot, "MisoClient"), "@misofm/platform root missing MisoClient");
+invariant(hasExport(platformRoot, "Miso"), "@misofm/platform root missing the Miso service");
+invariant(hasExport(platformRoot, "miso"), "@misofm/platform root missing the miso() registration");
+
+// `miso()` builds a `SuiClientRegistration` synchronously — no network —
+// the same proof `musicos()`/`partyos()` get above.
+const misoRegistration = platformRoot.miso();
+invariant(misoRegistration.name === "miso", 'miso() registration name is not "miso"');
+invariant(typeof misoRegistration.register === "function", "miso() registration has no register()");
+
 invariant(hasExport(platformRoot, "contracts"), "@misofm/platform root missing contracts namespace");
 invariant(hasExport(platformRoot, "platformEventParsers"), "@misofm/platform root missing platform event registry");
 invariant(hasExport(platformEvents, "platformEventParsers"), "@misofm/platform/events missing platform event registry");
@@ -154,7 +170,7 @@ const mappedRevenue = platformRoot.parseReleaseRevenueDistributedEvent;
 invariant(typeof mappedRevenue === "function", "release revenue mapper missing");
 
 invariant(Object.keys(platformClient).length > 0, "@misofm/platform/client export did not load");
-invariant(hasExport(platformClient, "MisoPlatformClient"), "@misofm/platform/client missing MisoPlatformClient");
+invariant(hasExport(platformClient, "miso"), "@misofm/platform/client missing the miso() registration");
 
 invariant(Object.keys(platformPressing).length > 0, "@misofm/platform/pressing export did not load");
 invariant(hasExport(platformPressing, "derivePressingId"), "@misofm/platform/pressing missing derivePressingId");
@@ -169,7 +185,7 @@ invariant(Object.keys(platformCredits).length > 0, "@misofm/platform/credits exp
 invariant(hasExport(platformCredits, "attachCompositionCredit"), "@misofm/platform/credits missing attachCompositionCredit");
 
 invariant(Object.keys(platformParty).length > 0, "@misofm/platform/party export did not load");
-invariant(hasExport(platformParty, "PartyPlatformClient"), "@misofm/platform/party missing PartyPlatformClient");
+invariant(hasExport(platformParty, "makeMisoParty"), "@misofm/platform/party missing makeMisoParty");
 
 invariant(Object.keys(platformErrors).length > 0, "@misofm/platform/errors export did not load");
 invariant(hasExport(platformErrors, "RecordSalesUnavailableError"), "@misofm/platform/errors missing RecordSalesUnavailableError");

@@ -28,25 +28,33 @@ import { composition as musicosComposition } from "@misofm/musicos/contracts";
 // through the curated barrel.
 import { Composition as CompositionStruct } from "@misofm/musicos/contracts/musicos/composition";
 
-import { PartyosClient, type Party as PartyosParty } from "@misofm/partyos";
+// partyos is also a sui-effect extension (misofm/sdks#34): the `Partyos`
+// service and the derived `partyos()` Promise registration replace the
+// predecessor `PartyosClient` class.
+import { Partyos, partyos, type Party as PartyosParty } from "@misofm/partyos";
 import { getPartyDeployment, type PartyDeployment } from "@misofm/partyos/deployments";
 import { Party as PartyStruct } from "@misofm/partyos/contracts/partyos/party";
 import { PartyNotFoundError } from "@misofm/partyos/errors";
 
+// platform is a sui-effect extension too (misofm/sdks#35): the `Miso`
+// service and the derived `miso()` Promise registration (`./client`)
+// replace the predecessor `MisoPlatformClient` class; `MisoClient` is now
+// the type alias for `client.miso` (`PromiseFace<MisoService> & ExtensionFace`),
+// not a runtime class.
 import {
-  MisoClient as PlatformRootClient,
+  Miso as PlatformRootService,
   platformEventParsers as rootPlatformEventParsers,
   parseReleaseRevenueDistributedEvent,
   parseReleaseTrackRevenueDistributedEvent,
   type MisoOptions as PlatformRootOptions,
 } from "@misofm/platform";
 import { platformEventParsers } from "@misofm/platform/events";
-import { MisoPlatformClient, type MisoPlatformConfig } from "@misofm/platform/client";
+import { miso, type MisoClient, type MisoOptions as PlatformClientOptions } from "@misofm/platform/client";
 import { derivePressingId, type OpenPressingParams } from "@misofm/platform/pressing";
 import { directAdminCap, type AdminCapAuthority } from "@misofm/platform/vault";
 import { misoConfig, type MisoConfig } from "@misofm/platform/read";
 import { attachCompositionCredit, type CompositionRole } from "@misofm/platform/credits";
-import { PartyPlatformClient, type Profile } from "@misofm/platform/party";
+import { makeMisoParty, type MisoPartyService, type Profile } from "@misofm/platform/party";
 import {
   record as platformRecord,
   listing as platformListing,
@@ -91,14 +99,24 @@ type _PartyosParty = PartyosParty;
 type _PartyosDeployment = PartyDeployment;
 type _PartyStruct = ReturnType<typeof PartyStruct.parse>;
 type _PartyNotFoundError = PartyNotFoundError;
+// The registration `partyos()` returns, without ever calling `.register` —
+// proving `client.$extend(partyos())` typechecks, the same probe `musicos()`
+// gets above.
+type _PartyosExtensionRegistration = ReturnType<typeof partyos>;
 
+type _PlatformRootService = typeof PlatformRootService;
 type _PlatformRootOptions = PlatformRootOptions;
-type _PlatformClientConfig = MisoPlatformConfig;
+type _PlatformClientOptions = PlatformClientOptions;
+type _PlatformClient = MisoClient;
 type _PlatformPressingParams = OpenPressingParams;
 type _PlatformVaultAuthority = AdminCapAuthority;
 type _PlatformReadConfig = MisoConfig;
 type _PlatformCreditRole = CompositionRole;
 type _PlatformParty = Profile;
+type _PlatformPartyService = MisoPartyService;
+// The registration `miso()` returns (`@misofm/platform/client`), the same
+// "typechecks without calling .register" probe as `musicos()`/`partyos()`.
+type _MisoExtensionRegistration = ReturnType<typeof miso>;
 type _PlatformContractsRecordReleaseIdOptions = Parameters<typeof platformRecord.releaseId>[0];
 type _PlatformRecordSoldCurrencyByte = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_currency"][number];
 type _PlatformShareEvent = ReturnType<typeof platformShare.ShareInitializedEvent.parse>;
@@ -131,17 +149,18 @@ void ([
   bindModulePackage,
   musicosComposition,
   CompositionStruct,
-  PartyosClient,
+  Partyos,
+  partyos,
   getPartyDeployment,
   PartyStruct,
   PartyNotFoundError,
-  PlatformRootClient,
-  MisoPlatformClient,
+  PlatformRootService,
+  miso,
   derivePressingId,
   directAdminCap,
   misoConfig,
   attachCompositionCredit,
-  PartyPlatformClient,
+  makeMisoParty,
   platformRecord,
   platformListing,
   platformShare,
@@ -179,13 +198,18 @@ export type IsolatedConsumerTypeProbe = [
   _PartyosDeployment,
   _PartyStruct,
   _PartyNotFoundError,
+  _PartyosExtensionRegistration,
+  _PlatformRootService,
   _PlatformRootOptions,
-  _PlatformClientConfig,
+  _PlatformClientOptions,
+  _PlatformClient,
   _PlatformPressingParams,
   _PlatformVaultAuthority,
   _PlatformReadConfig,
   _PlatformCreditRole,
   _PlatformParty,
+  _PlatformPartyService,
+  _MisoExtensionRegistration,
   _PlatformContractsRecordReleaseIdOptions,
   _PlatformRecordSoldCurrencyByte,
   _PlatformShareEvent,

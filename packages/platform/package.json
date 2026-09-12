@@ -1,6 +1,6 @@
 {
   "name": "@misofm/platform",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "packageManager": "bun@1.4.0",
   "description": "Complete client SDK for the Miso platform on Sui — high-level reads, pressings, listings, records, work publishing, Party extensions, and the first-party extensions built on top of the @misofm/musicos object model and the @misofm/partyos Party identity model.",
   "license": "Apache-2.0",
