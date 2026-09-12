@@ -105,6 +105,9 @@ describe("client.$extend(...): a cold (non-warm) registration and $ready()", () 
     expect(typeof client.miso.chainId).not.toBe("function");
     expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
     expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+    // `ids.genre` (B4, misofm/sdks#35 verification): real — a plain string,
+    // not a placeholder — the same one await later.
+    expect(client.miso.ids.genre("ROCK")).toMatch(/^0x[0-9a-f]{64}$/);
 
     await client.miso.dispose();
   });
@@ -290,6 +293,80 @@ describe("miso() on an unbundled network (B5/B6, misofm/sdks#35 verification)", 
     // deployment's own network label is a plain runtime string regardless.
     expect(client.miso.deployment.network as string).toBe("devnet");
     expect(client.miso.chainId).toBe("custom-devnet-chain");
+
+    await client.miso.dispose();
+  });
+});
+
+describe("B4 (misofm/sdks#35 verification): the old facade surface, walked", () => {
+  test("every documented client.miso.* name exists, with the right kind", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    // Reads: Effect members, now Promise-returning methods.
+    for (const name of ["getPressing", "getListing", "getRecord", "getSale"] as const) {
+      expect(typeof client.miso[name]).toBe("function");
+    }
+    // `ids.*`: sync address math.
+    for (const name of ["pressing", "pressingAdminCap", "record", "listing", "sale", "vault", "vaultAdminCap", "genre"] as const) {
+      expect(typeof client.miso.ids[name]).toBe("function");
+    }
+    // `tx.*`: the issue's own grouping — 7 sales builders, publishShareCurrency
+    // + initializeShareCurrency, 4 publish builders, publishReleaseGraph, 12
+    // extension setters (setReleaseKind … clearRecordingGenres).
+    for (const name of [
+      "purchaseRecord", "openPressing", "openListing", "authorizeRecordShop", "revokeRecordShop", "setListingPrice", "setListingState",
+      "publishShareCurrency", "initializeShareCurrency",
+      "publishComposition", "publishRecording", "publishCompositionAndRecording", "publishRelease", "publishReleaseGraph",
+      "setReleaseKind", "setReleaseDescription", "setReleaseGenres", "clearReleaseGenres", "setReleaseDspLinks",
+      "addReleaseCredit", "setReleaseCover", "setReleaseTrackCover",
+      "setRecordingStreamingTranscode", "unsetRecordingStreamingTranscode", "setRecordingGenres", "clearRecordingGenres",
+    ] as const) {
+      expect(typeof client.miso.tx[name]).toBe("function");
+    }
+    expect(typeof client.miso.call).toBe("object");
+    expect(typeof client.miso.bcs).toBe("object");
+    // `vault`: always an object now (never `undefined`, unlike the predecessor).
+    expect(typeof client.miso.vault).toBe("object");
+    expect(typeof client.miso.deployment).toBe("object");
+    // Submissions.
+    for (const name of ["createShareCurrency", "publishShareCurrencies", "initializeShareCurrencies", "publishCatalog"] as const) {
+      expect(typeof client.miso[name]).toBe("function");
+    }
+    // `protocol`/`party`: always present, never `undefined` (unlike the predecessor).
+    expect(typeof client.miso.protocol).toBe("object");
+    expect(typeof client.miso.party).toBe("object");
+    // `ready()`: kept, deprecated, still a callable member.
+    expect(typeof client.miso.ready).toBe("function");
+    expect(typeof client.miso.read).toBe("object");
+    expect(typeof client.miso.events).toBe("object");
+
+    await client.miso.dispose();
+  });
+
+  test("dispose() then reuse: the face rebuilds a fresh runtime lazily", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+
+    await client.miso.dispose();
+    // Cold immediately after dispose(): a plain-value member is a
+    // placeholder again, naming itself when coerced to the string it is
+    // typed to be — exactly as it would before the very first call.
+    expect(typeof client.miso.chainId).toBe("function");
+    expect(() => String(client.miso.chainId)).toThrow(ExtensionNotReady);
+
+    // The next call rebuilds a fresh runtime — `ready()` (the deprecated
+    // warm-up, an Effect member) works cold, then every synchronous member
+    // is real again.
+    await client.miso.ready();
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
 
     await client.miso.dispose();
   });
