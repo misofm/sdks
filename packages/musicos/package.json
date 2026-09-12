@@ -100,7 +100,7 @@
     "@mysten/bcs": "2.1.1",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.4.0",
-    "@unconfirmed/sui-effect": "0.1.0",
+    "@unconfirmed/sui-effect": "0.1.1",
     "effect": "4.0.0-rc.112",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.0",

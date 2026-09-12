@@ -160,7 +160,7 @@
     "@mysten/move-bytecode-template": "^0.4.0",
     "@mysten/sui": "2.29.0",
     "@types/bun": "^1.3.14",
-    "@unconfirmed/sui-effect": "0.1.0",
+    "@unconfirmed/sui-effect": "0.1.1",
     "effect": "4.0.0-rc.112",
     "typescript": "^7.0.2"
   },
