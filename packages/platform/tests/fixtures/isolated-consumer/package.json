@@ -13,6 +13,7 @@
     "@misofm/streaming": "file:../misofm-streaming.tgz",
     "@misofm/transcoding": "file:../misofm-transcoding.tgz",
     "effect": "4.0.0-rc.112",
+    "@unconfirmed/sui-effect": "0.1.1",
     "typescript": "5.9.3"
   }
 }

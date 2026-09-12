@@ -7,7 +7,7 @@ Monorepo for the Miso platform-layer TypeScript SDKs.
 | [`packages/effect`](packages/effect/README.md) | `@misofm/effect` — **deprecated**, superseded by [`sui-effect`](https://github.com/unconfirmedlabs/sui-effect); 0.2.0 is a code-identical final release whose README carries the migration table. |
 | [`packages/musicos`](packages/musicos/README.md) | `@misofm/musicos` — typed bindings, queries, event decoders, and PTB builders for the works object model (Composition, Recording, Release, Track). |
 | [`packages/partyos`](packages/partyos/README.md) | `@misofm/partyos` — typed bindings, queries, and PTB builders for the Party object model (Party, admin cap, group membership). |
-| [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — the complete client SDK for the Miso platform layer: work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins. |
+| [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — a [sui-effect](https://github.com/unconfirmedlabs/sui-effect) extension (the `Miso` service): the complete client SDK for the Miso platform layer — work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins — composed over `@misofm/musicos` and `@misofm/partyos`. |
 | [`packages/streaming`](packages/streaming/README.md)           | `@misofm/streaming` — the `miso-hls/v1` streaming transcode contract (ladder, segment policy, Quilt item naming) plus a browser player entry point. |
 | [`packages/transcoding`](packages/transcoding/README.md) | `@misofm/transcoding` — deterministic AAC-LC fMP4 HLS transcoder that produces and verifies the `miso-hls/v1` layout. Node only, FFmpeg required. |
 

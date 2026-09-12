@@ -3,7 +3,7 @@
 
 import { Effect } from "effect";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { DeploymentError } from "@misofm/effect/errors";
+import { MusicosDeploymentInvalid } from "./errors.ts";
 
 /** Sui networks for which this SDK may bundle a verified deployment. */
 export type MisoNetwork = "mainnet" | "testnet";
@@ -35,7 +35,7 @@ export type MisoPackageName = (typeof CANONICAL_MISO_PACKAGE_NAMES)[number];
  */
 export type MisoDeployment = Readonly<Record<MisoPackageName, string>>;
 
-/** A minimal core-only deployment, retained for callers that use only `miso()`. */
+/** A minimal core-only deployment: just the package id `Musicos.layer` needs. */
 export interface MisoProtocolDeployment {
   /** The published `musicos` package used for calls, types, and derived IDs. */
   readonly packageId: string;
@@ -102,7 +102,7 @@ export function protocolDeployment(
   return normalizeMisoProtocolDeployment({ packageId: normalizeMisoDeployment(deployment).musicos });
 }
 
-/** Resolve the core package only, preserving the established `miso()` default API. */
+/** Resolve the core package identity only, for a bundled network. */
 export function getMisoProtocolDeployment(
   network: string,
 ): MisoProtocolDeployment {
@@ -173,9 +173,9 @@ export function normalizeMisoDeployment(deployment: unknown): MisoDeployment {
  * deployment manifest from a config service). Synchronous and pure — validation is not I/O — so
  * both this and the throwing form are fine; use whichever fits the call site.
  */
-export function validateMisoDeployment(deployment: unknown): Effect.Effect<MisoDeployment, DeploymentError> {
+export function validateMisoDeployment(deployment: unknown): Effect.Effect<MisoDeployment, MusicosDeploymentInvalid> {
   return Effect.try({
     try: () => normalizeMisoDeployment(deployment),
-    catch: (cause) => new DeploymentError({ message: cause instanceof Error ? cause.message : String(cause) }),
+    catch: (cause) => new MusicosDeploymentInvalid({ message: cause instanceof Error ? cause.message : String(cause) }),
   });
 }

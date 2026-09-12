@@ -1,122 +1,38 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
-import { Effect } from "effect";
-import { ObjectNotFoundError } from "@misofm/effect";
-import { SuiGrpcClient } from "@mysten/sui/grpc";
-import {
-  Transaction,
-  type ParallelTransactionExecutor,
-} from "@mysten/sui/transactions";
-import {
-  MisoChainIdentifierMismatchError,
-  MisoClientNotReadyError,
-  MisoNetworkMismatchError,
-  miso,
-  misoPlatform,
-  type MisoPlatformConfig,
-} from "../src/client.ts";
-import {
-  getMisoPlatformDeployment,
-  MISO_PLATFORM_DEPLOYMENTS,
-  OperationsUnavailableError,
-  RecordSalesUnavailableError,
-  requireOperationsDeployment,
-  requireRecordSalesDeployment,
-  type MisoPlatformDeployment,
-  type OperationsDeployment,
-} from "../src/deployments.ts";
-import {
-  MISO_DEPLOYMENTS as PROTOCOL_MISO_DEPLOYMENTS,
-  type MisoDeployment,
-} from "@misofm/musicos/deployments";
-import { networkFrom } from "../src/read/config.ts";
-import type { PartyExtensionsDeployment } from "../src/deployments.ts";
-import {
-  PARTYOS_DEPLOYMENTS as PROTOCOL_PARTYOS_DEPLOYMENTS,
-  type PartyDeployment,
-} from "@misofm/partyos/deployments";
-import { PartyosClient } from "@misofm/partyos";
+// The derived Promise face, tested exactly the way a consumer writes it:
+// `client.$extend(miso())` against the in-memory fake, no network
+// (misofm/sdks#35, WP6 "facade derivation" — see docs/CONVERSION.md).
+//
+// Pure `deployments.ts` validation (frozen snapshot, `requireOperationsDeployment`/
+// `requireRecordSalesDeployment`) moved to `tests/deployments.test.ts`; this
+// file is only the facade.
+
+import { describe, expect, test } from "bun:test";
+import { Transaction } from "@mysten/sui/transactions";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { normalizeSuiObjectId } from "@mysten/sui/utils";
+import type { SuiClientTypes } from "@mysten/sui/client";
+import { Effect, Layer, Option } from "effect";
+import { ExtensionNotReady, KNOWN_CHAIN_IDS, ObjectId, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { FakeOutcome, SuiCoreFake, type FakeObject } from "@unconfirmed/sui-effect/testing";
+import { Signer } from "@unconfirmed/sui-effect/tx";
+import { SuiExtension } from "@unconfirmed/sui-effect/extension";
 import { party as partyCoreContracts } from "@misofm/partyos/contracts";
+import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
+import * as musicosReleaseContract from "@misofm/musicos/contracts/musicos/release";
+import { ProfileKey as ProfileKeyBcs, Profile as ProfileBcs } from "../src/contracts/party_profile/party_profile.ts";
+import { purchaseRecord } from "../src/pressing.ts";
+import { miso, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/client.ts";
+import { Miso } from "../src/Miso.ts";
+import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
+import { RecordSalesUnavailableError } from "../src/errors.ts";
+import type { MisoPlatformDeployment } from "../src/deployments.ts";
 
-const RECORD = `0x${"12".repeat(32)}`;
-const SHOP = `0x${"13".repeat(32)}`;
-const MISO = `0x${"cd".repeat(32)}`;
-const MINATO = `0x${"ef".repeat(32)}`;
+const TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
+const REAL_TESTNET_CHAIN_ID = KNOWN_CHAIN_IDS["testnet"]!;
 const A = `0x${"11".repeat(32)}`;
-const id = (value: number) => `0x${value.toString(16).padStart(64, "0")}`;
-
-type Mutable<T> = T extends readonly (infer Item)[]
-  ? Mutable<Item>[]
-  : T extends object
-    ? { -readonly [Key in keyof T]: Mutable<T[Key]> }
-    : T;
-
-function expectRecursivelyFrozen(value: unknown, path = "deployment"): void {
-  if (!value || typeof value !== "object") return;
-  expect(Object.isFrozen(value), path).toBeTrue();
-  for (const [key, nested] of Object.entries(value)) {
-    expectRecursivelyFrozen(nested, `${path}.${key}`);
-  }
-}
-
-const OPERATIONS = {
-  status: "available",
-  vault: { packageId: id(101), registryId: id(201) },
-  actions: {
-    compositionRoyaltyPool: id(102),
-    recordingRoyaltyPool: id(103),
-    partyWallet: id(104),
-    compositionRoutedStake: id(105),
-    releaseRevenueDistributor: id(106),
-  },
-  plugins: {
-    compositionRoyaltyPool: id(107),
-    recordingRoyaltyPool: id(108),
-    releaseRevenueDistributor: id(109),
-  },
-} as const satisfies OperationsDeployment;
-
-const NETWORK_DEPLOYMENT: MisoDeployment = { musicos: MISO };
-
-const PARTYOS_DEPLOYMENT: PartyDeployment = { partyos: id(801) };
-
-const PARTY_DEPLOYMENT: PartyExtensionsDeployment = {
-  partyCta: id(802),
-  partyGenre: id(803),
-  partyMedia: id(804),
-  partyMusic: id(805),
-  partyPlatformLink: id(806),
-  partyProLink: id(807),
-  partyProfile: id(808),
-  partyRoles: id(809),
-  partySocial: id(810),
-  partyTags: id(811),
-  countryCode: id(812),
-  languageCode: id(813),
-};
-
-const DEPLOYMENT = {
-  network: "testnet",
-  chainIdentifier: "testnet-chain-identifier",
-  protocol: NETWORK_DEPLOYMENT,
-  partyos: PARTYOS_DEPLOYMENT,
-  party: PARTY_DEPLOYMENT,
-  recordSales: {
-    status: "available",
-    recordPackageId: RECORD,
-    recordShopPackageId: SHOP,
-  },
-  operations: OPERATIONS,
-  packages: {
-    minato: MINATO,
-    releaseCoverArt: A,
-    releaseCredits: A,
-    routedStake: A,
-  },
-  objects: { releaseRegistry: A, genreRegistry: A },
-} as unknown as MisoPlatformDeployment;
 
 interface Call {
   package?: string;
@@ -129,814 +45,432 @@ function moveCalls(tx: Transaction): Call[] {
     .map((command) => command.MoveCall!);
 }
 
-test("explicit verified deployment binds both finalized sales packages", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }),
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await Effect.runPromise(client.miso.ready());
-  expect(client.miso.recordPackageId).toBe(RECORD);
-  expect(client.miso.recordShopPackageId).toBe(SHOP);
-  expect(client.miso.bcs.PressingSharedEvent).toBeDefined();
-  expect(client.miso.bcs.PressingDistributorAuthorizedEvent).toBeDefined();
-  expect(client.miso.bcs.ListingSharedEvent).toBeDefined();
-  expect(client.miso.bcs.VaultCapabilityReturnedEvent).toBeDefined();
-  expect(client.miso.bcs.ReleaseCoinsReceivedEvent).toBeDefined();
-  expect(client.miso.party.bcs.ProfileSetEvent).toBe(client.miso.party.bcs.PartyProfileSetEvent);
-  expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
-  expect(client.miso.party.bcs.MediaClearedEvent).toBeDefined();
+describe("client.$extend(miso()): warm registration", () => {
+  test("nested namespaces are reachable immediately, and a platform tx fragment composes with a party fragment in one PTB", async () => {
+    // No explicit `chainId` needed: "testnet" is in sui-effect's built-in
+    // table, so `warm` resolves it without a network round trip — the
+    // "registered warm when a chain id is known for the network" case.
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
 
-  const tx = new Transaction();
-  client.miso.tx.purchaseRecord({
-    releaseId: A,
-    edition: 1,
-    currencyType: "0x2::sui::SUI",
-    paymentAmount: "10",
-    expectedPricing: { kind: "fixed", amount: "10" },
-    recipient: A,
-  })(tx);
-  const calls = moveCalls(tx);
-  expect(calls.find((call) => call.function === "fixed")?.package).toBe(SHOP);
-  expect(calls.find((call) => call.function === "purchase")?.package).toBe(
-    SHOP,
-  );
-  expect(
-    tx
-      .getData()
-      .commands.some((command) => command.$kind === "TransferObjects"),
-  ).toBeTrue();
-});
+    // A plain-object value member (`deployment`) is real immediately under `warm`.
+    expect(client.miso.deployment.network).toBe("testnet");
+    // Nested namespaces: `protocol` (Musicos) and `party` (Partyos + extensions).
+    expect(typeof client.miso.protocol.getReleaseById).toBe("function");
+    expect(typeof client.miso.party.getPartyById).toBe("function");
+    expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
+    expect(client.miso.bcs.PressingSharedEvent).toBeDefined();
 
-test("configured client exposes safe raw modules without witness or mint", () => {
-  const client = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  }).$extend(miso({ deployment: DEPLOYMENT }));
-  expect(client.miso.call.record).toBeDefined();
-  expect(client.miso.call.listing).toBeDefined();
-  expect(client.miso.call.pressing).toBeDefined();
-  expect((client.miso.call as Record<string, unknown>).witness).toBeUndefined();
-  expect(
-    (client.miso.call.pressing as Record<string, unknown>).mint,
-  ).toBeUndefined();
-});
-
-test("configured client binds composable streaming-transcode attach and unset builders", async () => {
-  const streamingPackage = id(110);
-  const oriPackage = id(111);
-  const deployment = {
-    ...DEPLOYMENT,
-    packages: {
-      ...DEPLOYMENT.packages,
-      recordingStreamingTranscode: streamingPackage,
-      ori: oriPackage,
-    },
-  } as MisoPlatformDeployment;
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: deployment.chainIdentifier }),
-  });
-  const client = base.$extend(miso({ deployment }));
-  await Effect.runPromise(client.miso.ready());
-
-  const target = {
-    recordingId: A,
-    authority: { kind: "direct" as const, adminCap: id(112) },
-    recordingShareType: `${id(113)}::share::Share`,
-    compositionShareType: `${id(114)}::share::Share`,
-  };
-  const tx = new Transaction();
-  client.miso.tx.setRecordingStreamingTranscode({
-    ...target,
-    quiltId: 42n,
-  })(tx);
-  client.miso.tx.unsetRecordingStreamingTranscode(target)(tx);
-
-  expect(moveCalls(tx).map((call) => `${call.module}::${call.function}`)).toEqual([
-    "data::new_quilt",
-    "recording_streaming_transcode::new",
-    "recording_streaming_transcode::set_streaming_transcode",
-    "recording_streaming_transcode::unset_streaming_transcode",
-  ]);
-  expect(client.miso.call.recordingStreamingTranscode).toBeDefined();
-});
-
-test("an available operations deployment binds all nine exact package targets", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }),
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await Effect.runPromise(client.miso.ready());
-  const tx = new Transaction();
-  const share = `${id(301)}::share::Share`;
-  const currency = "0x2::sui::SUI";
-  const cap = `${MISO}::release::ReleaseAdminCap`;
-
-  tx.add(client.miso.call.vault!.capId({
-    arguments: [tx.object(A)],
-    typeArguments: [cap],
-  }));
-  tx.add(client.miso.call.compositionRoyaltyPool!.poolAddress({
-    arguments: [tx.object(A)],
-    typeArguments: [share, currency],
-  }));
-  tx.add(client.miso.call.recordingRoyaltyPool!.poolAddress({
-    arguments: [tx.object(A)],
-    typeArguments: [share, share, currency],
-  }));
-  tx.add(client.miso.call.partyWallet!.inboxAddress({
-    arguments: [tx.object(A)],
-  }));
-  tx.add(client.miso.call.compositionRoutedStake!.stakeAddress({
-    arguments: [tx.object(A)],
-    typeArguments: [share, share],
-  }));
-  tx.add(client.miso.call.releaseRevenueDistributor!.redeemAllAndDistribute({
-    arguments: [tx.object(A), tx.object(A)],
-    typeArguments: [currency],
-  }));
-  tx.add(client.miso.call.compositionRoyaltyPoolPlugin!.isInstalled({
-    arguments: [tx.object(A)],
-    typeArguments: [share],
-  }));
-  tx.add(client.miso.call.recordingRoyaltyPoolPlugin!.isInstalled({
-    arguments: [tx.object(A)],
-    typeArguments: [share],
-  }));
-  tx.add(client.miso.call.releaseRevenueDistributorPlugin!.isInstalled({
-    arguments: [tx.object(A)],
-  }));
-
-  expect(moveCalls(tx).map((call) => call.package)).toEqual([
-    OPERATIONS.vault.packageId,
-    OPERATIONS.actions.compositionRoyaltyPool,
-    OPERATIONS.actions.recordingRoyaltyPool,
-    OPERATIONS.actions.partyWallet,
-    OPERATIONS.actions.compositionRoutedStake,
-    OPERATIONS.actions.releaseRevenueDistributor,
-    OPERATIONS.plugins.compositionRoyaltyPool,
-    OPERATIONS.plugins.recordingRoyaltyPool,
-    OPERATIONS.plugins.releaseRevenueDistributor,
-  ]);
-});
-
-test("bundled Testnet deployment exposes the verified sales and operations ABIs", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({
-      chainIdentifier: MISO_PLATFORM_DEPLOYMENTS.testnet.chainIdentifier,
-    }),
-  });
-  const client = base.$extend(miso());
-  await Effect.runPromise(client.miso.ready());
-
-  expect(MISO_PLATFORM_DEPLOYMENTS.testnet.recordSales.status).toBe("available");
-  expect(MISO_PLATFORM_DEPLOYMENTS.testnet.operations.status).toBe("available");
-  expect(client.miso.deployment?.protocol.musicos).toBe(
-    MISO_PLATFORM_DEPLOYMENTS.testnet.protocol.musicos,
-  );
-  expect(client.miso.recordPackageId).toBe(
-    MISO_PLATFORM_DEPLOYMENTS.testnet.recordSales.recordPackageId,
-  );
-  expect(client.miso.recordShopPackageId).toBe(
-    MISO_PLATFORM_DEPLOYMENTS.testnet.recordSales.recordShopPackageId,
-  );
-  expect(client.miso.vault).toBeDefined();
-  for (const name of [
-    "vault",
-    "compositionRoyaltyPool",
-    "recordingRoyaltyPool",
-    "partyWallet",
-    "compositionRoutedStake",
-    "releaseRevenueDistributor",
-    "compositionRoyaltyPoolPlugin",
-    "recordingRoyaltyPoolPlugin",
-    "releaseRevenueDistributorPlugin",
-  ]) {
-    expect((client.miso.call as Record<string, unknown>)[name]).toBeDefined();
-  }
-  expect(
-    client.miso.ids.vault(A, `${MISO}::release::ReleaseAdminCap`),
-  ).toMatch(/^0x[0-9a-f]{64}$/);
-  expect(MISO_PLATFORM_DEPLOYMENTS.testnet.packages).not.toHaveProperty("vault");
-  expect(MISO_PLATFORM_DEPLOYMENTS.testnet.objects).not.toHaveProperty("vaultRegistry");
-});
-
-test("bundled Testnet deployment exactly matches the verified immutable export", () => {
-  expect(MISO_PLATFORM_DEPLOYMENTS.testnet).toEqual({
-    network: "testnet",
-    chainIdentifier: "69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD",
-    // The platform manifest's `protocol` section must be exactly the musicos
-    // package's own bundled testnet deployment — checked against the live
-    // constant (not a hardcoded copy) so this test tracks musicos, not a
-    // snapshot of it.
-    protocol: PROTOCOL_MISO_DEPLOYMENTS.testnet,
-    // Checked against the live constant (not a hardcoded copy), same reasoning
-    // as `protocol` above: this test tracks partyos, not a snapshot of it.
-    partyos: PROTOCOL_PARTYOS_DEPLOYMENTS.testnet,
-    party: {
-      partyCta: "0x310bd64b4d32b547ad52128df9839702a3b74e144e920d04d00bb2bd488b2036",
-      partyGenre: "0x6b66b793a13c899e41d812a3feccafc9078184f0bd74c4af474d23ef7fd35ec5",
-      partyMedia: "0xb4479afae1f14c4cf7064908c29ccf698b5e10f2e48a31d63f861131476594c5",
-      partyMusic: "0xe583826d1610a252769eddb4fa81e81040d40468fc99eec4bf72c52456ff7f79",
-      partyPlatformLink: "0xe0990445758d27732928759a33e73bcddd2b06604dc0c552b958b6b0220b060b",
-      partyProLink: "0xdbf8f3d1d12cf15e435d74bfb910e88eae7094064176661a85bc79a76e6ce674",
-      partyProfile: "0x0cb11099892f9a583077408369a1d838ec888660ed31af7f7bd52a3794f147a6",
-      partyRoles: "0x53227d2c8c36b6bae17e2cdfaff50cf7e52261c40cbda65a11fe9f9486cc6104",
-      partySocial: "0xb691711983ad484e8caecc3091872a163a4cf6f93bfab3d3974ad94bb4b63d2f",
-      partyTags: "0xcc0a53bfa1310758c02607a9ee95fa1553ef3d9431e3df25f38a16e09c3466c5",
-      countryCode: "0x69fb214a74d5253971a45b2d07f83f13ae96992dd38198d7bacb21e1f5fb5f81",
-      languageCode: "0xac318126565a2fab608984a091b3582ba9cda6c32232f567eef50277c5042c36",
-    },
-    recordSales: {
-      status: "available",
-      recordPackageId:
-        "0x8562a4c266b1229871551cec69c1a331f682920b9cad7685e42e7c6a5eba61d5",
-      recordShopPackageId:
-        "0x5d1b79c312b5d2a2bc9aa0ce7ea6d41ecedd4a5d8698bc007000ca0c8a3459f9",
-    },
-    operations: {
-      status: "available",
-      vault: {
-        packageId:
-          "0xe7a5d1f895d7ca2571c2329a13a5703905d8903433b379db3aa987c7594a0198",
-        registryId:
-          "0xebd40980edb30e425b80f7d65378246254cc5787e07d23faa46e6b9a2b9dd14d",
-      },
-      actions: {
-        compositionRoyaltyPool:
-          "0xa4655e8c1319655cbc0ad5da0d8bccbd528372fea2cb767235e89f2be6eb403c",
-        recordingRoyaltyPool:
-          "0xff510b24ddba7755dafeb3ceae65204ed6be058a83b482f98da92b3d19eefcd2",
-        partyWallet:
-          "0x493fa265fd7c8066cd80f644d22086fe36b2c8e26bd160d8a6f6f44743c42acc",
-        compositionRoutedStake:
-          "0xff5b7a4e1791210c36f2ea071a87e2e6212ddbe2acc922d324cf5436f8ca0b47",
-        releaseRevenueDistributor:
-          "0x72b175f79cdb1df5d597cdb07007ac309994e6c3f99823b04400a48565dd3989",
-      },
-      plugins: {
-        compositionRoyaltyPool:
-          "0x57b58eb53ade40a7e1e6e4be4bdd0fecdd57f709efe8021830b2e3519e800254",
-        recordingRoyaltyPool:
-          "0x69c859aba359ca8fbeb1df4cff3de53cca3b4ce5ffaa1a7516bc9eb3e016cf71",
-        releaseRevenueDistributor:
-          "0x875a764569360ec7f4e676bcf5e30a50037229f33f2bae6d2acd205c0570e8b2",
-      },
-    },
-    packages: {
-      minato: "0xcdf58ed7e4580118a6a3f2a8077abffe633c551b2f19e95ce01685d42f90b8d9",
-      credit: "0xd77981b6872d975ccebeac1c639eebbcd1f7916f468df0242d4b26d9bf7293c1",
-      compositionCredits: "0x924a5e87230cf1218be23484e4914d9c5515528c8ef032b1796ebdc71dd3830c",
-      recordingCredits: "0x982d946a34bb342913c81441be1c702b29f2a83bc801c4fce9ed4f9d7833b8b1",
-      releaseCredits: "0xdc854106cb76733bb012db2369e0a39319fb79b0587e2a887814c7cb67134d77",
-      royaltyPool: "0xf7be632d74f71574c2aa5ac2790a51e770b2cfbcf80233b875bdbe24ffe0b3b9",
-      routedStake: "0xfe3f0c0008823330d2e465a300b34eec50ab3c7444e655602ed2efc517c91824",
-      coverArt: "0xc0b1421b32e287559ec29f6d7c71dd83778234cb62d4fe9d296577710411f6d4",
-      releaseCoverArt: "0x74c1708ff6016b5244f8d31559210ae6e5a2b5e52cb3c7996e1f630a7d4a87b2",
-      genre: "0xeea93dd140ee2133d1baeeb71281846658b104d53403d4f89e75f65ade38f931",
-      releaseDescription: "0x8d59667b5e9476df33125153494246107a1384ecbea8862fa1b5c256588789fa",
-      releaseDspLink: "0xebcf0515a35c765ca89208162510bdddd2a9225866b9c66f33dc3cfa1e07bf8a",
-      releaseGenre: "0xc7269a52efa400b80009f8c9f7e31591a26c50c0ae925be31edaef8889e91c83",
-      releaseKind: "0x48f1651e00572525fb2e59ebb37c5367d45258d62486984825c972a8ab2d0ce3",
-      recordingAdvisory: "0x4149faba212e3aca5440e5ea15bde535dca453f2701125a996d89188b0000ed0",
-      recordingLanguage: "0x78e48de29be0b9dca4921dd0740cc12c88cb02599ee8554854b4e423a689fd19",
-      recordingGenre: "0x3c017256c66c7d48f4c23ae40dd6d5a0470a4f85a750aadef388ef9ac8e71b36",
-      recordingMasterReference: "0x2638edd3c9fec5650eda561e77fb390add0110088ad54c470e83ea079108bb1a",
-      recordingEngineSession: "0xa3057f47e31683c1eba0afba56aa38af6734f6b9fc3fb679c2681a21ccfe3c24",
-      recordingStreamingTranscode:
-        "0x67bde09257865521b221aebf83bc95e5a9ae9d38f2c77223772436bc9c70e8ec",
-      recordSealPolicy: "0x7e1921715dbda4fbb73227d0764f4c0de55fdcf3892ddadc4ef1bf895453b2a2",
-      ori: "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
-      countryCode: "0x69fb214a74d5253971a45b2d07f83f13ae96992dd38198d7bacb21e1f5fb5f81",
-      languageCode: "0xac318126565a2fab608984a091b3582ba9cda6c32232f567eef50277c5042c36",
-    },
-    objects: {
-      releaseRegistry: "0xb0506d287b50a134a2773a5d4e0c9c4e3ef4aa3806cad6ff93d8b28be063c6df",
-      genreRegistry: "0x9a5a7ce36906a0581e6e38a0dd6abc24093acc6ffd7c0d6a7f419c57b069d00e",
-    },
-    legacy: { releaseCoverArtPackages: [] },
-  });
-
-  const deployment = MISO_PLATFORM_DEPLOYMENTS.testnet;
-  const identities = [
-    deployment.chainIdentifier,
-    ...Object.values(deployment.protocol),
-    ...Object.values(deployment.partyos),
-    deployment.recordSales.recordPackageId,
-    deployment.recordSales.recordShopPackageId,
-    deployment.operations.vault.packageId,
-    deployment.operations.vault.registryId,
-    ...Object.values(deployment.operations.actions),
-    ...Object.values(deployment.operations.plugins),
-    ...Object.values(deployment.packages),
-    ...Object.values(deployment.party),
-    ...Object.values(deployment.objects),
-  ];
-  // `party.countryCode`/`party.languageCode` intentionally repeat
-  // `packages.countryCode`/`packages.languageCode` (see
-  // assertMisoPlatformDeployment), so this sanity list has duplicates by design.
-  expect(identities).toHaveLength(53);
-});
-
-test("bundled deployment and every nested container are frozen", () => {
-  expectRecursivelyFrozen(MISO_PLATFORM_DEPLOYMENTS);
-});
-
-test("custom deployment registration snapshots nested targets before readiness", async () => {
-  const custom = structuredClone(
-    MISO_PLATFORM_DEPLOYMENTS.testnet,
-  ) as Mutable<MisoPlatformDeployment>;
-  const expected = structuredClone(custom);
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: expected.chainIdentifier }),
-  });
-  const client = base.$extend(
-    miso({ deployment: custom as MisoPlatformDeployment }),
-  );
-
-  expect(Object.isFrozen(custom)).toBeFalse();
-  expect(Object.isFrozen(custom.operations)).toBeFalse();
-  custom.chainIdentifier = "mutated-before-ready";
-  custom.protocol.musicos = id(701);
-  if (custom.recordSales.status !== "available") throw new Error("test fixture");
-  custom.recordSales.recordPackageId = id(702);
-  custom.recordSales.recordShopPackageId = id(703);
-  if (custom.operations.status !== "available") throw new Error("test fixture");
-  custom.operations.vault.packageId = id(704);
-  custom.operations.actions.partyWallet = id(705);
-  custom.operations.plugins.compositionRoyaltyPool = id(706);
-  custom.packages.minato = id(707);
-  custom.objects.releaseRegistry = id(708);
-  custom.legacy.releaseCoverArtPackages.push(id(709));
-
-  await Effect.runPromise(client.miso.ready());
-  expect(client.miso.deployment).not.toBe(custom);
-  expect(client.miso.deployment).toEqual(expected);
-  expectRecursivelyFrozen(client.miso.deployment);
-  expect(client.miso.recordPackageId).toBe(
-    expected.recordSales.status === "available"
-      ? expected.recordSales.recordPackageId
-      : "",
-  );
-
-  const before = new Transaction();
-  before.add(
-    client.miso.call.partyWallet!.inboxAddress({
-      arguments: [before.object(A)],
-    }),
-  );
-  before.add(
-    client.miso.protocol!.call.release.releaseRegistryId({ arguments: [A] }),
-  );
-  expect(moveCalls(before).map((call) => call.package)).toEqual([
-    expected.operations.status === "available"
-      ? expected.operations.actions.partyWallet
-      : "",
-    expected.protocol.musicos,
-  ]);
-
-  custom.protocol.musicos = id(710);
-  custom.recordSales.recordPackageId = id(711);
-  custom.operations.actions.partyWallet = id(712);
-  custom.legacy.releaseCoverArtPackages.push(id(713));
-  expect(client.miso.deployment).toEqual(expected);
-  expect(client.miso.recordPackageId).toBe(
-    expected.recordSales.status === "available"
-      ? expected.recordSales.recordPackageId
-      : "",
-  );
-  expect(() => {
-    (client.miso.deployment as Mutable<MisoPlatformDeployment>).packages.minato =
-      id(714);
-  }).toThrow(TypeError);
-});
-
-test("deprecated custom config registration snapshots nested targets", async () => {
-  const config = {
-    network: "testnet",
-    chainIdentifier: "custom-config-chain",
-    misoPackageId: MISO,
-    recordSales: {
-      status: "available",
-      recordPackageId: RECORD,
-      recordShopPackageId: SHOP,
-    },
-    operations: structuredClone(OPERATIONS),
-  } as Mutable<MisoPlatformConfig>;
-  const expectedOperations = structuredClone(OPERATIONS);
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: "custom-config-chain" }),
-  });
-  const client = base.$extend(misoPlatform(config));
-
-  expect(Object.isFrozen(config)).toBeFalse();
-  expect(Object.isFrozen(config.operations)).toBeFalse();
-  config.chainIdentifier = "mutated-before-ready";
-  if (config.recordSales?.status !== "available") throw new Error("test fixture");
-  config.recordSales.recordPackageId = id(801);
-  if (config.operations?.status !== "available") throw new Error("test fixture");
-  config.operations.actions.partyWallet = id(802);
-  await Effect.runPromise(client.misoPlatform.ready());
-
-  expect(client.misoPlatform.recordPackageId).toBe(RECORD);
-  const tx = new Transaction();
-  tx.add(
-    client.misoPlatform.call.partyWallet!.inboxAddress({
-      arguments: [tx.object(A)],
-    }),
-  );
-  expect(moveCalls(tx)[0]?.package).toBe(
-    expectedOperations.actions.partyWallet,
-  );
-
-  config.recordSales.recordPackageId = id(803);
-  config.operations.actions.partyWallet = id(804);
-  expect(client.misoPlatform.recordPackageId).toBe(RECORD);
-  const after = new Transaction();
-  after.add(
-    client.misoPlatform.call.partyWallet!.inboxAddress({
-      arguments: [after.object(A)],
-    }),
-  );
-  expect(moveCalls(after)[0]?.package).toBe(
-    expectedOperations.actions.partyWallet,
-  );
-});
-
-test("bare platform config without finalized package identities fails sales closed", () => {
-  const client = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  }).$extend(misoPlatform({}));
-  expect(client.misoPlatform.protocol).toBeUndefined();
-  expect(() => client.misoPlatform.ids.pressing(A, 1)).toThrow(
-    /without Record and Record Shop/,
-  );
-});
-
-test("deployment/network selection remains fail closed", () => {
-  expect(getMisoPlatformDeployment("testnet")).toBe(
-    MISO_PLATFORM_DEPLOYMENTS.testnet,
-  );
-  expect(() => getMisoPlatformDeployment("mainnet")).toThrow(/no bundled/);
-  expect(networkFrom(undefined)).toBe("testnet");
-  expect(networkFrom("mainnet")).toBe("mainnet");
-  expect(() => networkFrom("tesnet")).toThrow(/unsupported network/);
-});
-
-test("explicit deployment registration rejects a mismatched client network synchronously", () => {
-  const client = new SuiGrpcClient({
-    network: "mainnet",
-    baseUrl: "https://fullnode.mainnet.sui.io:443",
-  });
-  expect(() => client.$extend(miso({ deployment: DEPLOYMENT }))).toThrow(
-    MisoNetworkMismatchError,
-  );
-});
-
-test("ready memoizes exact-chain validation and gates synchronous builders", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  let calls = 0;
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => {
-      calls += 1;
-      return { chainIdentifier: DEPLOYMENT.chainIdentifier };
-    },
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  expect(() =>
+    // A sibling-composed PTB: `client.miso.tx.*` (this package's own fragment)
+    // plus `client.miso.party.tx.*` (the party surface's fragment) in one
+    // caller-owned `Transaction`.
+    const tx = new Transaction();
     client.miso.tx.purchaseRecord({
       releaseId: A,
       edition: 1,
       currencyType: "0x2::sui::SUI",
-      paymentAmount: 1,
-      expectedPricing: { kind: "fixed", amount: 1 },
+      paymentAmount: "10",
+      expectedPricing: { kind: "fixed", amount: "10" },
       recipient: A,
-    }),
-  ).toThrow(MisoClientNotReadyError);
-  expect(() =>
-    client.miso.call.record!.deriveAddress({
-      arguments: [A, 1],
-    }),
-  ).toThrow(MisoClientNotReadyError);
+    })(tx);
+    client.miso.party.tx.setProfile({ partyId: A, capId: A, bioShort: "hi" })(tx);
 
-  const first = client.miso.ready();
-  const second = client.miso.ready();
-  expect(first).toBe(second);
-  await Promise.all([Effect.runPromise(first), Effect.runPromise(second)]);
-  expect(calls).toBe(1);
-  expect(await Effect.runPromise(client.miso.validateChainIdentifier())).toBe(
-    DEPLOYMENT.chainIdentifier,
-  );
-  expect(calls).toBe(1);
-});
+    const calls = moveCalls(tx);
+    expect(calls.some((call) => call.function === "purchase")).toBe(true);
+    expect(calls.some((call) => call.module === "party_profile" && call.function === "set_profile")).toBe(true);
 
-test("protocol and nested Party surfaces cannot read or build before readiness", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  let chainReads = 0;
-  let objectReads = 0;
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => {
-      chainReads += 1;
-      return { chainIdentifier: DEPLOYMENT.chainIdentifier };
-    },
-  });
-  Object.defineProperty(base.core, "getObject", {
-    configurable: true,
-    value: async () => {
-      objectReads += 1;
-      return { object: { content: undefined } };
-    },
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  const tx = new Transaction();
-
-  expect(() => client.miso.protocol!.getReleaseById(A)).toThrow(
-    MisoClientNotReadyError,
-  );
-  expect(() => client.miso.party.getPartyById(A)).toThrow(
-    MisoClientNotReadyError,
-  );
-  expect(() =>
-    tx.add(
-      client.miso.protocol!.call.release.releaseRegistryId({
-        arguments: [A],
-      }),
-    ),
-  ).toThrow(MisoClientNotReadyError);
-  expect(() =>
-    tx.add(
-      client.miso.protocol!.packages.call.core.release.releaseRegistryId({
-        arguments: [A],
-      }),
-    ),
-  ).toThrow(MisoClientNotReadyError);
-  expect(() =>
-    tx.add(client.miso.party.call.party.newIndividualKind({})),
-  ).toThrow(MisoClientNotReadyError);
-  expect(tx.getData().commands).toHaveLength(0);
-  expect(tx.getData().inputs).toHaveLength(0);
-  expect(objectReads).toBe(0);
-  expect(chainReads).toBe(0);
-
-  await Promise.all([Effect.runPromise(client.miso.ready()), Effect.runPromise(client.miso.ready())]);
-  expect(chainReads).toBe(1);
-  tx.add(
-    client.miso.protocol!.call.release.releaseRegistryId({ arguments: [A] }),
-  );
-  tx.add(
-    client.miso.protocol!.packages.call.core.release.releaseRegistryId({
-      arguments: [A],
-    }),
-  );
-  tx.add(client.miso.party.call.party.newIndividualKind({}));
-  expect(moveCalls(tx).map((call) => call.package)).toEqual([
-    MISO,
-    MISO,
-    PARTYOS_DEPLOYMENT.partyos,
-  ]);
-
-  const releaseError = await Effect.runPromise(Effect.flip(client.miso.protocol!.getReleaseById(A)));
-  expect(releaseError).toBeInstanceOf(ObjectNotFoundError);
-  const partyError = await Effect.runPromise(Effect.flip(client.miso.party.getPartyById(A)));
-  expect(partyError).toBeInstanceOf(ObjectNotFoundError);
-  expect(objectReads).toBe(2);
-  await Effect.runPromise(client.miso.ready());
-  expect(chainReads).toBe(1);
-});
-
-test("MisoPlatformClient.party delegates core reads to PartyosClient and exposes extension tx builders", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: DEPLOYMENT.chainIdentifier }),
-  });
-  Object.defineProperty(base.core, "getObject", {
-    configurable: true,
-    value: async ({ objectId }: { objectId: string }) => ({
-      object: {
-        type: `${PARTYOS_DEPLOYMENT.partyos}::party::Party`,
-        content: partyCoreContracts.Party.serialize({
-          id: objectId,
-          kind: { Individual: true },
-          name: "Test Party",
-          created_at_ms: 1n,
-        }).toBytes(),
-      },
-    }),
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  await Effect.runPromise(client.miso.ready());
-
-  // Core read: `client.miso.party` delegates straight to a `PartyosClient`.
-  expect(client.miso.party.core).toBeInstanceOf(PartyosClient);
-  const party = await Effect.runPromise(client.miso.party.getPartyById(A));
-  expect(party).toMatchObject({ id: A, kind: "individual", name: "Test Party" });
-
-  // Extension builder: `tx.setProfile` is not part of the Party core.
-  const tx = new Transaction();
-  tx.add(client.miso.party.tx.setProfile({ partyId: A, capId: A, bioShort: "hi" }));
-  expect(moveCalls(tx).find((call) => call.module === "party_profile")).toMatchObject({
-    package: PARTY_DEPLOYMENT.partyProfile,
-    function: "set_profile",
+    await client.miso.dispose();
   });
 });
 
-test("deprecated misoPlatform protocol access uses the same explicit readiness gate", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  let chainReads = 0;
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => {
-      chainReads += 1;
-      return { chainIdentifier: DEPLOYMENT.chainIdentifier };
-    },
-  });
-  const client = base.$extend(
-    misoPlatform({
-      network: "testnet",
-      chainIdentifier: DEPLOYMENT.chainIdentifier,
-      misoPackageId: MISO,
-    }),
-  );
-  expect(() => client.misoPlatform.protocol).toThrow(MisoClientNotReadyError);
-  expect(chainReads).toBe(0);
-  await Effect.runPromise(client.misoPlatform.ready());
-  expect(client.misoPlatform.protocol?.deployment.packageId).toBe(MISO);
-  expect(chainReads).toBe(1);
-});
-
-test("high-level online reads await readiness automatically", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  let chainReads = 0;
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => {
-      chainReads += 1;
-      return { chainIdentifier: DEPLOYMENT.chainIdentifier };
-    },
-  });
-  Object.defineProperty(base.core, "getObject", {
-    configurable: true,
-    value: async ({ objectId }: { objectId: string }) => {
-      throw new Error(`Object ${objectId} not found`);
-    },
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  expect(await Effect.runPromise(client.miso.getRecord(A))).toBeNull();
-  expect(chainReads).toBe(1);
-});
-
-test("ready rejects a mismatched exact chain identifier", async () => {
-  const base = new SuiGrpcClient({
-    network: "testnet",
-    baseUrl: "https://fullnode.testnet.sui.io:443",
-  });
-  Object.defineProperty(base.core, "getChainIdentifier", {
-    configurable: true,
-    value: async () => ({ chainIdentifier: "wrong-ledger" }),
-  });
-  const client = base.$extend(miso({ deployment: DEPLOYMENT }));
-  const readyError = await Effect.runPromise(Effect.flip(client.miso.ready()));
-  expect(readyError).toBeInstanceOf(MisoChainIdentifierMismatchError);
-  let executions = 0;
-  const executor = {
-    executeTransaction: async () => {
-      executions += 1;
-      throw new Error("must not execute");
-    },
-  } as unknown as ParallelTransactionExecutor;
-  const executeError = await Effect.runPromise(
-    Effect.flip(client.miso.executeViaExecutor(executor, () => {})),
-  );
-  expect(executeError).toBeInstanceOf(MisoChainIdentifierMismatchError);
-  expect(executions).toBe(0);
-});
-
-test("available operations reject invalid, partial, or aliased identities", () => {
-  expect(requireOperationsDeployment(OPERATIONS)).toBe(OPERATIONS);
-
-  const invalid = {
-    ...OPERATIONS,
-    actions: { ...OPERATIONS.actions, partyWallet: "0x12" },
-  } as OperationsDeployment;
-  const duplicate = {
-    ...OPERATIONS,
-    plugins: {
-      ...OPERATIONS.plugins,
-      releaseRevenueDistributor: OPERATIONS.actions.releaseRevenueDistributor,
-    },
-  } as OperationsDeployment;
-  const partial = {
-    status: "available",
-    vault: OPERATIONS.vault,
-    actions: OPERATIONS.actions,
-    plugins: {
-      compositionRoyaltyPool: OPERATIONS.plugins.compositionRoyaltyPool,
-    },
-  } as unknown as OperationsDeployment;
-
-  for (const deployment of [invalid, duplicate, partial]) {
-    expect(() => requireOperationsDeployment(deployment)).toThrow(
-      OperationsUnavailableError,
+describe("client.$extend(...): a cold (non-warm) registration and $ready()", () => {
+  test("a synchronous member throws ExtensionNotReady before $ready(), and is real after", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
     );
-  }
+    // Built without `warm`, the way `musicos()` registers by default —
+    // proves `Miso` supports either mode, not just the `miso()` helper's own
+    // choice of `warm`. `SuiGraphQL.layerUnavailable` stands in for
+    // `miso()`'s own default (no `graphqlClient` given).
+    const client = fake.client.$extend(
+      SuiExtension.fromService(Miso, { name: "miso", layer: Miso.layer(TESTNET).pipe(Layer.provide(SuiGraphQL.layerUnavailable)) }),
+    );
+
+    // Before the runtime exists the face does not know what `chainId` (a
+    // plain string member) *is*: it comes back as a placeholder function,
+    // not a string and not a Promise either (`docs/extensions.md` §7). Using
+    // it as the string it is typed to be is what throws, naming itself.
+    expect(typeof client.miso.chainId).toBe("function");
+    expect(() => String(client.miso.chainId)).toThrow(ExtensionNotReady);
+
+    await client.miso.$ready();
+    expect(typeof client.miso.chainId).not.toBe("function");
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+    // `ids.genre` (B4, misofm/sdks#35 verification): real — a plain string,
+    // not a placeholder — the same one await later.
+    expect(client.miso.ids.genre("ROCK")).toMatch(/^0x[0-9a-f]{64}$/);
+
+    await client.miso.dispose();
+  });
 });
 
-test("unavailable legacy IDs never become current operations ABIs", () => {
-  const legacy = {
-    status: "unavailable",
-    reason: "legacy combined packages",
-    legacy: {
-      vaultPackageId: OPERATIONS.vault.packageId,
-      vaultRegistryId: OPERATIONS.vault.registryId,
-      packageIds: {
-        compositionRoyaltyPool: OPERATIONS.actions.compositionRoyaltyPool,
-      },
-    },
-  } as const satisfies OperationsDeployment;
-  expect(() => requireOperationsDeployment(legacy)).toThrow(
-    OperationsUnavailableError,
-  );
+describe("client.$extend(miso()): a submit-on-behalf member through Tx.run", () => {
+  test("createShareCurrency: two Tx.run's (publish, then initialize), scripted execute", async () => {
+    const keypair = Ed25519Keypair.fromSecretKey(new Uint8Array(32).fill(7));
+    const signer = Signer.fromKeypair(keypair);
+    const owner = { $kind: "AddressOwner", AddressOwner: signer.address } as const;
+    const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;
+    const PKG = padded("aa1");
+    const CURRENCY_ID = padded("cc1");
+    const TREASURY_ID = padded("991");
+
+    // `initializeShareCurrency` reads the shared `0xc` Sui Coin Registry
+    // object; `Tx.build` has to resolve it even though the fake never
+    // inspects its content (see `tests/share.test.ts`'s identical fixture).
+    const coinRegistryObject: FakeObject = {
+      objectId: normalizeSuiObjectId("0xc"),
+      type: "0x2::coin_registry::CoinRegistry",
+      version: 1n,
+      content: new Uint8Array(),
+      owner: { $kind: "Shared", Shared: { initialSharedVersion: 1n } } as unknown as SuiClientTypes.ObjectOwner,
+    };
+    const fake = await Effect.runPromise(
+      Effect.provide(
+        SuiCoreFake,
+        SuiCoreFake.layer({
+          network: "testnet",
+          chainId: REAL_TESTNET_CHAIN_ID,
+          objects: [coinRegistryObject],
+          execute: [
+            FakeOutcome.succeed({ created: [{ objectId: PKG, type: "package", version: 2n, outputState: "PackageWrite" }] }),
+            FakeOutcome.succeed({
+              created: [
+                { objectId: CURRENCY_ID, type: `0x2::coin_registry::Currency<${PKG}::share::Share>`, version: 2n, owner },
+                { objectId: TREASURY_ID, type: `0x2::coin::TreasuryCap<${PKG}::share::Share>`, version: 2n, owner },
+              ],
+            }),
+          ],
+        }),
+      ),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    const currency = await client.miso.createShareCurrency({ name: "Test Share", description: "d" }, { signer });
+    expect(currency.packageId).toBe(PKG);
+    expect(currency.currencyId).toBe(CURRENCY_ID);
+    expect(currency.treasuryCapId).toBe(TREASURY_ID);
+    expect(typeof currency.gasUsed).toBe("bigint");
+
+    await client.miso.dispose();
+  });
 });
 
-test("the Vault registry cannot alias any operations package identity", () => {
-  const aliased = {
-    ...OPERATIONS,
-    vault: {
-      ...OPERATIONS.vault,
-      registryId: OPERATIONS.actions.partyWallet,
-    },
-  } as OperationsDeployment;
-  expect(() => requireOperationsDeployment(aliased)).toThrow(
-    OperationsUnavailableError,
-  );
-});
+describe("client.$extend(miso()): error identity through the face", () => {
+  test("a rejection is the original tagged error instance, _tag preserved", async () => {
+    // `deployment.recordSales` is `unavailable` — `getPressing` fails typed
+    // instead of throwing (the sync `ids.*` behaviour), and the Promise face
+    // must reject with the SAME tagged instance a Promise consumer can
+    // switch `_tag` on.
+    const withoutSales: MisoPlatformDeployment = {
+      ...TESTNET,
+      recordSales: { status: "unavailable", reason: "test fixture" },
+    };
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: withoutSales }));
 
-test("available Record sales require distinct canonical package IDs", () => {
-  const available = (recordPackageId: string, recordShopPackageId: string) => ({
-    status: "available" as const,
-    recordPackageId,
-    recordShopPackageId,
+    await expect(client.miso.getPressing(A)).rejects.toMatchObject({ _tag: "RecordSalesUnavailableError" });
+    await expect(client.miso.getPressing(A)).rejects.toBeInstanceOf(RecordSalesUnavailableError);
+
+    // Through the nested `party` namespace: `Partyos.getPartyById` wraps a
+    // missing object into its own package-specific tag (`PartyNotFound`, not
+    // sui-effect's generic `ObjectNotFound`) — the identity guarantee holds
+    // for a composed sibling service's own tag too, not only sui-effect's.
+    const partyRejection = await client.miso.party.getPartyById(ObjectId.make(A)).catch((error: unknown) => error);
+    expect((partyRejection as { _tag: string })._tag).toBe("partyos/PartyNotFound");
+
+    await client.miso.dispose();
   });
 
-  expect(requireRecordSalesDeployment(available(RECORD, SHOP))).toEqual(
-    available(RECORD, SHOP),
-  );
-  for (const deployment of [
-    available("0x12", SHOP),
-    available(`0x${"AB".repeat(32)}`, SHOP),
-    available(`0x${"gg".repeat(32)}`, SHOP),
-    available(RECORD, RECORD),
-  ]) {
-    expect(() => requireRecordSalesDeployment(deployment)).toThrow(
-      RecordSalesUnavailableError,
+  test("core party reads resolve through the real converted Partyos service", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(
+        SuiCoreFake,
+        SuiCoreFake.layer({
+          network: "testnet",
+          chainId: REAL_TESTNET_CHAIN_ID,
+          objects: [
+            {
+              objectId: A,
+              type: `${TESTNET.partyos.partyos}::party::Party`,
+              version: 1n,
+              content: partyCoreContracts.Party.serialize({ id: A, kind: { Individual: true }, name: "Test Party", created_at_ms: 1n }).toBytes(),
+            },
+          ],
+        }),
+      ),
     );
-  }
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    const party = await client.miso.party.getPartyById(ObjectId.make(A));
+    expect(party).toMatchObject({ id: A, kind: "individual", name: "Test Party" });
+
+    await client.miso.dispose();
+  });
+});
+
+describe("the network-mismatch path at layer build", () => {
+  // `Miso.layer`'s network check runs at layer build either way (see
+  // `Miso.test.ts` for the Effect-level assertions); what changes is WHEN
+  // that build happens relative to `$extend`. `miso()`'s default `warm`
+  // registration (chosen per this stage's own instructions, matching
+  // `partyos()`) builds the layer synchronously inside `register`, so a
+  // mismatch throws AT `$extend` for "testnet"/"mainnet" — a real deviation
+  // from the issue's own migration-map wording ("no longer a synchronous
+  // throw... rejects the first call"), which describes a LAZY registration.
+  // A lazy registration (no `warm`, `SuiExtension.fromService` called
+  // directly) still gets the deferred-rejection behaviour that wording
+  // describes — documented in docs/CONVERSION.md.
+  test("warm (miso()'s default): a mismatch throws synchronously at $extend", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
+    );
+    expect(() => fake.client.$extend(miso({ deployment: TESTNET }))).toThrow(MisoNetworkMismatchError);
+  });
+
+  test("lazy (no warm): a mismatch rejects the first call instead", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "mainnet", chainId: KNOWN_CHAIN_IDS["mainnet"]! })),
+    );
+    const client = fake.client.$extend(
+      SuiExtension.fromService(Miso, { name: "miso", layer: Miso.layer(TESTNET).pipe(Layer.provide(SuiGraphQL.layerUnavailable)) }),
+    );
+
+    // The deprecated `ready` warm-up member: `await client.miso.ready()`
+    // keeps compiling and working as the predecessor's own idiom asked for.
+    // (A lazy member's placeholder is a custom thenable supporting both
+    // Promise- and Stream-shaped usage until the runtime resolves what it
+    // really is, so a plain `await`/`catch` is used here rather than
+    // `expect(...).rejects`, which expects a native `Promise`.)
+    const rejection = await client.miso.ready().catch((error: unknown) => error);
+    expect(rejection).toBeInstanceOf(MisoNetworkMismatchError);
+    expect((rejection as MisoNetworkMismatchError)._tag).toBe("MisoNetworkMismatchError");
+
+    await client.miso.dispose();
+  });
+});
+
+describe("miso() on an unbundled network (B5/B6, misofm/sdks#35 verification)", () => {
+  test("no explicit deployment: getMisoPlatformDeployment's plain throw becomes a typed MisoPlatformDeploymentInvalidError", async () => {
+    // `chainId` is given explicitly so `warm`'s own precondition (a chain id
+    // must be knowable) is satisfied independently of the deployment lookup
+    // this test actually targets — "devnet" has no bundled Miso manifest, so
+    // `getMisoPlatformDeployment` throws a plain `Error` inside `Layer.unwrap`
+    // unless it's `Effect.try`-wrapped (the B5 fix in `src/client.ts`).
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "devnet", chainId: "devnet-chain-id" })),
+    );
+    // `warm` builds the layer synchronously (this stage's own default, see
+    // the network-mismatch block above), so the typed failure surfaces as a
+    // synchronous throw at `$extend`, exactly like `MisoNetworkMismatchError`
+    // does for a bundled-network mismatch — not an unhandled defect.
+    expect(() => fake.client.$extend(miso({ chainId: "devnet-chain-id" }))).toThrow(MisoPlatformDeploymentInvalidError);
+  });
+
+  test("an explicit deployment's own chainIdentifier is enough for warm — no options.chainId needed", async () => {
+    // A custom deployment naming its own network/chainIdentifier (as a
+    // localnet/devnet deployment must) registers warm from the deployment
+    // alone: `options.chainId ?? options.deployment?.chainIdentifier` (B6).
+    const custom: MisoPlatformDeployment = { ...TESTNET, network: "devnet" as MisoPlatformDeployment["network"], chainIdentifier: "custom-devnet-chain" };
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "devnet", chainId: "custom-devnet-chain" })),
+    );
+    // No `chainId` option at all: if `warm` could not derive one from
+    // `custom.chainIdentifier`, `register` would throw ("devnet" has no
+    // built-in table entry) instead of building the runtime synchronously.
+    const client = fake.client.$extend(miso({ deployment: custom }));
+    // `MisoNetwork` is a closed `"mainnet" | "testnet"` union; a custom
+    // deployment's own network label is a plain runtime string regardless.
+    expect(client.miso.deployment.network as string).toBe("devnet");
+    expect(client.miso.chainId).toBe("custom-devnet-chain");
+
+    await client.miso.dispose();
+  });
+});
+
+describe("B4 (misofm/sdks#35 verification): the old facade surface, walked", () => {
+  test("every documented client.miso.* name exists, with the right kind", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    // Reads: Effect members, now Promise-returning methods.
+    for (const name of ["getPressing", "getListing", "getRecord", "getSale"] as const) {
+      expect(typeof client.miso[name]).toBe("function");
+    }
+    // `ids.*`: sync address math.
+    for (const name of ["pressing", "pressingAdminCap", "record", "listing", "sale", "vault", "vaultAdminCap", "genre"] as const) {
+      expect(typeof client.miso.ids[name]).toBe("function");
+    }
+    // `tx.*`: the issue's own grouping — 7 sales builders, publishShareCurrency
+    // + initializeShareCurrency, 4 publish builders, publishReleaseGraph, 12
+    // extension setters (setReleaseKind … clearRecordingGenres).
+    for (const name of [
+      "purchaseRecord", "openPressing", "openListing", "authorizeRecordShop", "revokeRecordShop", "setListingPrice", "setListingState",
+      "publishShareCurrency", "initializeShareCurrency",
+      "publishComposition", "publishRecording", "publishCompositionAndRecording", "publishRelease", "publishReleaseGraph",
+      "setReleaseKind", "setReleaseDescription", "setReleaseGenres", "clearReleaseGenres", "setReleaseDspLinks",
+      "addReleaseCredit", "setReleaseCover", "setReleaseTrackCover",
+      "setRecordingStreamingTranscode", "unsetRecordingStreamingTranscode", "setRecordingGenres", "clearRecordingGenres",
+    ] as const) {
+      expect(typeof client.miso.tx[name]).toBe("function");
+    }
+    expect(typeof client.miso.call).toBe("object");
+    expect(typeof client.miso.bcs).toBe("object");
+    // `vault`: always an object now (never `undefined`, unlike the predecessor).
+    expect(typeof client.miso.vault).toBe("object");
+    expect(typeof client.miso.deployment).toBe("object");
+    // Submissions.
+    for (const name of ["createShareCurrency", "publishShareCurrencies", "initializeShareCurrencies", "publishCatalog"] as const) {
+      expect(typeof client.miso[name]).toBe("function");
+    }
+    // `protocol`/`party`: always present, never `undefined` (unlike the predecessor).
+    expect(typeof client.miso.protocol).toBe("object");
+    expect(typeof client.miso.party).toBe("object");
+    // `ready()`: kept, deprecated, still a callable member.
+    expect(typeof client.miso.ready).toBe("function");
+    expect(typeof client.miso.read).toBe("object");
+    expect(typeof client.miso.events).toBe("object");
+
+    await client.miso.dispose();
+  });
+
+  test("dispose() then reuse: the face rebuilds a fresh runtime lazily", async () => {
+    const fake = await Effect.runPromise(
+      Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+
+    await client.miso.dispose();
+    // Since @unconfirmed/sui-effect 0.1.1 a warm registration re-runs its
+    // warm build on the next use after dispose() instead of degrading to a
+    // cold face, so a synchronous member is real again immediately (on 0.1.0
+    // it was a placeholder until the first Effect call).
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+
+    // And an Effect member still works after the rebuild.
+    await client.miso.ready();
+    expect(client.miso.chainId).toBe(REAL_TESTNET_CHAIN_ID);
+    expect(client.miso.ids.pressing(A, 1)).toMatch(/^0x[0-9a-f]{64}$/);
+
+    await client.miso.dispose();
+  });
+});
+
+describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved through the face, and a musicos fragment composed with a platform one", () => {
+  test("protocol.getReleaseById and party.getProfile resolve real values through the face, not just typeof", async () => {
+    const RELEASE_ID = `0x${"77".repeat(32)}`;
+    const PARTY_ID = `0x${"88".repeat(32)}`;
+    const profileKeyBytes = ProfileKeyBcs.serialize([false]).toBytes();
+    const profileFieldId = `0x${"99".repeat(32)}`;
+    const keyTag = `${TESTNET.party.partyProfile}::party_profile::ProfileKey`;
+    const valueTag = `${TESTNET.party.partyProfile}::party_profile::Profile`;
+
+    const fake = await Effect.runPromise(
+      Effect.provide(
+        SuiCoreFake,
+        SuiCoreFake.layer({
+          network: "testnet",
+          chainId: REAL_TESTNET_CHAIN_ID,
+          objects: [
+            {
+              objectId: RELEASE_ID,
+              type: `${TESTNET.protocol.musicos}::release::Release`,
+              version: 1n,
+              content: musicosReleaseContract.Release.serialize({
+                id: RELEASE_ID,
+                state: { Initialized: true },
+                title: "Through The Face",
+                tracks: [],
+              }).toBytes(),
+            },
+          ],
+          dynamicFields: {
+            [PARTY_ID]: [
+              {
+                $kind: "DynamicField",
+                fieldId: profileFieldId,
+                type: `0x2::dynamic_field::Field<${keyTag}, ${valueTag}>`,
+                name: { type: keyTag, bcs: profileKeyBytes },
+                valueType: valueTag,
+              },
+            ],
+          },
+          dynamicFieldValues: {
+            [profileFieldId]: {
+              type: valueTag,
+              bcs: ProfileBcs.serialize({ bio_short: "Solo artist", bio_long: null, country: null, languages: [] }).toBytes(),
+            },
+          },
+        }),
+      ),
+    );
+    const client = fake.client.$extend(miso({ deployment: TESTNET }));
+
+    const release = await client.miso.protocol.getReleaseById(ObjectId.make(RELEASE_ID));
+    expect(release.title).toBe("Through The Face");
+
+    const profile = await client.miso.party.getProfile(PARTY_ID);
+    expect(Option.isSome(profile)).toBe(true);
+    expect(Option.getOrThrow(profile)).toMatchObject({ bioShort: "Solo artist" });
+
+    await client.miso.dispose();
+  });
+
+  test("a musicos free-function fragment composes with a platform fragment in one PTB", () => {
+    // `createComposition` (`@misofm/musicos/transactions`) is a standalone
+    // PRIMITIVE builder — not a service member, not even through `miso()` —
+    // proving the two SDKs' fragments compose on one caller-owned
+    // `Transaction` with no facade involved at all. (The earlier "warm
+    // registration" test in this file composes `client.miso.tx.*` with
+    // `client.miso.party.tx.*`, both service members; this is the "a
+    // musicos free-function" case B4 names separately.)
+    const tx = new Transaction();
+    const compositionParams: CreateCompositionParams = {
+      title: "Fragment Composition",
+      royaltyRateBps: 500,
+      misoPackageId: TESTNET.protocol.musicos,
+      shareType: `${A}::share::Share`,
+      shareCurrencyId: A,
+      shareTreasuryCapId: A,
+    };
+    createComposition(tx, compositionParams);
+
+    const sales = TESTNET.recordSales.status === "available" ? TESTNET.recordSales : undefined;
+    if (!sales) throw new Error("test fixture: bundled testnet Record sales must be available");
+    purchaseRecord({
+      releaseId: A,
+      edition: 1,
+      paymentAmount: "10",
+      expectedPricing: { kind: "fixed", amount: "10" },
+      currencyType: "0x2::sui::SUI",
+      recipient: A,
+      recordPackageId: sales.recordPackageId,
+      recordShopPackageId: sales.recordShopPackageId,
+    })(tx);
+
+    const commands = (tx.getData().commands as Array<{ $kind: string; MoveCall?: { module: string; function: string } }>).filter(
+      (c) => c.$kind === "MoveCall",
+    );
+    expect(commands.some((c) => c.MoveCall?.module === "composition")).toBe(true);
+    expect(commands.some((c) => c.MoveCall?.function === "purchase")).toBe(true);
+  });
 });

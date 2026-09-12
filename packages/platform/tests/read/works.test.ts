@@ -3,10 +3,10 @@
 
 import { expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { contracts } from "@misofm/musicos";
-import { SuiClient, SuiGraphQL } from "@misofm/effect";
+import { SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { getRecordingTitles, getWorksByIds, parseReleaseObject } from "../../src/read/works.ts";
 
 const RELEASE = "0x" + "11".repeat(32);
@@ -43,71 +43,52 @@ test("parseReleaseObject reads the canonical flat BCS tracklist", async () => {
   });
 });
 
-test("getWorksByIds ignores the retired discs-shaped JSON projection", async () => {
-  const calls: Array<{ include?: { content?: boolean; json?: boolean } }> = [];
-  const client = {
-    core: {
-      getObjects: async (input: { include?: { content?: boolean; json?: boolean } }) => {
-        calls.push(input);
-        return {
-          objects: [{
-            objectId: RELEASE,
-            content: releaseBytes(),
-            json: { title: "Retired JSON", discs: [{ tracks: [] }] },
-          }],
-        };
-      },
-    },
-  } as unknown as ClientWithCoreApi;
+test("getWorksByIds reads the canonical BCS tracklist (Sui never fetches the retired JSON projection)", async () => {
+  const objects: FakeObject[] = [
+    { objectId: RELEASE, type: `${PACKAGE}::release::Release`, version: 1n, content: releaseBytes() },
+  ];
 
   const works = await Effect.runPromise(
-    getWorksByIds({ compositions: [], recordings: [], releases: [RELEASE] }).pipe(
-      Effect.provide(SuiClient.layer(client)),
+    Effect.provide(
+      getWorksByIds({ compositions: [], recordings: [], releases: [RELEASE] }),
+      layerTest({ objects }),
+      { local: true },
     ),
   );
-  expect(calls[0]?.include).toEqual({ content: true });
   expect(works.releases[RELEASE]?.title).toBe("Canonical flat release");
   expect(works.releases[RELEASE]?.tracks).toHaveLength(2);
 });
 
 test("getRecordingTitles derives titles from the canonical composition type, not JSON", async () => {
-  const calls: Array<{ objectIds: string[]; include?: { json?: boolean } }> = [];
-  const client = {
-    core: {
-      getObjects: async (input: { objectIds: string[]; include?: { json?: boolean } }) => {
-        calls.push(input);
-        if (input.objectIds[0] === RECORDING_ONE) {
-          return {
-            objects: [{
-              objectId: RECORDING_ONE,
-              type: `${PACKAGE}::recording::Recording<${RECORDING_SHARE}, ${COMPOSITION_SHARE}>`,
-              json: { title: "Retired recording title" },
-            }],
-          };
-        }
-        return {
-          objects: [{
-            objectId: COMPOSITION,
-            content: contracts.composition.Composition.serialize({
-              id: COMPOSITION,
-              state: { Published: 1n },
-              title: "Canonical composition title",
-              royalty_rate: [1000],
-            }).toBytes(),
-          }],
-        };
-      },
+  const objects: FakeObject[] = [
+    {
+      objectId: RECORDING_ONE,
+      type: `${PACKAGE}::recording::Recording<${RECORDING_SHARE}, ${COMPOSITION_SHARE}>`,
+      version: 1n,
+      content: new Uint8Array(),
     },
-  } as unknown as ClientWithCoreApi;
+    {
+      objectId: COMPOSITION,
+      type: `${PACKAGE}::composition::Composition<${COMPOSITION_SHARE}>`,
+      version: 1n,
+      content: contracts.composition.Composition.serialize({
+        id: COMPOSITION,
+        state: { Published: 1n },
+        title: "Canonical composition title",
+        royalty_rate: [1000],
+      }).toBytes(),
+    },
+  ];
   const graphql = {
     query: async () => ({ data: { composition0: { nodes: [{ address: COMPOSITION }] } } }),
   } as unknown as SuiGraphQLClient;
 
   const titles = await Effect.runPromise(
-    getRecordingTitles([RECORDING_ONE], PACKAGE).pipe(
-      Effect.provide(Layer.mergeAll(SuiClient.layer(client), SuiGraphQL.layer(graphql))),
+    Effect.provide(
+      getRecordingTitles([RECORDING_ONE], PACKAGE),
+      Layer.mergeAll(layerTest({ objects }), SuiGraphQL.layer(graphql)),
+      { local: true },
     ),
   );
   expect(titles).toEqual({ [RECORDING_ONE]: "Canonical composition title" });
-  expect(calls[0]?.include).toEqual({});
 });

@@ -28,7 +28,6 @@ export {
   removeMember,
   type Party,
   type PartyKind,
-  type TxThunk,
   type CreatePartyParams,
   type SetNameParams,
   type InvitePartyParams,

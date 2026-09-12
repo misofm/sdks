@@ -12,45 +12,43 @@
 //
 // It also carries the resolved `MisoConfig`, so a read function takes ONE argument
 // and never has a package id threaded through its signature.
-//
-// Party now shares the same network SDK registration and deployment as protocol
-// core, so every read hangs off one `sui.miso` namespace.
 
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { miso, type MisoProtocolClient } from "@misofm/musicos/client";
-import { PartyosClient } from "@misofm/partyos";
-import { PartyPlatformClient } from "../party/index.ts";
+import { Layer } from "effect";
+import { Sui, SuiCore, SuiGraphQL, type NetworkMismatch, type TransportError } from "@unconfirmed/sui-effect";
+import { miso, type MisoClient as MisoExtensionClient } from "../client.ts";
+import { Miso, type MisoLayerError } from "../Miso.ts";
+import { getMisoPlatformDeployment, type MisoPlatformDeployment } from "../deployments.ts";
 import { misoConfig, networkFrom, type MisoConfig, type MisoConfigOverrides, type Network } from "./config.ts";
 
 function definedOverrides<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Partial<T>;
 }
 
-/**
- * The transport slice every `@misofm/platform/read` function needs to run its
- * `Effect`: `Effect.provide(SuiClient.layer(client.protocol))`. `sui` (below)
- * satisfies this structurally, since it is a real `ClientWithCoreApi`.
- */
-export type ProtocolClient = ClientWithCoreApi;
-
-/** A GraphQL client in the shape `@misofm/effect`'s `SuiGraphQL` service wants. */
-export type ProtocolGraphQLClient = SuiGraphQLClient;
-
 export interface MisoClient {
   config: MisoConfig;
-  /** gRPC data plane (object-model core only; Party is `client.party`). */
-  sui: SuiGrpcClient & { miso: MisoProtocolClient };
-  /** The same client, for `Effect.provide(SuiClient.layer(client.protocol))`. */
-  protocol: ProtocolClient;
+  /** gRPC data plane. */
+  sui: SuiGrpcClient;
   /** GraphQL RPC, for `Effect.provide(SuiGraphQL.layer(client.graphql))`. */
-  graphql: ProtocolGraphQLClient;
+  graphql: SuiGraphQLClient;
   /** The raw GraphQL client — identical to `graphql`; both names are kept for
    * source compatibility with callers migrating from the pre-Effect client. */
   graphqlRaw: SuiGraphQLClient;
-  /** Party identity and profile reads/builders, bound to `config.partyos`/`config.party`. */
-  party: PartyPlatformClient;
+  /**
+   * The `client.$extend(miso({ deployment, graphqlClient }))` face — the
+   * documented app-edge entry point for a Promise consumer: `client.miso.*`.
+   */
+  client: SuiGrpcClient & { readonly miso: MisoExtensionClient };
+  /**
+   * `Miso | Sui | SuiCore | SuiGraphQL`, ready to provide to an Effect
+   * consumer that wants `yield* Miso` directly (the read service) instead of
+   * going through the Promise face — or to any of this package's standalone
+   * `read/*` functions, which only ever need the narrower `Sui | SuiGraphQL`
+   * a superset layer still satisfies:
+   * `Effect.provide(getReleaseDetail(id, config), client.layer)`.
+   */
+  layer: Layer.Layer<Miso | Sui | SuiCore | SuiGraphQL, MisoLayerError | NetworkMismatch | TransportError>;
 }
 
 export interface CreateMisoClientOptions extends MisoConfigOverrides {
@@ -58,13 +56,30 @@ export interface CreateMisoClientOptions extends MisoConfigOverrides {
   network?: Network | string;
   /** Complete verified configuration for a custom or unbundled deployment. */
   config?: MisoConfig;
+  /**
+   * The complete deployment `Miso`/`client.miso` build from. Defaults to the
+   * bundled manifest for `network` — required alongside a custom `config` on
+   * a network with no bundled entry, since `MisoConfig` alone (a package-id
+   * subset) cannot reconstruct the `operations`/`packages` sections
+   * `Miso.layer` needs.
+   */
+  deployment?: MisoPlatformDeployment;
+  /**
+   * The chain identifier the node must report — forwarded to both the
+   * standalone `layer` (`Sui.layerNoDepsWith({ chainId })`) and `client.miso`
+   * (`miso({ chainId })`), so the two transports this client builds (and the
+   * warm registration on `devnet`/`localnet`/a custom network) agree on the
+   * same pinned id rather than each asserting independently. Omit on
+   * `mainnet`/`testnet`, where both already have a built-in default.
+   */
+  chainId?: string;
 }
 
 /**
  * Build the client from a bundled network or a complete verified custom config.
  */
 export function createMisoClient(options: CreateMisoClientOptions = {}): MisoClient {
-  const { network, config: providedConfig, ...overrides } = options;
+  const { network, config: providedConfig, deployment: providedDeployment, chainId, ...overrides } = options;
   const requestedNetwork = networkFrom(network);
   // A caller-supplied verified deployment may still override transport URLs or
   // the discover shelf; undefined fields never erase verified config values.
@@ -76,19 +91,29 @@ export function createMisoClient(options: CreateMisoClientOptions = {}): MisoCli
       `@misofm/platform/read: provided config is for ${config.network}, not ${requestedNetwork}.`,
     );
   }
+  const deployment = providedDeployment ?? getMisoPlatformDeployment(requestedNetwork);
 
-  const grpc = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
+  const sui = new SuiGrpcClient({ baseUrl: config.grpcUrl, network: config.network });
   const graphqlRaw = new SuiGraphQLClient({ url: config.graphqlUrl, network: config.network });
 
-  const sui = grpc.$extend(miso({ deployment: config.deployment }));
-  const party = new PartyPlatformClient(sui, new PartyosClient(sui, config.partyos), config.party);
+  // Reuse the one gRPC client instance `client` itself extends below —
+  // `SuiCore.layerFromClient(sui)`, not a second `SuiCore.layerGrpc(...)`
+  // transport pointed at the same endpoint (C item, misofm/sdks#35
+  // verification): an Effect consumer using `layer` and a Promise consumer
+  // using `client` then share one connection, not two.
+  const suiLayer = chainId !== undefined ? Sui.layerNoDepsWith({ chainId }) : Sui.layerNoDeps;
+  const suiPlusCore = suiLayer.pipe(Layer.provideMerge(SuiCore.layerFromClient(sui)));
+  const base = Layer.merge(suiPlusCore, SuiGraphQL.layer(graphqlRaw));
+  const layer = Miso.layer(deployment).pipe(Layer.provideMerge(base));
+
+  const client = sui.$extend(miso({ deployment, graphqlClient: graphqlRaw, chainId }));
 
   return {
     config,
     sui,
-    protocol: sui,
     graphql: graphqlRaw,
     graphqlRaw,
-    party,
+    client,
+    layer,
   };
 }

@@ -3,10 +3,10 @@
 
 import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { Effect } from "effect";
-import { SuiClient } from "@misofm/effect";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, SuiTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as walrusData from "../src/contracts/cover_art/deps/ori/data.ts";
 import * as masterReference from "../src/contracts/recording_master_reference/recording_master_reference.ts";
 import * as engineSessionContract from "../src/contracts/recording_engine_session/recording_engine_session.ts";
@@ -62,8 +62,23 @@ function moveCalls(tx: Transaction): MoveCall[] {
   );
 }
 
-function run<A, E>(effect: Effect.Effect<A, E, SuiClient>, client: ClientWithCoreApi): Promise<A> {
-  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
+function run<A, E>(effect: Effect.Effect<A, E, Sui>, objects: FakeObject[]): Promise<A> {
+  return Effect.runPromise(Effect.provide(effect, layerTest({ objects }), { local: true }));
+}
+
+function runScripted<A, E>(effect: Effect.Effect<A, E, Sui>, objects: FakeObject[]): Promise<{ result: A; calls: readonly string[][] }> {
+  return Effect.runPromise(
+    Effect.provide(
+      Effect.gen(function* () {
+        const result = yield* effect;
+        const recorded = yield* SuiTest.calls("getObjects");
+        const calls = recorded.map((call) => (call.options as { objectIds: readonly string[] }).objectIds as string[]);
+        return { result, calls };
+      }),
+      layerTest({ objects }),
+      { local: true },
+    ),
+  );
 }
 
 test("builds a composable streaming-transcode attachment from a complete Quilt ID", () => {
@@ -207,15 +222,8 @@ test("reads an engine session's session blob and stems table", async () => {
       ],
     },
   }).toBytes();
-  const client = {
-    core: {
-      getObject: async (input: { objectId: string }) => {
-        expect(input.objectId).toBe(fieldId);
-        return { object: { objectId: fieldId, type: "0x2::dynamic_field::Field", version: "1", content } };
-      },
-    },
-  } as unknown as ClientWithCoreApi;
-  await expect(run(getRecordingEngineSession(RECORDING_ONE, ENGINE_SESSION_PACKAGE), client)).resolves.toEqual({
+  const objects: FakeObject[] = [{ objectId: fieldId, type: "0x2::dynamic_field::Field", version: 1n, content }];
+  await expect(run(getRecordingEngineSession(RECORDING_ONE, ENGINE_SESSION_PACKAGE), objects)).resolves.toEqual({
     sessionBlobId: "7",
     stems: [
       { digest: "00".repeat(32), blobId: "1" },
@@ -241,44 +249,32 @@ test("builds an idempotent streaming-transcode removal", () => {
 
 test("reads a Recording's master-reference blob id", async () => {
   const fieldId = recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE);
-  const client = {
-    core: {
-      getObjects: async (input: { objectIds: string[] }) => {
-        expect(input.objectIds).toEqual([fieldId]);
-        return {
-          objects: [{ objectId: fieldId, content: masterContent(RECORDING_ONE) }],
-        };
-      },
-    },
-  } as unknown as ClientWithCoreApi;
+  const objects: FakeObject[] = [
+    { objectId: fieldId, type: "0x2::dynamic_field::Field", version: 1n, content: masterContent(RECORDING_ONE) },
+  ];
 
   await expect(
-    run(getRecordingMasterReference(RECORDING_ONE, PACKAGE), client),
+    run(getRecordingMasterReference(RECORDING_ONE, PACKAGE), objects),
   ).resolves.toBe(String(BLOB_ID));
 });
 
 test("batches unique master-reference fields and omits absent recordings", async () => {
-  const calls: string[][] = [];
-  const client = {
-    core: {
-      getObjects: async (input: { objectIds: string[] }) => {
-        calls.push(input.objectIds);
-        return {
-          objects: [
-            {
-              objectId: input.objectIds[0],
-              content: masterContent(RECORDING_ONE),
-            },
-            new Error("not found"),
-          ],
-        };
-      },
+  const objects: FakeObject[] = [
+    {
+      objectId: recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE),
+      type: "0x2::dynamic_field::Field",
+      version: 1n,
+      content: masterContent(RECORDING_ONE),
     },
-  } as unknown as ClientWithCoreApi;
+    // No FakeObject for RECORDING_TWO's field: sui.getObjects reports it
+    // ObjectNotFound, and the soft read (readSoftFields) drops it.
+  ];
 
-  await expect(
-    run(getRecordingMasterReferencesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE), client),
-  ).resolves.toEqual({ [RECORDING_ONE]: String(BLOB_ID) });
+  const { result, calls } = await runScripted(
+    getRecordingMasterReferencesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
+    objects,
+  );
+  expect(result).toEqual({ [RECORDING_ONE]: String(BLOB_ID) });
   expect(calls).toEqual([
     [
       recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE),
@@ -294,7 +290,6 @@ import {
   getRecordingEngineSessionsByIds,
   getRecordingStreamingTranscode,
   getRecordingStreamingTranscodesByIds,
-  recordingEngineSessionFieldId,
   recordingStreamingTranscodeFieldId,
 } from "../src/recording-extensions.ts";
 
@@ -336,30 +331,16 @@ function sessionContent(recordingId: string): Uint8Array {
   }).toBytes();
 }
 
-function batchClient(content: (recordingId: string) => Uint8Array, calls: string[][]): ClientWithCoreApi {
-  return {
-    core: {
-      getObjects: async (input: { objectIds: string[] }) => {
-        calls.push(input.objectIds);
-        return {
-          objects: [
-            { objectId: input.objectIds[0], content: content(RECORDING_ONE) },
-            new Error("not found"),
-          ],
-        };
-      },
-    },
-  } as unknown as ClientWithCoreApi;
+function batchObjects(content: (recordingId: string) => Uint8Array, fieldId: string): FakeObject[] {
+  return [{ objectId: fieldId, type: "0x2::dynamic_field::Field", version: 1n, content: content(RECORDING_ONE) }];
 }
 
 test("getRecordingStreamingTranscodesByIds derives one field per recording and drops missing ones", async () => {
-  const calls: string[][] = [];
-  await expect(
-    run(
-      getRecordingStreamingTranscodesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
-      batchClient(transcodeContent, calls),
-    ),
-  ).resolves.toEqual({ [RECORDING_ONE]: String(QUILT_ID) });
+  const { result, calls } = await runScripted(
+    getRecordingStreamingTranscodesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
+    batchObjects(transcodeContent, recordingStreamingTranscodeFieldId(RECORDING_ONE, PACKAGE)),
+  );
+  expect(result).toEqual({ [RECORDING_ONE]: String(QUILT_ID) });
   expect(calls).toEqual([
     [
       recordingStreamingTranscodeFieldId(RECORDING_ONE, PACKAGE),
@@ -369,22 +350,21 @@ test("getRecordingStreamingTranscodesByIds derives one field per recording and d
 });
 
 test("getRecordingStreamingTranscode returns null for a recording without a transcode", async () => {
-  const client = batchClient(transcodeContent, []);
-  await expect(run(getRecordingStreamingTranscode(RECORDING_ONE, PACKAGE), client)).resolves.toBe(String(QUILT_ID));
-  const missing = {
-    core: { getObjects: async () => ({ objects: [new Error("not found")] }) },
-  } as unknown as ClientWithCoreApi;
-  await expect(run(getRecordingStreamingTranscode(RECORDING_TWO, PACKAGE), missing)).resolves.toBeNull();
+  await expect(
+    run(
+      getRecordingStreamingTranscode(RECORDING_ONE, PACKAGE),
+      batchObjects(transcodeContent, recordingStreamingTranscodeFieldId(RECORDING_ONE, PACKAGE)),
+    ),
+  ).resolves.toBe(String(QUILT_ID));
+  await expect(run(getRecordingStreamingTranscode(RECORDING_TWO, PACKAGE), [])).resolves.toBeNull();
 });
 
 test("getRecordingEngineSessionsByIds parses sessions and stems in one request", async () => {
-  const calls: string[][] = [];
-  await expect(
-    run(
-      getRecordingEngineSessionsByIds([RECORDING_ONE, RECORDING_TWO], PACKAGE),
-      batchClient(sessionContent, calls),
-    ),
-  ).resolves.toEqual({
+  const { result, calls } = await runScripted(
+    getRecordingEngineSessionsByIds([RECORDING_ONE, RECORDING_TWO], PACKAGE),
+    batchObjects(sessionContent, recordingEngineSessionFieldId(RECORDING_ONE, PACKAGE)),
+  );
+  expect(result).toEqual({
     [RECORDING_ONE]: {
       sessionBlobId: String(BLOB_ID),
       stems: [{ digest: "07".repeat(32), blobId: String(QUILT_ID) }],

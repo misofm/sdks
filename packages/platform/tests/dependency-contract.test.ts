@@ -34,6 +34,11 @@ test("Sui uses one exact development and peer dependency contract", async () => 
     "@misofm/streaming",
     "@misofm/transcoding",
     "effect",
+    // musicos (misofm/sdks#34) is a sui-effect extension; the isolated
+    // consumer needs the published `@unconfirmed/sui-effect` package
+    // resolvable too, the same way it needs every other dependency a packed
+    // @misofm/* tarball's peers name.
+    "@unconfirmed/sui-effect",
     "typescript",
   ]);
 

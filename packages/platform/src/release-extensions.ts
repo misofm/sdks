@@ -13,8 +13,7 @@ import type {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
 import { Effect, Option } from "effect";
-import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
-import type { TxThunk } from "./transactions.ts";
+import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import * as releaseDescription from "./contracts/release_description/release_description.ts";
 import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.ts";
 import * as releaseKind from "./contracts/release_kind/release_kind.ts";
@@ -43,7 +42,7 @@ export type SetReleaseKindParams = ReleaseExtensionTarget & {
 };
 
 /** Attach the release's self-declared kind (for example "EP" or "Mixtape"). */
-export function setReleaseKind(p: SetReleaseKindParams): TxThunk {
+export function setReleaseKind(p: SetReleaseKindParams): Recipe {
   const bytes = new TextEncoder().encode(p.kind).length;
   if (bytes === 0) throw new Error("setReleaseKind: kind must not be empty");
   if (bytes > 32) {
@@ -90,8 +89,9 @@ export function parseReleaseKindContent(content: Uint8Array): string {
 export const getReleaseKind = Effect.fn("getReleaseKind")(function* (
   releaseId: string,
   releaseKindPackageId: string,
-): Effect.fn.Return<string | null, SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(releaseKindFieldId(releaseId, releaseKindPackageId));
+): Effect.fn.Return<string | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(releaseKindFieldId(releaseId, releaseKindPackageId)));
   return Option.isNone(found) ? null : parseReleaseKindContent(found.value.content);
 });
 
@@ -101,7 +101,7 @@ export type SetReleaseDescriptionParams = ReleaseExtensionTarget & {
 };
 
 /** Attach the release's editorial description. */
-export function setReleaseDescription(p: SetReleaseDescriptionParams): TxThunk {
+export function setReleaseDescription(p: SetReleaseDescriptionParams): Recipe {
   const bytes = new TextEncoder().encode(p.description).length;
   if (bytes === 0) {
     throw new Error("setReleaseDescription: description must not be empty");
@@ -213,7 +213,7 @@ export type SetReleaseDspLinksParams = ReleaseExtensionTarget & {
 };
 
 /** Attach release-level and per-track DSP links. */
-export function setReleaseDspLinks(p: SetReleaseDspLinksParams): TxThunk {
+export function setReleaseDspLinks(p: SetReleaseDspLinksParams): Recipe {
   return (tx) => {
     for (const link of p.releaseLinks ?? []) {
       const value = buildDspLink(tx, p.releaseDspLinkPackageId, link);

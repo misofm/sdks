@@ -25,6 +25,7 @@
 // is intentionally not used here.
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import { contracts } from "@misofm/musicos";
 import { custodyOf, disperseShares, finalizeRelease, recordingAuthorityOf, requiredCommandResult, type AdminCustodyInput, type RecordingAuthorityInput, type ShareRecipient } from "./transactions.ts";
 import { disposeNewAdminCap, invokeWithAdminCap } from "./vault.ts";
@@ -108,7 +109,7 @@ interface Parts {
 }
 
 /** Builds the entire graph in a single transaction (see file header for ordering). */
-export function publishReleaseGraph(params: PublishReleaseGraphParams): (tx: Transaction) => void {
+export function publishReleaseGraph(params: PublishReleaseGraphParams): Recipe {
   const { misoPackageId: pkg, minatoPackageId } = params;
   return (tx) => {
     // ── 1) Create every composition, then every recording (borrow-before-share) ──

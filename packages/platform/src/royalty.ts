@@ -10,7 +10,7 @@
 import { Transaction, type TransactionArgument, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import { deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { Effect, Schema } from "effect";
-import { decodeBcs, getOptionalObjectContent, type BcsDecodeError, type SuiClient, type SuiRpcError } from "@misofm/effect";
+import { ObjectId, Sui, SuiSchema, type DecodeError, type ObjectUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 
 import { RoyaltyPool as RoyaltyPoolBcs } from "./contracts/royalty_pool/pool.ts";
 import { Stake as RoyaltyStakeBcs } from "./contracts/royalty_pool/stake.ts";
@@ -108,43 +108,37 @@ function mapRoutedStake(
 /** One royalty pool by object ID, or `null` when no such object exists. */
 export const getRoyaltyPoolById = Effect.fn("getRoyaltyPoolById")(function* (
   poolId: string,
-): Effect.fn.Return<RoyaltyPool | null, BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(poolId);
+): Effect.fn.Return<RoyaltyPool | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const id = ObjectId.make(poolId);
+  const found = yield* sui.getObjectOption(id);
   if (found._tag === "None") return null;
-  return yield* decodeBcs(
-    { parse: (bytes) => mapRoyaltyPool(poolId, RoyaltyPoolBcs.parse(bytes)) },
-    RoyaltyPool,
-    found.value.content,
-    { type: "RoyaltyPool", objectId: poolId },
-  );
+  const parsed = yield* SuiSchema.decode(SuiSchema.bcs(RoyaltyPoolBcs), found.value.content, { objectId: id, actualType: found.value.type });
+  return new RoyaltyPool(mapRoyaltyPool(poolId, parsed));
 });
 
 /** One owned `Stake<Share>` by object ID, or `null` when no such object exists. */
 export const getRoyaltyStakeById = Effect.fn("getRoyaltyStakeById")(function* (
   stakeId: string,
-): Effect.fn.Return<RoyaltyStake | null, BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(stakeId);
+): Effect.fn.Return<RoyaltyStake | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const id = ObjectId.make(stakeId);
+  const found = yield* sui.getObjectOption(id);
   if (found._tag === "None") return null;
-  return yield* decodeBcs(
-    { parse: (bytes) => mapRoyaltyStake(stakeId, RoyaltyStakeBcs.parse(bytes)) },
-    RoyaltyStake,
-    found.value.content,
-    { type: "RoyaltyStake", objectId: stakeId },
-  );
+  const parsed = yield* SuiSchema.decode(SuiSchema.bcs(RoyaltyStakeBcs), found.value.content, { objectId: id, actualType: found.value.type });
+  return new RoyaltyStake(mapRoyaltyStake(stakeId, parsed));
 });
 
 /** One shared routed stake by object ID, or `null` when no such object exists. */
 export const getRoutedStakeById = Effect.fn("getRoutedStakeById")(function* (
   routedStakeId: string,
-): Effect.fn.Return<RoutedStake | null, BcsDecodeError | SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(routedStakeId);
+): Effect.fn.Return<RoutedStake | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const id = ObjectId.make(routedStakeId);
+  const found = yield* sui.getObjectOption(id);
   if (found._tag === "None") return null;
-  return yield* decodeBcs(
-    { parse: (bytes) => mapRoutedStake(routedStakeId, RoutedStakeBcs.parse(bytes)) },
-    RoutedStake,
-    found.value.content,
-    { type: "RoutedStake", objectId: routedStakeId },
-  );
+  const parsed = yield* SuiSchema.decode(SuiSchema.bcs(RoutedStakeBcs), found.value.content, { objectId: id, actualType: found.value.type });
+  return new RoutedStake(mapRoutedStake(routedStakeId, parsed));
 });
 
 /** Deterministically derive the royalty-pool ID for a parent and type pair. */

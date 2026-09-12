@@ -21,13 +21,19 @@
 // math the chain does.
 
 import * as listingContract from "../contracts/record_shop/listing.ts";
-import {
-  extractTypeParams2,
-  getCompositionsByIds,
-} from "@misofm/musicos";
+import { extractTypeParams2, Musicos, type MusicosDeploymentInvalid, type MusicosService, type MusicosWorkNotFound } from "@misofm/musicos";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
-import { Effect } from "effect";
-import { SuiClient, SuiGraphQL, SuiRpcError, type BcsDecodeError, type ObjectTypeMismatchError } from "@misofm/effect";
+import { Effect, Result } from "effect";
+import {
+  GraphQLUnavailable,
+  ObjectId,
+  Sui,
+  SuiGraphQL,
+  TransportError,
+  type BatchItemError,
+  type DecodeError,
+  type TransactionNotFound,
+} from "@unconfirmed/sui-effect";
 import { getPressingDetail } from "./catalog.ts";
 import { int } from "./internal/scalars.ts";
 import { requireRecordSalesDeployment } from "../deployments.ts";
@@ -51,6 +57,29 @@ const FULLNODE_WAIT_MS = 5_000;
 
 /** Composition royalty rate (bps) per recording id. Sparse — an unresolved parent has no entry. */
 type CompositionRates = Record<string, number | undefined>;
+
+/**
+ * `GraphQLUnavailable` lets through, not folded into `TransportError` — see
+ * `@misofm/musicos`'s own `queries.ts` (and `read/royalties.ts`) for the
+ * same idiom.
+ */
+const graphqlError = (method: string) => (cause: unknown): GraphQLUnavailable | TransportError =>
+  cause instanceof GraphQLUnavailable ? cause : TransportError.fromUnknown(method, cause);
+
+/**
+ * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `../catalog.ts`'s `withMusicos` for
+ * the same idiom (kept file-local; see `docs/CONVERSION-STATUS.md`).
+ */
+function withMusicos<A, E>(
+  packageId: string,
+  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  return Effect.gen(function* () {
+    const musicos = yield* Musicos;
+    return yield* effect(musicos);
+  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+}
 
 function coerceU64(v: unknown): bigint | null {
   const value = typeof v === "bigint"
@@ -304,19 +333,18 @@ const salesFromFullnode = Effect.fn("salesFromFullnode")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   RecordSale[],
-  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
-  SuiClient
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | TransactionNotFound | TransportError,
+  Sui
 > {
-  const client = yield* SuiClient;
-  const result = yield* Effect.tryPromise({
-    try: (signal) =>
-      client.core.waitForTransaction({
-        digest: txDigest,
-        include: { events: true },
-        timeout: FULLNODE_WAIT_MS,
-        signal,
-      }),
-    catch: (cause) => new SuiRpcError({ operation: "waitForTransaction", cause }),
+  const sui = yield* Sui;
+  // The mechanical tier's raw `waitForTransaction`: `Sui`'s opinionated tier
+  // has no timeout-bearing wait convenience of its own, so this reaches
+  // `sui.core` directly, per sui-effect's docs/extensions.md ("reach for it
+  // directly only for a field or method Sui does not expose").
+  const result = yield* sui.core.waitForTransaction({
+    digest: txDigest,
+    include: { events: true },
+    timeout: FULLNODE_WAIT_MS,
   });
   if (result.$kind !== "Transaction" || !result.Transaction.status.success) {
     return yield* new ReceiptNotFoundError({ digest: txDigest });
@@ -355,7 +383,7 @@ const salesFromIndexer = Effect.fn("salesFromIndexer")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   RecordSale[],
-  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | GraphQLUnavailable | TransportError,
   SuiGraphQL
 > {
   const client = yield* SuiGraphQL;
@@ -365,13 +393,13 @@ const salesFromIndexer = Effect.fn("salesFromIndexer")(function* (
         query: TX_EVENTS_QUERY,
         variables: { digest: txDigest },
       }),
-    catch: (cause) => new SuiRpcError({ operation: "transactionEvents", cause }),
+    catch: graphqlError("transactionEvents"),
   });
   if (errors?.length) {
-    return yield* new SuiRpcError({
-      operation: "transactionEvents",
-      cause: new AggregateError(errors.map((e) => new Error(e.message)), "Transaction events query failed"),
-    });
+    return yield* TransportError.fromUnknown(
+      "transactionEvents",
+      new AggregateError(errors.map((e) => new Error(e.message)), "Transaction events query failed"),
+    );
   }
 
   const effects = data?.transaction?.effects;
@@ -404,12 +432,12 @@ const salesFromChain = Effect.fn("salesFromChain")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   RecordSale[],
-  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  ReceiptNotFoundError | RecordPurchaseNotFoundError | MalformedRecordSoldEventError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   return yield* salesFromFullnode(txDigest, config).pipe(
     Effect.catchIf(
-      (error): error is ReceiptNotFoundError | RecordPurchaseNotFoundError | SuiRpcError =>
+      (error): error is ReceiptNotFoundError | RecordPurchaseNotFoundError | TransactionNotFound | TransportError =>
         error._tag !== "MalformedRecordSoldEventError",
       () => salesFromIndexer(txDigest, config),
     ),
@@ -430,20 +458,18 @@ const salesFromChain = Effect.fn("salesFromChain")(function* (
 const compositionRatesByRecording = Effect.fn("compositionRatesByRecording")(function* (
   recordingIds: string[],
   config: MisoConfig,
-): Effect.fn.Return<CompositionRates, SuiRpcError | BcsDecodeError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<CompositionRates, MusicosDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   if (recordingIds.length === 0) return {};
 
-  const client = yield* SuiClient;
+  const sui = yield* Sui;
   const shareTypeByRecording: Record<string, string> = {};
-  const { objects } = yield* Effect.tryPromise({
-    try: (signal) => client.core.getObjects({ objectIds: [...new Set(recordingIds)], signal }),
-    catch: (cause) => new SuiRpcError({ operation: "getObjects", cause }),
-  });
-  for (const obj of objects) {
-    if (obj instanceof Error || !obj.type) continue;
+  const results = yield* sui.getObjects([...new Set(recordingIds)].map((id) => ObjectId.make(id)));
+  for (const result of results) {
+    if (!Result.isSuccess(result)) continue;
+    const object = result.success;
     try {
-      const [, compositionShareType] = extractTypeParams2(obj.type);
-      shareTypeByRecording[obj.objectId] = compositionShareType;
+      const [, compositionShareType] = extractTypeParams2(object.type);
+      shareTypeByRecording[object.id] = compositionShareType;
     } catch {
       // A recording type we can't read the parent off — skip this track.
     }
@@ -457,12 +483,17 @@ const compositionRatesByRecording = Effect.fn("compositionRatesByRecording")(fun
     config.deployment.musicos,
   );
   const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
-  const compositions = yield* getCompositionsByIds(compositionIds);
+  const compositionResults = yield* withMusicos(config.deployment.musicos, (musicos) =>
+    musicos.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))),
+  );
+  const compositions = new Map(
+    compositionResults.flatMap((result, index) => (Result.isSuccess(result) ? [[compositionIds[index]!, result.success] as const] : [])),
+  );
 
   const rates: CompositionRates = {};
   for (const [recordingId, shareType] of Object.entries(shareTypeByRecording)) {
     const compositionId = addresses.compositions[shareType];
-    const composition = compositionId ? compositions[compositionId] : undefined;
+    const composition = compositionId ? compositions.get(compositionId) : undefined;
     if (composition) rates[recordingId] = int(composition.royaltyRate.value);
   }
   return rates;
@@ -508,18 +539,20 @@ type ReceiptError =
   | ReceiptNotFoundError
   | RecordPurchaseNotFoundError
   | MalformedRecordSoldEventError
-  | ObjectTypeMismatchError
+  | DecodeError
   | ReleaseNotFoundError
-  | BcsDecodeError
-  | SuiRpcError;
+  | MusicosWorkNotFound
+  | BatchItemError
+  | GraphQLUnavailable
+  | TransportError;
 
 const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
   sale: RecordSale,
   config: MisoConfig,
 ): Effect.fn.Return<
   PurchaseReceipt | null,
-  ObjectTypeMismatchError | ReleaseNotFoundError | BcsDecodeError | SuiRpcError,
-  SuiClient | SuiGraphQL
+  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  Sui | SuiGraphQL
 > {
   const detail = yield* getPressingDetail(sale.pressingId, config);
   if (!detail) return null;
@@ -542,7 +575,7 @@ const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
 export const getPurchaseReceipts = Effect.fn("getPurchaseReceipts")(function* (
   txDigest: string,
   config: MisoConfig,
-): Effect.fn.Return<PurchaseReceipt[], ReceiptError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<PurchaseReceipt[], ReceiptError, Sui | SuiGraphQL> {
   const sales = yield* salesFromChain(txDigest, config);
   const hydrated = yield* Effect.forEach(sales, (sale) => hydratePurchaseReceipt(sale, config), {
     concurrency: "unbounded",
@@ -559,7 +592,7 @@ export const getPurchaseReceipt = Effect.fn("getPurchaseReceipt")(function* (
   txDigest: string,
   recordId: string,
   config: MisoConfig,
-): Effect.fn.Return<PurchaseReceipt | null, ReceiptError, SuiClient | SuiGraphQL> {
+): Effect.fn.Return<PurchaseReceipt | null, ReceiptError, Sui | SuiGraphQL> {
   const sales = yield* salesFromChain(txDigest, config);
   const wanted = normalizeSuiAddress(recordId);
   const sale = sales.find((candidate) => normalizeSuiAddress(candidate.recordId) === wanted);

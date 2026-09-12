@@ -44,8 +44,7 @@ import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID, deriveObjectID, normalizeSuiObjectId } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { Effect, Schema } from "effect";
-import { getOptionalObjectContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
-import type { TxThunk } from "./transactions.ts";
+import { ObjectId, Sui, type ObjectUnavailable, type DecodeError, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import { PlatformDeployment } from "./deployments.ts";
 import type { ReleaseExtensionTarget } from "./release-extensions.ts";
@@ -162,7 +161,7 @@ export type SetReleaseGenresParams = ReleaseExtensionTarget & {
  * when nothing is attached, so this is safe to run against a fresh release
  * and safe to re-run against one that already has genres assigned.
  */
-export function setReleaseGenres(p: SetReleaseGenresParams): TxThunk {
+export function setReleaseGenres(p: SetReleaseGenresParams): Recipe {
   const genreIds = validateGenreIds("setReleaseGenres", p.genreIds);
   return (tx) => {
     const authority = releaseAuthorityOf(p);
@@ -186,7 +185,7 @@ export type ClearReleaseGenresParams = ReleaseExtensionTarget & {
 };
 
 /** Remove a Release's entire genre list. A no-op on-chain if nothing is attached. */
-export function clearReleaseGenres(p: ClearReleaseGenresParams): TxThunk {
+export function clearReleaseGenres(p: ClearReleaseGenresParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
       target: `${p.releaseGenrePackageId}::release_genre::clear_genres`,
@@ -202,7 +201,7 @@ export type ReleaseGenreMutationParams = ReleaseExtensionTarget & {
 };
 
 /** Append one genre to a Release's list. */
-export function addReleaseGenre(p: ReleaseGenreMutationParams): TxThunk {
+export function addReleaseGenre(p: ReleaseGenreMutationParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
       target: `${p.releaseGenrePackageId}::release_genre::add_genre`,
@@ -213,7 +212,7 @@ export function addReleaseGenre(p: ReleaseGenreMutationParams): TxThunk {
 }
 
 /** Remove one genre from a Release by id. */
-export function removeReleaseGenre(p: ReleaseGenreMutationParams): TxThunk {
+export function removeReleaseGenre(p: ReleaseGenreMutationParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
       target: `${p.releaseGenrePackageId}::release_genre::remove_genre`,
@@ -238,7 +237,7 @@ export interface SetRecordingGenresParams extends RecordingExtensionTarget {
  * no-op when nothing is attached, so this is safe to run against a fresh
  * recording and safe to re-run against one that already has genres assigned.
  */
-export function setRecordingGenres(p: SetRecordingGenresParams): TxThunk {
+export function setRecordingGenres(p: SetRecordingGenresParams): Recipe {
   const genreIds = validateGenreIds("setRecordingGenres", p.genreIds);
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
@@ -263,7 +262,7 @@ export interface ClearRecordingGenresParams extends RecordingExtensionTarget {
 }
 
 /** Remove a Recording's entire genre list. A no-op on-chain if nothing is attached. */
-export function clearRecordingGenres(p: ClearRecordingGenresParams): TxThunk {
+export function clearRecordingGenres(p: ClearRecordingGenresParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingGenrePackageId}::recording_genre::clear_genres`,
@@ -280,7 +279,7 @@ export interface RecordingGenreMutationParams extends RecordingExtensionTarget {
 }
 
 /** Append one genre to a Recording's list. */
-export function addRecordingGenre(p: RecordingGenreMutationParams): TxThunk {
+export function addRecordingGenre(p: RecordingGenreMutationParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingGenrePackageId}::recording_genre::add_genre`,
@@ -292,7 +291,7 @@ export function addRecordingGenre(p: RecordingGenreMutationParams): TxThunk {
 }
 
 /** Remove one genre from a Recording by id. */
-export function removeRecordingGenre(p: RecordingGenreMutationParams): TxThunk {
+export function removeRecordingGenre(p: RecordingGenreMutationParams): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingGenrePackageId}::recording_genre::remove_genre`,
@@ -364,8 +363,9 @@ export function recordingGenresFieldId(
 export const getReleaseGenres = Effect.fn("getReleaseGenres")(function* (
   releaseId: string,
   releaseGenrePackageId: string,
-): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(releaseGenresFieldId(releaseId, releaseGenrePackageId));
+): Effect.fn.Return<string[], ObjectUnavailable | DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(releaseGenresFieldId(releaseId, releaseGenrePackageId)));
   return found._tag === "None" ? [] : parseReleaseGenresContent(found.value.content);
 });
 
@@ -378,7 +378,8 @@ export const getReleaseGenres = Effect.fn("getReleaseGenres")(function* (
 export const getRecordingGenres = Effect.fn("getRecordingGenres")(function* (
   recordingId: string,
   recordingGenrePackageId: string,
-): Effect.fn.Return<string[], SuiRpcError, SuiClient> {
-  const found = yield* getOptionalObjectContent(recordingGenresFieldId(recordingId, recordingGenrePackageId));
+): Effect.fn.Return<string[], ObjectUnavailable | DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(recordingGenresFieldId(recordingId, recordingGenrePackageId)));
   return found._tag === "None" ? [] : parseRecordingGenresContent(found.value.content);
 });

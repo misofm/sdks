@@ -10,35 +10,51 @@
 import { SuiClient } from "@misofm/effect";
 import { SuiRpcError } from "@misofm/effect/errors";
 
-import { MisoClient as MusicosRootClient, type MisoOptions as MusicosRootOptions } from "@misofm/musicos";
-import { MisoProtocolClient, type MisoProtocolClientOptions } from "@misofm/musicos/client";
-import { type BcsParser } from "@misofm/musicos/queries";
+// musicos is a sui-effect extension (misofm/sdks#34): the `Musicos` service,
+// the derived `musicos()` Promise registration, and every curated subpath
+// the Definition of Done names (`.`, `/errors`, `/transactions`,
+// `/deployments`, `/types`, `/parsers`, `/events`, `/packages`, `/contracts`).
+import { Musicos, musicos, type MusicosOptions, type MusicosService } from "@misofm/musicos";
+import { MusicosDeploymentInvalid, DecodeError as MusicosDecodeError } from "@misofm/musicos/errors";
+import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
+import { MISO_DEPLOYMENTS, type MisoDeployment } from "@misofm/musicos/deployments";
+import type { Composition as MusicosCompositionType } from "@misofm/musicos/types";
+import { parseCompositionCreatedEvent } from "@misofm/musicos/parsers";
+import { eventParsers as musicosEventParsers } from "@misofm/musicos/events";
+import { bindModulePackage } from "@misofm/musicos/packages";
 import { composition as musicosComposition } from "@misofm/musicos/contracts";
-import { BcsDecodeError as MusicosBcsDecodeError } from "@misofm/musicos/errors";
 
 // The raw wildcard subpath (`./contracts/*`): a deep module not exposed
 // through the curated barrel.
 import { Composition as CompositionStruct } from "@misofm/musicos/contracts/musicos/composition";
 
-import { PartyosClient, type Party as PartyosParty } from "@misofm/partyos";
+// partyos is also a sui-effect extension (misofm/sdks#34): the `Partyos`
+// service and the derived `partyos()` Promise registration replace the
+// predecessor `PartyosClient` class.
+import { Partyos, partyos, type Party as PartyosParty } from "@misofm/partyos";
 import { getPartyDeployment, type PartyDeployment } from "@misofm/partyos/deployments";
 import { Party as PartyStruct } from "@misofm/partyos/contracts/partyos/party";
 import { PartyNotFoundError } from "@misofm/partyos/errors";
 
+// platform is a sui-effect extension too (misofm/sdks#35): the `Miso`
+// service and the derived `miso()` Promise registration (`./client`)
+// replace the predecessor `MisoPlatformClient` class; `MisoClient` is now
+// the type alias for `client.miso` (`PromiseFace<MisoService> & ExtensionFace`),
+// not a runtime class.
 import {
-  MisoClient as PlatformRootClient,
+  Miso as PlatformRootService,
   platformEventParsers as rootPlatformEventParsers,
   parseReleaseRevenueDistributedEvent,
   parseReleaseTrackRevenueDistributedEvent,
   type MisoOptions as PlatformRootOptions,
 } from "@misofm/platform";
 import { platformEventParsers } from "@misofm/platform/events";
-import { MisoPlatformClient, type MisoPlatformConfig } from "@misofm/platform/client";
+import { miso, type MisoClient, type MisoOptions as PlatformClientOptions } from "@misofm/platform/client";
 import { derivePressingId, type OpenPressingParams } from "@misofm/platform/pressing";
 import { directAdminCap, type AdminCapAuthority } from "@misofm/platform/vault";
 import { misoConfig, type MisoConfig } from "@misofm/platform/read";
 import { attachCompositionCredit, type CompositionRole } from "@misofm/platform/credits";
-import { PartyPlatformClient, type Profile } from "@misofm/platform/party";
+import { makeMisoParty, type MisoPartyService, type Profile } from "@misofm/platform/party";
 import {
   record as platformRecord,
   listing as platformListing,
@@ -65,25 +81,56 @@ import { ProcessExitError } from "@misofm/transcoding/errors";
 type _SuiClientLayerArg = Parameters<typeof SuiClient.layer>[0];
 type _SuiRpcError = SuiRpcError;
 
-type _MusicosRootOptions = MusicosRootOptions;
-type _MusicosClientOptions = MisoProtocolClientOptions;
-type _MusicosBcsParser = BcsParser<string>;
+type _MusicosOptions = MusicosOptions;
+type _MusicosService = MusicosService;
+type _MusicosDeploymentInvalid = MusicosDeploymentInvalid;
+type _MusicosDecodeError = MusicosDecodeError;
+type _MusicosCreateCompositionParams = CreateCompositionParams;
+type _MusicosDeployment = MisoDeployment;
+type _MusicosCompositionType = MusicosCompositionType;
 type _MusicosContractsCompositionNewOptions = Parameters<typeof musicosComposition._new>[0];
 type _Composition = ReturnType<typeof CompositionStruct.parse>;
-type _MusicosBcsDecodeError = MusicosBcsDecodeError;
+// The registration `musicos()` returns, without ever calling `.register` —
+// this fixture makes no network call — proving `client.$extend(musicos())`
+// typechecks the way the Definition of Done names it.
+type _MusicosExtensionRegistration = ReturnType<typeof musicos>;
 
 type _PartyosParty = PartyosParty;
 type _PartyosDeployment = PartyDeployment;
 type _PartyStruct = ReturnType<typeof PartyStruct.parse>;
 type _PartyNotFoundError = PartyNotFoundError;
+// The registration `partyos()` returns, without ever calling `.register` —
+// proving `client.$extend(partyos())` typechecks, the same probe `musicos()`
+// gets above.
+type _PartyosExtensionRegistration = ReturnType<typeof partyos>;
 
+type _PlatformRootService = typeof PlatformRootService;
 type _PlatformRootOptions = PlatformRootOptions;
-type _PlatformClientConfig = MisoPlatformConfig;
+type _PlatformClientOptions = PlatformClientOptions;
+type _PlatformClient = MisoClient;
 type _PlatformPressingParams = OpenPressingParams;
 type _PlatformVaultAuthority = AdminCapAuthority;
 type _PlatformReadConfig = MisoConfig;
 type _PlatformCreditRole = CompositionRole;
 type _PlatformParty = Profile;
+type _PlatformPartyService = MisoPartyService;
+// The registration `miso()` returns (`@misofm/platform/client`), the same
+// "typechecks without calling .register" probe as `musicos()`/`partyos()`.
+type _MisoExtensionRegistration = ReturnType<typeof miso>;
+
+// A namespace method reached THROUGH the derived Promise face, not just the
+// bare `MisoClient` alias above — misofm/sdks#35 verification, A1: before the
+// fix, `MisoClient["protocol"]`/`["party"]`/`["vault"]` stayed typed as their
+// raw Effect-returning service shape (an `interface`, unmapped by
+// `PromiseFace`) instead of recursing into Promise-returning methods, and a
+// bare type-alias reference to `MisoClient` alone would never have caught
+// that: only indexing into a nested member does. `ReturnsPromise`/`Assert`
+// fail this file's typecheck if any of these three regress.
+type ReturnsPromise<F> = F extends (...args: never[]) => Promise<unknown> ? true : false;
+type Assert<T extends true> = T;
+type _PlatformClientProtocolMemberIsPromise = Assert<ReturnsPromise<MisoClient["protocol"]["getReleaseById"]>>;
+type _PlatformClientPartyMemberIsPromise = Assert<ReturnsPromise<MisoClient["party"]["getPartyById"]>>;
+type _PlatformClientVaultMemberIsPromise = Assert<ReturnsPromise<MisoClient["vault"]["getVaultAdminCap"]>>;
 type _PlatformContractsRecordReleaseIdOptions = Parameters<typeof platformRecord.releaseId>[0];
 type _PlatformRecordSoldCurrencyByte = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_currency"][number];
 type _PlatformShareEvent = ReturnType<typeof platformShare.ShareInitializedEvent.parse>;
@@ -105,22 +152,29 @@ type _TranscodingProcessExitError = ProcessExitError;
 void ([
   SuiClient,
   SuiRpcError,
-  MusicosRootClient,
-  MisoProtocolClient,
+  Musicos,
+  musicos,
+  MusicosDeploymentInvalid,
+  MusicosDecodeError,
+  createComposition,
+  MISO_DEPLOYMENTS,
+  parseCompositionCreatedEvent,
+  musicosEventParsers,
+  bindModulePackage,
   musicosComposition,
   CompositionStruct,
-  MusicosBcsDecodeError,
-  PartyosClient,
+  Partyos,
+  partyos,
   getPartyDeployment,
   PartyStruct,
   PartyNotFoundError,
-  PlatformRootClient,
-  MisoPlatformClient,
+  PlatformRootService,
+  miso,
   derivePressingId,
   directAdminCap,
   misoConfig,
   attachCompositionCredit,
-  PartyPlatformClient,
+  makeMisoParty,
   platformRecord,
   platformListing,
   platformShare,
@@ -144,23 +198,32 @@ void ([
 export type IsolatedConsumerTypeProbe = [
   _SuiClientLayerArg,
   _SuiRpcError,
-  _MusicosRootOptions,
-  _MusicosClientOptions,
-  _MusicosBcsParser,
+  _MusicosOptions,
+  _MusicosService,
+  _MusicosDeploymentInvalid,
+  _MusicosDecodeError,
+  _MusicosCreateCompositionParams,
+  _MusicosDeployment,
+  _MusicosCompositionType,
   _MusicosContractsCompositionNewOptions,
   _Composition,
-  _MusicosBcsDecodeError,
+  _MusicosExtensionRegistration,
   _PartyosParty,
   _PartyosDeployment,
   _PartyStruct,
   _PartyNotFoundError,
+  _PartyosExtensionRegistration,
+  _PlatformRootService,
   _PlatformRootOptions,
-  _PlatformClientConfig,
+  _PlatformClientOptions,
+  _PlatformClient,
   _PlatformPressingParams,
   _PlatformVaultAuthority,
   _PlatformReadConfig,
   _PlatformCreditRole,
   _PlatformParty,
+  _PlatformPartyService,
+  _MisoExtensionRegistration,
   _PlatformContractsRecordReleaseIdOptions,
   _PlatformRecordSoldCurrencyByte,
   _PlatformShareEvent,

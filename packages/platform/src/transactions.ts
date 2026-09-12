@@ -31,6 +31,7 @@
 // transaction-thunk composition pattern, just crossing a package boundary now).
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
+import { type Recipe } from "@unconfirmed/sui-effect";
 import {
   contracts,
   createComposition,
@@ -53,8 +54,14 @@ interface ReleaseParts {
   adminCap: TransactionObjectArgument;
 }
 
-// `TxThunk` is the protocol SDK's type, re-exported so platform consumers get
-// the same nominal shape rather than a structurally-identical twin.
+/**
+ * @deprecated `TxThunk` was the predecessor hand-written name for what
+ * sui-effect calls `Recipe`. Kept as one minor for source compatibility
+ * (misofm/sdks#35's migration map); every builder in this package is typed
+ * `Recipe` directly (B8, misofm/sdks#35 verification — `git grep TxThunk
+ * packages/platform/src` shows only this re-export). Import `Recipe` from
+ * `@unconfirmed/sui-effect` instead.
+ */
 export type { TxThunk };
 
 /** New custody is explicit; the legacy address shape remains mutually exclusive. */
@@ -239,7 +246,7 @@ export interface PackageBytecode {
 }
 
 /** Publish a share package and permanently destroy its UpgradeCap in the same PTB. */
-export function publishShareCurrency(bytecode: PackageBytecode): TxThunk {
+export function publishShareCurrency(bytecode: PackageBytecode): Recipe {
   return (tx) => {
     const upgradeCap = tx.publish(bytecode);
     tx.moveCall({ target: "0x2::package::make_immutable", arguments: [upgradeCap] });
@@ -256,7 +263,7 @@ export interface InitializeShareCurrencyParams {
   treasuryCapRecipient: string;
 }
 
-export function initializeShareCurrency(params: InitializeShareCurrencyParams): TxThunk {
+export function initializeShareCurrency(params: InitializeShareCurrencyParams): Recipe {
   const { shareCurrencyPackageId, name, description, iconUrl, treasuryCapRecipient } = params;
   return (tx) => {
     const treasuryCap = tx.moveCall({
@@ -302,7 +309,7 @@ interface PublishCompositionParamsBase extends ShareCurrencyBinding {
 export type PublishCompositionParams = PublishCompositionParamsBase & AdminCustodyInput;
 
 /** Convenience: publish a composition end-to-end (createComposition → finalizeComposition). */
-export function publishComposition(params: PublishCompositionParams): TxThunk {
+export function publishComposition(params: PublishCompositionParams): Recipe {
   return (tx) => {
     const parts = createComposition(tx, {
       shareType: params.shareType,
@@ -365,7 +372,7 @@ interface PublishRecordingParamsBase extends ShareCurrencyBinding {
 export type PublishRecordingParams = PublishRecordingParamsBase & AdminCustodyInput;
 
 /** Convenience: publish a recording against an already-on-chain composition. */
-export function publishRecording(params: PublishRecordingParams): TxThunk {
+export function publishRecording(params: PublishRecordingParams): Recipe {
   return (tx) => {
     const parts = createRecording(tx, {
       shareType: params.shareType,
@@ -412,7 +419,7 @@ export interface PublishCompositionAndRecordingParams {
  * `composition::new` → `recording::new(&comp)` → finalize composition (publish) →
  * finalize recording (publish).
  */
-export function publishCompositionAndRecording(params: PublishCompositionAndRecordingParams): TxThunk {
+export function publishCompositionAndRecording(params: PublishCompositionAndRecordingParams): Recipe {
   return (tx) => {
     const comp = createComposition(tx, {
       shareType: params.composition.shareType,
@@ -517,7 +524,7 @@ function buildTrackVec(
  * Convenience: publish a release end-to-end, assembling its tracklist from
  * recording admin caps held by the sender.
  */
-export function publishRelease(params: PublishReleaseParams): TxThunk {
+export function publishRelease(params: PublishReleaseParams): Recipe {
   return (tx) => {
     const { misoPackageId } = params;
     const trackArgs = params.tracks.map((t) => {

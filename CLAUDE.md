@@ -32,8 +32,10 @@ This is a Bun workspace of publishable packages under `packages/*`:
   Recording, Release, Track).
 - `packages/partyos` — `@misofm/partyos`, the Party object model SDK (Party, admin cap,
   group membership).
-- `packages/platform` — `@misofm/platform`, everything Miso builds on top of the object
-  models (work and Party extensions, royalty primitives, Vault, Actions, product workflows).
+- `packages/platform` — `@misofm/platform`, a `sui-effect` extension (the `Miso` service)
+  for everything Miso builds on top of the object models (work and Party extensions,
+  royalty primitives, Vault, Actions, product workflows), composed over `@misofm/musicos`
+  and `@misofm/partyos`.
 - `packages/effect` — `@misofm/effect`, **deprecated**: superseded by `sui-effect` (the
   Effect v4 foundation every package is being converted to; see the migration table in
   `packages/effect/README.md`). Do not add new code here.

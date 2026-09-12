@@ -5,8 +5,10 @@
 // parse it through the public camelCase parser and assert every mapped field.
 // Distinct values make field-order and field-name mistakes visible.
 
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
+import { Effect } from "effect";
+import { ObjectId, SuiAddress } from "@unconfirmed/sui-effect";
 import * as parse from "../src/parsers.ts";
 import * as wire from "./event-fixtures.ts";
 
@@ -28,7 +30,7 @@ test("compositionCreatedEvent preserves every field and wide values", () => {
     share_supply_fixed_after: true,
   }).toBytes();
 
-  expect(parse.parseCompositionCreatedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseCompositionCreatedEvent(bytes))).toEqual({
     compositionId: id(0x11),
     compositionAdminCapId: id(0x12),
     shareCurrencyId: id(0x13),
@@ -55,7 +57,7 @@ test("compositionPublishedEvent preserves its publication payload", () => {
     shared_after: false,
   }).toBytes();
 
-  expect(parse.parseCompositionPublishedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseCompositionPublishedEvent(bytes))).toEqual({
     compositionId: id(0x21),
     compositionAdminCapId: id(0x22),
     clockId: id(0x23),
@@ -84,7 +86,7 @@ test("recordingCreatedEvent preserves zero royalty and no composition funds", ()
     composition_funds_sent: false,
   }).toBytes();
 
-  expect(parse.parseRecordingCreatedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseRecordingCreatedEvent(bytes))).toEqual({
     recordingId: id(0x31),
     compositionId: id(0x32),
     recordingAdminCapId: id(0x33),
@@ -120,7 +122,7 @@ test("recordingCreatedEvent preserves nonzero grant and funds transfer", () => {
     composition_funds_sent: true,
   }).toBytes();
 
-  expect(parse.parseRecordingCreatedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseRecordingCreatedEvent(bytes))).toEqual({
     recordingId: id(0x41),
     compositionId: id(0x42),
     recordingAdminCapId: id(0x43),
@@ -148,7 +150,7 @@ test("recordingPublishedEvent preserves its publication payload", () => {
     shared_after: true,
   }).toBytes();
 
-  expect(parse.parseRecordingPublishedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseRecordingPublishedEvent(bytes))).toEqual({
     recordingId: id(0x51),
     compositionId: id(0x52),
     recordingAdminCapId: id(0x53),
@@ -167,7 +169,7 @@ test("legacy compositionSharesGrantedEvent remains lossless and decodable", () =
     granted_by: id(0x63),
   }).toBytes();
 
-  expect(parse.parseCompositionSharesGrantedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseCompositionSharesGrantedEvent(bytes))).toEqual({
     recordingId: id(0x61),
     compositionId: id(0x62),
     value: "12345678901234567",
@@ -190,7 +192,7 @@ test("releaseCreatedEvent preserves ordered tracks and a wide nonce", () => {
     track_count: 2n,
   }).toBytes();
 
-  expect(parse.parseReleaseCreatedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseReleaseCreatedEvent(bytes))).toEqual({
     registryId: id(0x71),
     releaseId: id(0x72),
     releaseAdminCapId: id(0x73),
@@ -218,7 +220,7 @@ test("releasePublishedEvent preserves ordered publication payload", () => {
     shared_after: false,
   }).toBytes();
 
-  expect(parse.parseReleasePublishedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseReleasePublishedEvent(bytes))).toEqual({
     releaseId: id(0x81),
     releaseAdminCapId: id(0x82),
     clockId: id(0x83),
@@ -239,9 +241,95 @@ test("releaseRegistryCreatedEvent preserves shared_after", () => {
     shared_after: true,
   }).toBytes();
 
-  expect(parse.parseReleaseRegistryCreatedEvent(bytes)).toEqual({
+  expect(Effect.runSync(parse.parseReleaseRegistryCreatedEvent(bytes))).toEqual({
     registryId: id(0x91),
     createdBy: id(0x92),
     sharedAfter: true,
+  });
+});
+
+test("a camelCase parser fed a different event's bytes fails with DecodeError, not a thrown value", () => {
+  const releaseRegistryBytes = wire.releaseRegistryCreatedWire.serialize({
+    registry_id: id(0xa1),
+    created_by: id(0xa2),
+    shared_after: true,
+  }).toBytes();
+  const error = Effect.runSync(Effect.flip(parse.parseCompositionCreatedEvent(releaseRegistryBytes)));
+  expect(error._tag).toBe("DecodeError");
+});
+
+test("every parser also accepts a sui-effect Event's .bcs bytes", () => {
+  const bytes = wire.releaseRegistryCreatedWire.serialize({
+    registry_id: id(0xb1),
+    created_by: id(0xb2),
+    shared_after: false,
+  }).toBytes();
+  const event = {
+    packageId: ObjectId.make(id(0x01)),
+    module: "release",
+    sender: SuiAddress.make(id(0x02)),
+    eventType: `${id(0x01)}::release::ReleaseRegistryCreatedEvent`,
+    bcs: bytes,
+  };
+  expect(Effect.runSync(parse.parseReleaseRegistryCreatedEvent(event))).toEqual({
+    registryId: id(0xb1),
+    createdBy: id(0xb2),
+    sharedAfter: false,
+  });
+});
+
+describe("the Event overload's module::name suffix check", () => {
+  const bytes = wire.compositionCreatedWire.serialize({
+    composition_id: id(0xc1),
+    composition_admin_cap_id: id(0xc2),
+    share_currency_id: id(0xc3),
+    consumed_treasury_cap_id: id(0xc4),
+    created_by: id(0xc5),
+    title_bytes: [1],
+    royalty_rate_bps: 1,
+    share_supply_before: 1n,
+    share_supply_after: 1n,
+    shares_returned: 0n,
+    share_decimals: 6,
+    share_supply_fixed_after: true,
+  }).toBytes();
+  const packageA = id(0x01);
+  const packageB = id(0x02);
+
+  test("a different module::name is rejected with DecodeError before decoding", () => {
+    const event = {
+      packageId: ObjectId.make(packageA),
+      module: "recording",
+      sender: SuiAddress.make(id(0x03)),
+      // Same bytes, but the tag names a different event entirely.
+      eventType: `${packageA}::recording::RecordingCreatedEvent`,
+      bcs: bytes,
+    };
+    const error = Effect.runSync(Effect.flip(parse.parseCompositionCreatedEvent(event)));
+    expect(error._tag).toBe("DecodeError");
+  });
+
+  test("a different package, same module::name, is accepted (the package address is not checked)", () => {
+    const event = {
+      packageId: ObjectId.make(packageB),
+      module: "composition",
+      sender: SuiAddress.make(id(0x03)),
+      eventType: `${packageB}::composition::CompositionCreatedEvent`,
+      bcs: bytes,
+    };
+    const decoded = Effect.runSync(parse.parseCompositionCreatedEvent(event));
+    expect(decoded.compositionId).toBe(id(0xc1));
+  });
+
+  test("a generic suffix on the event type is accepted (bareEventType strips it before comparing)", () => {
+    const event = {
+      packageId: ObjectId.make(packageA),
+      module: "composition",
+      sender: SuiAddress.make(id(0x03)),
+      eventType: `${packageA}::composition::CompositionCreatedEvent<${packageA}::share::Share>`,
+      bcs: bytes,
+    };
+    const decoded = Effect.runSync(parse.parseCompositionCreatedEvent(event));
+    expect(decoded.compositionId).toBe(id(0xc1));
   });
 });

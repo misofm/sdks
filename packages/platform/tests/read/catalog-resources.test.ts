@@ -3,8 +3,8 @@
 
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
-import { SuiClient } from "@misofm/effect";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { deriveSaleIds } from "../../src/pressing.ts";
 import * as listing from "../../src/contracts/record_shop/listing.ts";
 import * as pressing from "../../src/contracts/record/pressing.ts";
@@ -43,32 +43,19 @@ const listingBytes = listing.Listing.serialize({
   state: { Enabled: true },
 }).toBytes();
 
-function fixtureClient(): ClientWithCoreApi {
-  return {
-    core: {
-      getObject: async ({ objectId }: { objectId: string }) => ({
-        object:
-          objectId === PRESSING
-            ? {
-                objectId,
-                content: pressingBytes,
-                type: `${RECORD_PACKAGE}::pressing::Pressing`,
-                version: "1",
-              }
-            : objectId === LISTING
-              ? {
-                  objectId,
-                  content: listingBytes,
-                  type: `${SHOP_PACKAGE}::listing::Listing<${CURRENCY}>`,
-                  version: "1",
-                }
-              : (() => {
-                  throw new Error(`Object ${objectId} not found`);
-                })(),
-      }),
-    },
-  } as unknown as ClientWithCoreApi;
-}
+const pressingObject: FakeObject = {
+  objectId: PRESSING,
+  type: `${RECORD_PACKAGE}::pressing::Pressing`,
+  version: 1n,
+  content: pressingBytes,
+};
+
+const listingObject: FakeObject = {
+  objectId: LISTING,
+  type: `${SHOP_PACKAGE}::listing::Listing<${CURRENCY}>`,
+  version: 1n,
+  content: listingBytes,
+};
 
 const config = {
   recordSales: {
@@ -78,8 +65,10 @@ const config = {
   },
 } as unknown as MisoConfig;
 
-function run<A, E>(effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
-  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(fixtureClient()))));
+function run<A, E>(effect: Effect.Effect<A, E, Sui>): Promise<A> {
+  return Effect.runPromise(
+    Effect.provide(effect, layerTest({ objects: [pressingObject, listingObject] }), { local: true }),
+  );
 }
 
 test("projects an atomic pressing to JSON-safe values", async () => {

@@ -17,7 +17,7 @@
 // in `credit::new(display_name, roles)`, then attached with the extension's
 // `add_credit` (which borrows the work `&mut` via its cap-gated `uid_mut`).
 //
-// Writers mirror `cover.ts`: they return a `TxThunk` and take explicit on-chain
+// Writers mirror `cover.ts`: they return a `Recipe` and take explicit on-chain
 // package ids. Generic works (Composition, Recording) additionally require the
 // share coin type argument(s) so the `&mut Work<Share>` / `&AdminCap<Share>` calls
 // resolve.
@@ -28,16 +28,15 @@
 // about any of it — it only provides the cap-gated `uid_mut` hook these attach
 // through.
 
-import { Effect, Option } from "effect";
+import { Effect, Option, Result } from "effect";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
-import { getObjectsContent, SuiClient, type SuiRpcError } from "@misofm/effect";
+import { ObjectId, Sui, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import type {
   Transaction,
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions";
-import type { TxThunk } from "./transactions.ts";
 import { OPTION_NONE, OPTION_SOME } from "./internal.ts";
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
 import * as compositionPartyRole from "./contracts/composition_credits/composition_party_role.ts";
@@ -396,7 +395,7 @@ export type AttachCompositionCreditParams =
  */
 export function attachCompositionCredit(
   p: AttachCompositionCreditParams,
-): TxThunk {
+): Recipe {
   assertDisplayName("attachCompositionCredit", p.displayName);
   assertRoles("attachCompositionCredit", p.roles, MAX_COMPOSITION_ROLES);
   return (tx) => {
@@ -447,7 +446,7 @@ export type AttachRecordingCreditParams =
  * 200 UTF-8 bytes, or `roles` is empty, has more than 10 entries, or contains
  * duplicates (same type + instrument + custom name + level).
  */
-export function attachRecordingCredit(p: AttachRecordingCreditParams): TxThunk {
+export function attachRecordingCredit(p: AttachRecordingCreditParams): Recipe {
   assertDisplayName("attachRecordingCredit", p.displayName);
   assertRoles("attachRecordingCredit", p.roles, MAX_RECORDING_ROLES);
   return (tx) => {
@@ -493,7 +492,7 @@ export type AddRecordingArtistParams =
  */
 export function addRecordingPrimaryArtist(
   p: AddRecordingArtistParams,
-): TxThunk {
+): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, recordingAuthorityOf(p), {
       target: `${p.recordingCreditsPackageId}::recording_credits::add_primary_artist`,
@@ -511,7 +510,7 @@ export function addRecordingPrimaryArtist(
  */
 export function addRecordingFeaturedArtist(
   p: AddRecordingArtistParams,
-): TxThunk {
+): Recipe {
   return (tx) => {
     invokeWithAdminCap(tx, recordingAuthorityOf(p), {
       target: `${p.recordingCreditsPackageId}::recording_credits::add_featured_artist`,
@@ -543,7 +542,7 @@ export type AddReleaseCreditParams = AddReleaseCreditParamsBase & ReleaseAuthori
  * Throws (client-side, mirroring the Move aborts) when `displayName` is empty
  * or over 200 UTF-8 bytes. The single role is structural, so no role checks.
  */
-export function addReleaseCredit(p: AddReleaseCreditParams): TxThunk {
+export function addReleaseCredit(p: AddReleaseCreditParams): Recipe {
   assertDisplayName("addReleaseCredit", p.displayName);
   return (tx) => {
     const roleType = `${p.releaseCreditsPackageId}::release_party_role::ReleasePartyRole`;
@@ -632,17 +631,23 @@ interface CreditFieldTarget {
   fieldId: string;
 }
 
-/** Fetch many derived credit fields through one Core bulk request. */
+/**
+ * Fetch many derived credit fields through one chunked `sui.getObjects`.
+ * Soft read: an id that fails to read (missing, deleted, unreachable) is
+ * dropped from the returned map rather than failing the whole batch — the
+ * predecessor `@misofm/effect`-era `getObjectsContent`'s behaviour, now via
+ * `sui.getObjects`' per-item `Result` instead of a silently-dropping map.
+ */
 const fetchCreditFields = Effect.fn("fetchCreditFields")(function* (
   targets: readonly CreditFieldTarget[],
-): Effect.fn.Return<Map<string, Uint8Array>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Map<string, Uint8Array>, TransportError, Sui> {
   if (targets.length === 0) return new Map();
-  const objects = yield* getObjectsContent(targets.map((target) => target.fieldId));
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(targets.map((target) => ObjectId.make(target.fieldId)));
   const contents = new Map<string, Uint8Array>();
-  for (const target of targets) {
-    const object = objects.get(target.fieldId);
-    if (object) contents.set(target.fieldId, object.content);
-  }
+  results.forEach((result, index) => {
+    if (Result.isSuccess(result)) contents.set(targets[index]!.fieldId, result.success.content);
+  });
   return contents;
 });
 
@@ -783,7 +788,7 @@ function recordingRoleLabel(role: ParsedEnum): string {
 export const getCompositionCredits = Effect.fn("getCompositionCredits")(function* (
   compositionId: string,
   compositionCreditsPackageId: string,
-): Effect.fn.Return<Option.Option<CreditView[]>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Option.Option<CreditView[]>, TransportError, Sui> {
   const byId = yield* getCompositionCreditsByIds([compositionId], compositionCreditsPackageId);
   return Option.fromNullishOr(byId[compositionId]);
 });
@@ -792,7 +797,7 @@ export const getCompositionCredits = Effect.fn("getCompositionCredits")(function
 export const getCompositionCreditsByIds = Effect.fn("getCompositionCreditsByIds")(function* (
   compositionIdsInput: readonly string[],
   compositionCreditsPackageId: string,
-): Effect.fn.Return<Partial<Record<string, CreditView[]>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, CreditView[]>>, TransportError, Sui> {
   const compositionIds = [...new Set(compositionIdsInput)];
   const targets = compositionCreditTargets(compositionIds, compositionCreditsPackageId);
   const contents = yield* fetchCreditFields(targets);
@@ -816,7 +821,7 @@ export const getCompositionCreditsByIds = Effect.fn("getCompositionCreditsByIds"
 export const getRecordingCredits = Effect.fn("getRecordingCredits")(function* (
   recordingId: string,
   recordingCreditsPackageId: string,
-): Effect.fn.Return<Option.Option<RecordingCreditsView>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Option.Option<RecordingCreditsView>, TransportError, Sui> {
   const byId = yield* getRecordingCreditsByIds([recordingId], recordingCreditsPackageId);
   return Option.fromNullishOr(byId[recordingId]);
 });
@@ -825,7 +830,7 @@ export const getRecordingCredits = Effect.fn("getRecordingCredits")(function* (
 export const getRecordingCreditsByIds = Effect.fn("getRecordingCreditsByIds")(function* (
   recordingIdsInput: readonly string[],
   recordingCreditsPackageId: string,
-): Effect.fn.Return<Partial<Record<string, RecordingCreditsView>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, RecordingCreditsView>>, TransportError, Sui> {
   const recordingIds = [...new Set(recordingIdsInput)];
   const targets = recordingCreditTargets(recordingIds, recordingCreditsPackageId);
   const contents = yield* fetchCreditFields(targets);
@@ -850,7 +855,7 @@ export const getRecordingCreditsByIds = Effect.fn("getRecordingCreditsByIds")(fu
 export const getReleaseCredits = Effect.fn("getReleaseCredits")(function* (
   releaseId: string,
   releaseCreditsPackageId: string,
-): Effect.fn.Return<Option.Option<CreditView[]>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Option.Option<CreditView[]>, TransportError, Sui> {
   const byId = yield* getReleaseCreditsByIds([releaseId], releaseCreditsPackageId);
   return Option.fromNullishOr(byId[releaseId]);
 });
@@ -859,7 +864,7 @@ export const getReleaseCredits = Effect.fn("getReleaseCredits")(function* (
 export const getReleaseCreditsByIds = Effect.fn("getReleaseCreditsByIds")(function* (
   releaseIdsInput: readonly string[],
   releaseCreditsPackageId: string,
-): Effect.fn.Return<Partial<Record<string, CreditView[]>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, CreditView[]>>, TransportError, Sui> {
   const releaseIds = [...new Set(releaseIdsInput)];
   const targets = releaseCreditTargets(releaseIds, releaseCreditsPackageId);
   const contents = yield* fetchCreditFields(targets);

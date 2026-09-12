@@ -3,6 +3,11 @@
 
 import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";
+import { Effect } from "effect";
+import { normalizeSuiObjectId } from "@mysten/sui/utils";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
+import * as vaultContract from "../src/contracts/vault/vault.ts";
 import * as vaultApi from "../src/vault.ts";
 import * as releasePluginContract from "../src/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import * as releaseDistributorContract from "../src/contracts/release_revenue_distributor/release_revenue_distributor.ts";
@@ -84,7 +89,9 @@ test("invokeWithAdminCap supports direct caps without custody commands", () => {
   const result = invokeWithAdminCap(tx, direct, {
     target: `${ACTION}::sample::act`, arguments: [tx.object(B)], adminCapIndex: 1,
   });
-  expect(result.$kind).toBe("Result");
+  // `TransactionObjectArgument` also admits an `AsyncTransactionThunk` variant
+  // (no `$kind`) that `invokeWithAdminCap` never actually returns.
+  expect((result as { $kind: string }).$kind).toBe("Result");
   expect(labels(tx)).toEqual(["sample::act"]);
 });
 
@@ -145,12 +152,16 @@ test("new custody configures result 0, shares it, and transfers result 1", () =>
     "composition_royalty_pool_plugin::install",
     "vault::share",
   ]);
-  const commands = tx.getData().commands;
-  expect(commands[1]!.MoveCall.arguments[0]!.NestedResult).toEqual([0, 0]);
-  expect(commands[1]!.MoveCall.arguments[1]!.NestedResult).toEqual([0, 1]);
-  expect(commands[2]!.MoveCall.arguments[0]!.NestedResult).toEqual([0, 0]);
+  const commands = tx.getData().commands as Array<{
+    $kind: string;
+    MoveCall?: { arguments: Array<{ NestedResult?: [number, number] }> };
+    TransferObjects?: { objects: Array<{ NestedResult?: [number, number] }> };
+  }>;
+  expect(commands[1]!.MoveCall!.arguments[0]!.NestedResult).toEqual([0, 0]);
+  expect(commands[1]!.MoveCall!.arguments[1]!.NestedResult).toEqual([0, 1]);
+  expect(commands[2]!.MoveCall!.arguments[0]!.NestedResult).toEqual([0, 0]);
   expect(commands[3]!.$kind).toBe("TransferObjects");
-  expect(commands[3]!.TransferObjects.objects[0]!.NestedResult).toEqual([0, 1]);
+  expect(commands[3]!.TransferObjects!.objects[0]!.NestedResult).toEqual([0, 1]);
 });
 
 test("withdraw and restore use the exact Vault package, cap type, and returned cap", () => {
@@ -171,7 +182,7 @@ test("withdraw and restore use the exact Vault package, cap type, and returned c
   expect(labels(tx)).toEqual(["vault::withdraw_cap", "vault::restore_cap"]);
   expect(calls(tx).map((call) => call.package)).toEqual([VAULT, VAULT]);
   expect(calls(tx).map((call) => call.typeArguments)).toEqual([[CAP], [CAP]]);
-  const restore = tx.getData().commands[1]!.MoveCall;
+  const restore = tx.getData().commands[1]!.MoveCall as { arguments: Array<{ $kind: string; Result?: number }> };
   expect(restore.arguments[2]!.$kind).toBe("Result");
   expect(restore.arguments[2]!.Result).toBe(0);
 });
@@ -204,13 +215,16 @@ test("pool construction targets the Action and returns an unshared pool", () => 
     typeArguments: [COMPOSITION_SHARE, SUI],
     arguments: [pool],
   });
-  expect(pool.$kind).toBe("Result");
+  // `TransactionObjectArgument` also admits an `AsyncTransactionThunk` variant
+  // (no `$kind`) that a synchronous builder like `newCompositionRoyaltyPool`
+  // never actually returns; narrow for the test assertion only.
+  expect((pool as { $kind: string }).$kind).toBe("Result");
   expect(labels(tx)).toEqual([
     "vault::borrow_as_admin", "composition_royalty_pool::new_pool", "vault::put_back",
     "pool::share",
   ]);
   expect(calls(tx)[1]!.package).toBe(ACTION);
-  expect(tx.getData().commands[3]!.MoveCall.arguments[0]!.Result).toBe(1);
+  expect((tx.getData().commands[3]!.MoveCall as { arguments: Array<{ Result?: number }> }).arguments[0]!.Result).toBe(1);
 });
 
 test("Party receive/redeem Actions return caller-controlled balances", () => {
@@ -330,12 +344,78 @@ test("settlement cranks use suffixed plugin modules in exact order", () => {
     (command) =>
       command.$kind === "MoveCall" &&
       command.MoveCall.module === "release_revenue_distributor_plugin",
-  );
+  ) as { MoveCall: { arguments: Array<{ $kind: string; Input?: number }> } } | undefined;
   expect(releaseCall?.MoveCall.arguments).toHaveLength(3);
   const rootArgument = releaseCall?.MoveCall.arguments[2];
   expect(rootArgument?.$kind).toBe("Input");
-  const rootInput = tx.getData().inputs[rootArgument!.Input];
+  const rootInput = tx.getData().inputs[rootArgument!.Input!];
   expect(rootInput?.UnresolvedObject?.objectId).toBe(
     `0x${"acc".padStart(64, "0")}`,
   );
+});
+
+// ── `getVaultAdminCap` / `resolveReceivingCoins` (B4/B9, misofm/sdks#35 ────
+// verification): these two reads had no test coverage at all before this
+// stage (flagged in docs/CONVERSION.md's stage 2/3 deviations).
+
+function run<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<A> {
+  return Effect.runPromise(Effect.provide(effect, layerTest({ objects }), { local: true }));
+}
+function flipRun<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<E> {
+  return Effect.runPromise(Effect.provide(Effect.flip(effect), layerTest({ objects }), { local: true }));
+}
+
+const CAP_TYPE = `${A}::release::ReleaseAdminCap`;
+const VAULT_ADMIN_CAP_ID = `0x${"55".repeat(32)}`;
+const VAULT_ID = `0x${"66".repeat(32)}`;
+
+test("getVaultAdminCap decodes the exact vault id it wraps", async () => {
+  const object: FakeObject = {
+    objectId: VAULT_ADMIN_CAP_ID,
+    type: `${VAULT}::vault::VaultAdminCap<${CAP_TYPE}>`,
+    version: 1n,
+    content: vaultContract.VaultAdminCap.serialize({ id: VAULT_ADMIN_CAP_ID, vault_id: VAULT_ID }).toBytes(),
+  };
+  const cap = await run([object], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(cap).toMatchObject({ id: VAULT_ADMIN_CAP_ID, vaultId: VAULT_ID });
+});
+
+test("getVaultAdminCap is null when no such object exists", async () => {
+  const cap = await run([], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(cap).toBeNull();
+});
+
+test("getVaultAdminCap fails typed DecodeError for the wrong cap type", async () => {
+  const object: FakeObject = {
+    objectId: VAULT_ADMIN_CAP_ID,
+    type: `${VAULT}::vault::VaultAdminCap<${A}::other::Other>`,
+    version: 1n,
+    content: vaultContract.VaultAdminCap.serialize({ id: VAULT_ADMIN_CAP_ID, vault_id: VAULT_ID }).toBytes(),
+  };
+  const error = await flipRun([object], vaultApi.getVaultAdminCap(VAULT_ADMIN_CAP_ID, { vaultPackageId: VAULT, capType: CAP_TYPE }));
+  expect(error._tag).toBe("DecodeError");
+});
+
+test("resolveReceivingCoins resolves every coin's exact version and digest", async () => {
+  const coinA = normalizeSuiObjectId("0xc01");
+  const coinB = normalizeSuiObjectId("0xc02");
+  const objects: FakeObject[] = [
+    { objectId: coinA, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 3n, digest: "digestA", content: new Uint8Array() },
+    { objectId: coinB, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 7n, digest: "digestB", content: new Uint8Array() },
+  ];
+  const refs = await run(objects, vaultApi.resolveReceivingCoins([coinA, coinB]));
+  expect(refs).toEqual([
+    { objectId: coinA, version: "3", digest: "digestA" },
+    { objectId: coinB, version: "7", digest: "digestB" },
+  ]);
+});
+
+test("resolveReceivingCoins: B9 (misofm/sdks#35 verification) — an unresolvable coin fails typed BatchItemError, not a defect", async () => {
+  const coinA = normalizeSuiObjectId("0xc01");
+  const missing = normalizeSuiObjectId("0xdead");
+  const objects: FakeObject[] = [
+    { objectId: coinA, type: "0x2::coin::Coin<0x2::sui::SUI>", version: 3n, digest: "digestA", content: new Uint8Array() },
+  ];
+  const error = await flipRun(objects, vaultApi.resolveReceivingCoins([coinA, missing]));
+  expect(error._tag).toBe("ObjectNotFound");
 });

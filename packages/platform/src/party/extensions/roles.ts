@@ -7,7 +7,7 @@
 // `ArtistRole` value via its constructor move-call, then add/remove it.
 
 import * as rolesMod from "../../contracts/party_roles/party_roles.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 
 /** The canonical role variants (a fixed, typo-free set the frontend can render). */
 export type CanonicalRole =
@@ -39,7 +39,7 @@ const CANONICAL_CTORS = {
 } as const;
 
 /** Builds the `ArtistRole` value for a role via its constructor move-call. */
-function buildRole(tx: Parameters<TxThunk>[0], role: Role, pkg: string) {
+function buildRole(tx: Parameters<Recipe>[0], role: Role, pkg: string) {
   if (role.kind === "custom") {
     return tx.add(rolesMod.custom({ package: pkg, arguments: [role.name] }));
   }
@@ -54,7 +54,7 @@ export interface AddRoleParams {
 }
 
 /** Adds a role to the party. Aborts on-chain if already held or the max is reached. */
-export function addRole(params: AddRoleParams): TxThunk {
+export function addRole(params: AddRoleParams): Recipe {
   return (tx) => {
     const role = buildRole(tx, params.role, params.partyRolesPackageId);
     tx.add(
@@ -71,7 +71,7 @@ export interface RemoveRoleParams {
 }
 
 /** Removes a role from the party. Aborts on-chain if not held. */
-export function removeRole(params: RemoveRoleParams): TxThunk {
+export function removeRole(params: RemoveRoleParams): Recipe {
   return (tx) => {
     const role = buildRole(tx, params.role, params.partyRolesPackageId);
     tx.add(
@@ -87,7 +87,7 @@ export interface ClearRolesParams {
 }
 
 /** Removes the party's entire role set. No-op on-chain if none is set. */
-export function clearRoles(params: ClearRolesParams): TxThunk {
+export function clearRoles(params: ClearRolesParams): Recipe {
   return (tx) => {
     tx.add(rolesMod.clearRoles({ package: params.partyRolesPackageId, arguments: [params.partyId, params.capId] }));
   };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { SuiGraphQL } from "@misofm/effect";
+import { SuiGraphQL } from "@unconfirmed/sui-effect";
 import { listRoyaltyClaims, royaltyClaimedEventType } from "../../src/read/royalties.ts";
 import type { MisoConfig } from "../../src/read/config.ts";
 
@@ -126,11 +126,11 @@ describe("listRoyaltyClaims", () => {
     expect(err._tag).toBe("MalformedRoyaltyClaimedEventError");
   });
 
-  test("reports indexer errors as SuiRpcError", async () => {
+  test("reports indexer errors as TransportError", async () => {
     const client = { query: async () => ({ data: null, errors: [{ message: "boom" }] }) } as unknown as SuiGraphQLClient;
     const err = await Effect.runPromise(
       listRoyaltyClaims(SENDER, config).pipe(Effect.provide(SuiGraphQL.layer(client)), Effect.flip),
     );
-    expect(err._tag).toBe("SuiRpcError");
+    expect(err._tag).toBe("TransportError");
   });
 });

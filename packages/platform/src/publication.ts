@@ -29,7 +29,6 @@ import {
   type AvailableOperationsDeployment,
   type MisoPlatformDeployment,
 } from "./deployments.ts";
-import type { TxThunk } from "./transactions.ts";
 import {
   createShareStakes,
   disperseShares,
@@ -88,7 +87,7 @@ import {
   type ListingPrice,
 } from "./pressing.ts";
 import { requireRecordSalesDeployment } from "./deployments.ts";
-import { allCreatedByType, createdByExactType, type PlatformExecResult } from "./execute.ts";
+import { Executed, type Recipe } from "@unconfirmed/sui-effect";
 import * as pressingContract from "./contracts/record/pressing.ts";
 import * as listingContract from "./contracts/record_shop/listing.ts";
 
@@ -658,7 +657,7 @@ function publishReleaseObject(
 }
 
 /** Build the complete post-share catalog graph as one atomic PTB. */
-export function publishAtomicCatalog(p: AtomicPublicationParams): TxThunk {
+export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
   if (
     p.recordings.some((node) => node.streamingTranscodeQuiltId !== undefined) &&
     !p.deployment.packages.recordingStreamingTranscode
@@ -1091,7 +1090,8 @@ export type PublicationAuthorityOut =
 
 export interface AtomicPublicationResult {
   digest: string;
-  gasUsed: number;
+  /** Computation + storage - storage rebate, in MIST (`Executed.gasUsedTotal`). Can be negative. */
+  gasUsed: bigint;
   parties: Record<string, { id: string; adminCapId: string; created: boolean; authority?: PublicationAuthorityOut }>;
   compositions: Record<string, { id: string; adminCapId: string; shareType: string; authority: PublicationAuthorityOut; royaltyPoolId?: string }>;
   recordings: Record<string, { id: string; adminCapId: string; shareType: string; compositionShareType: string; authority: PublicationAuthorityOut; royaltyPoolId?: string; routedStakeId?: string }>;
@@ -1099,22 +1099,14 @@ export interface AtomicPublicationResult {
   pressing?: { id: string; adminCapId: string; authority: PublicationAuthorityOut };
 }
 
-function compactType(type: string): string {
-  return type.replace(/\s+/g, "");
+/** The single object of `type` this transaction created (`Executed.created`, exact tag). */
+function expectOneCreated(result: Executed, type: string, description: string): string {
+  const matches = result.created(type);
+  if (matches.length !== 1) throw new Error(`Expected one ${description} for ${type}; found ${matches.length}`);
+  return String(matches[0]!.id);
 }
 
-function findByShareType(
-  created: { objectId: string; objectType: string }[],
-  shareType: string,
-  description: string,
-): string {
-  const wanted = compactType(shareType);
-  const matches = created.filter((item) => compactType(item.objectType).includes(wanted));
-  if (matches.length !== 1) throw new Error(`Expected one ${description} for ${shareType}; found ${matches.length}`);
-  return matches[0]!.objectId;
-}
-
-function vaultsByCap(result: PlatformExecResult, vaultPackageId: string) {
+function vaultsByCap(result: Executed, vaultPackageId: string) {
   const out = new Map<string, { vaultId: string; vaultAdminCapId: string }>();
   for (const event of result.events) {
     if (!event.eventType.includes("::vault::VaultCreatedEvent<")) continue;
@@ -1128,7 +1120,7 @@ function vaultsByCap(result: PlatformExecResult, vaultPackageId: string) {
 }
 
 function authorityOut(
-  result: PlatformExecResult,
+  result: Executed,
   vaults: ReturnType<typeof vaultsByCap>,
   selected: PublicationCustody,
   adminCapId: string,
@@ -1141,19 +1133,23 @@ function authorityOut(
   return { kind: "vault", ...found, capType, vaultPackageId };
 }
 
-/** Parse one atomic publication using type identity plus lifecycle event payloads. */
+/**
+ * Parse one atomic publication using type identity plus lifecycle event
+ * payloads.
+ *
+ * `result` is a sui-effect `Executed` (`Tx.run`'s success value) rather than
+ * the predecessor's `PlatformExecResult` — never fails; a mismatch between
+ * `p` and what the transaction actually did throws, exactly as it did before.
+ */
 export function parseAtomicPublicationResult(
   p: AtomicPublicationParams,
-  result: PlatformExecResult,
+  result: Executed,
 ): AtomicPublicationResult {
   const available = publicationUsesVault(p) ? operations(p) : undefined;
   const vaultPackageId = available?.vault.packageId ?? "";
   const vaults = available
     ? vaultsByCap(result, vaultPackageId)
     : new Map<string, { vaultId: string; vaultAdminCapId: string }>();
-  const createdCompositions = allCreatedByType(result, "::composition::Composition<");
-  const createdRecordings = allCreatedByType(result, "::recording::Recording<");
-  const createdPools = allCreatedByType(result, "::pool::RoyaltyPool<");
 
   const createdPartyNodes = p.parties.filter((node): node is Extract<PublicationParty, { create: string }> => "create" in node);
   const partyEvents = result.events.filter((event) => event.eventType.endsWith("::party::PartyCreatedEvent"));
@@ -1184,20 +1180,22 @@ export function parseAtomicPublicationResult(
 
   const compositions: AtomicPublicationResult["compositions"] = {};
   p.compositions.forEach((node) => {
-    const id = findByShareType(createdCompositions, node.shareType, "Composition");
+    const id = expectOneCreated(result, `${p.deployment.protocol.musicos}::composition::Composition<${node.shareType}>`, "Composition");
     const adminCapId = deriveCompositionAdminCapId(id, p.deployment.protocol.musicos);
     compositions[node.ref] = {
       id,
       adminCapId,
       shareType: node.shareType,
       authority: authorityOut(result, vaults, node.custody, adminCapId, compositionCapType(p, node.shareType), vaultPackageId),
-      royaltyPoolId: node.royaltyPool ? findByShareType(createdPools, node.shareType, "Composition RoyaltyPool") : undefined,
+      royaltyPoolId: node.royaltyPool
+        ? expectOneCreated(result, `${p.deployment.packages.royaltyPool}::pool::RoyaltyPool<${node.shareType},${node.royaltyPool.currencyType}>`, "Composition RoyaltyPool")
+        : undefined,
     };
   });
 
   const recordings: AtomicPublicationResult["recordings"] = {};
   p.recordings.forEach((node) => {
-    const id = findByShareType(createdRecordings, node.shareType, "Recording");
+    const id = expectOneCreated(result, `${p.deployment.protocol.musicos}::recording::Recording<${node.shareType},${node.compositionShareType}>`, "Recording");
     const adminCapId = deriveRecordingAdminCapId(id, p.deployment.protocol.musicos);
     recordings[node.ref] = {
       id,
@@ -1205,11 +1203,14 @@ export function parseAtomicPublicationResult(
       shareType: node.shareType,
       compositionShareType: node.compositionShareType,
       authority: authorityOut(result, vaults, node.custody, adminCapId, recordingCapType(p, node.shareType), vaultPackageId),
-      royaltyPoolId: node.royaltyPool ? findByShareType(createdPools, node.shareType, "Recording RoyaltyPool") : undefined,
+      royaltyPoolId: node.royaltyPool
+        ? expectOneCreated(result, `${p.deployment.packages.royaltyPool}::pool::RoyaltyPool<${node.shareType},${node.royaltyPool.currencyType}>`, "Recording RoyaltyPool")
+        : undefined,
       routedStakeId: node.routedStake
-        ? createdByExactType(
+        ? expectOneCreated(
             result,
             `${p.deployment.packages.routedStake}::routed_stake::RoutedStake<${node.shareType},${node.compositionShareType}>`,
+            "RoutedStake",
           )
         : undefined,
     };
@@ -1217,7 +1218,7 @@ export function parseAtomicPublicationResult(
 
   let releaseOut: AtomicPublicationResult["release"];
   if (p.release) {
-    const id = createdByExactType(result, `${p.deployment.protocol.musicos}::release::Release`);
+    const id = expectOneCreated(result, `${p.deployment.protocol.musicos}::release::Release`, "Release");
     const adminCapId = deriveReleaseAdminCapId(id, p.deployment.protocol.musicos);
     releaseOut = {
       id,
@@ -1239,8 +1240,8 @@ export function parseAtomicPublicationResult(
   }
 
   return {
-    digest: result.digest,
-    gasUsed: result.gasUsed,
+    digest: String(result.digest),
+    gasUsed: result.gasUsedTotal,
     parties,
     compositions,
     recordings,

@@ -3,11 +3,11 @@
 
 import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { Effect } from "effect";
-import { SuiClient } from "@misofm/effect";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as releaseGenreContract from "../src/contracts/release_genre/release_genre.ts";
 import * as recordingGenreContract from "../src/contracts/recording_genre/recording_genre.ts";
 import {
@@ -333,37 +333,24 @@ test("releaseGenresFieldId and recordingGenresFieldId are deterministic and dist
   expect(releaseGenresFieldId(RELEASE, PKG)).not.toBe(recordingGenresFieldId(RELEASE, PKG));
 });
 
-test("getReleaseGenres and getRecordingGenres read through Core and default to []", async () => {
+function run<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<A> {
+  return Effect.runPromise(Effect.provide(effect, layerTest({ objects }), { local: true }));
+}
+
+test("getReleaseGenres and getRecordingGenres read through Sui and default to []", async () => {
   const fieldId = releaseGenresFieldId(RELEASE, PKG);
   const content = ReleaseGenresField.serialize({
     id: fieldId,
     name: [false],
     value: [A, B],
   }).toBytes();
-  const client = {
-    core: {
-      getObject: async (input: { objectId: string }) => {
-        expect(input.objectId).toBe(fieldId);
-        return { object: { objectId: fieldId, type: "0x2::dynamic_field::Field", version: "1", content } };
-      },
-    },
-  } as unknown as ClientWithCoreApi;
-  const result = await Effect.runPromise(
-    getReleaseGenres(RELEASE, PKG).pipe(Effect.provide(SuiClient.layer(client))),
-  );
+  const fixture: FakeObject = { objectId: fieldId, type: "0x2::dynamic_field::Field", version: 1n, content };
+
+  const result = await run([fixture], getReleaseGenres(RELEASE, PKG));
   expect(result).toEqual([A, B]);
 
-  const emptyClient = {
-    core: {
-      getObject: async () => ({ object: { content: undefined } }),
-    },
-  } as unknown as ClientWithCoreApi;
-  const emptyRelease = await Effect.runPromise(
-    getReleaseGenres(RELEASE, PKG).pipe(Effect.provide(SuiClient.layer(emptyClient))),
-  );
+  const emptyRelease = await run([], getReleaseGenres(RELEASE, PKG));
   expect(emptyRelease).toEqual([]);
-  const emptyRecording = await Effect.runPromise(
-    getRecordingGenres(RECORDING, PKG).pipe(Effect.provide(SuiClient.layer(emptyClient))),
-  );
+  const emptyRecording = await run([], getRecordingGenres(RECORDING, PKG));
   expect(emptyRecording).toEqual([]);
 });

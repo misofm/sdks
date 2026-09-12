@@ -7,7 +7,7 @@
 // and passes the vector to `set_ctas`.
 
 import * as ctaMod from "../../contracts/party_cta/party_cta.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 import type { Cta } from "../types.ts";
 
 export interface SetCtasParams {
@@ -19,7 +19,7 @@ export interface SetCtasParams {
 }
 
 /** Sets (or replaces) the party's ordered CTA list. */
-export function setCtas(params: SetCtasParams): TxThunk {
+export function setCtas(params: SetCtasParams): Recipe {
   return (tx) => {
     const ctaType = `${params.partyCtaPackageId}::party_cta::Cta`;
     const ctas = tx.makeMoveVec({
@@ -39,7 +39,7 @@ export interface ClearCtasParams {
 }
 
 /** Removes the party's CTA list. No-op on-chain if none is set. */
-export function clearCtas(params: ClearCtasParams): TxThunk {
+export function clearCtas(params: ClearCtasParams): Recipe {
   return (tx) => {
     tx.add(ctaMod.clearCtas({ package: params.partyCtaPackageId, arguments: [params.partyId, params.capId] }));
   };

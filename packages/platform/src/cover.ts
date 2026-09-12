@@ -17,9 +17,8 @@
 import { bcs } from "@mysten/sui/bcs";
 import { deriveDynamicFieldID } from "@mysten/sui/utils";
 import type { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
-import { Effect } from "effect";
-import { getObjectsContent, type SuiClient, type SuiRpcError } from "@misofm/effect";
-import type { TxThunk } from "./transactions.ts";
+import { Effect, Result } from "effect";
+import { ObjectId, Sui, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { asU64, directAdminCap, invokeWithAdminCap, type AdminCapAuthority, type ObjectInput, type U64Input } from "./vault.ts";
 import { OPTION_NONE, OPTION_SOME, unencryptedWalrusBlob } from "./internal.ts";
 import * as coverArt from "./contracts/cover_art/cover_art.ts";
@@ -59,7 +58,7 @@ export type SetReleaseTrackCoverParams = SetReleaseCoverParams & {
   trackIndex: U64Input;
 };
 
-function buildCover(tx: Parameters<TxThunk>[0], p: SetReleaseCoverParams) {
+function buildCover(tx: Parameters<Recipe>[0], p: SetReleaseCoverParams) {
   const walrusType = `${p.oriPackageId}::data::WalrusBlob`;
   const blob = (id: bigint | string) => unencryptedWalrusBlob(tx, p.oriPackageId, id);
 
@@ -82,7 +81,7 @@ function buildCover(tx: Parameters<TxThunk>[0], p: SetReleaseCoverParams) {
 }
 
 /** Sets (or replaces) a release's album-level cover from Walrus blob ids. */
-export function setReleaseCover(p: SetReleaseCoverParams): TxThunk {
+export function setReleaseCover(p: SetReleaseCoverParams): Recipe {
   return (tx) => {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
@@ -94,7 +93,7 @@ export function setReleaseCover(p: SetReleaseCoverParams): TxThunk {
 }
 
 /** Sets (or replaces) one track's cover from Walrus blob ids. */
-export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): TxThunk {
+export function setReleaseTrackCover(p: SetReleaseTrackCoverParams): Recipe {
   return (tx) => {
     const cover = buildCover(tx, p);
     invokeWithAdminCap(tx, releaseAuthorityOf(p), {
@@ -153,7 +152,7 @@ function toCoverImageRef(blob: ParsedWalrusBlob): CoverImageRef {
 export const getReleaseCover = Effect.fn("getReleaseCover")(function* (
   releaseId: string,
   releaseCoverArtPackageId: string,
-): Effect.fn.Return<ReleaseCoverView | null, SuiRpcError, SuiClient> {
+): Effect.fn.Return<ReleaseCoverView | null, TransportError, Sui> {
   const found = yield* getReleaseCoversByIds([releaseId], releaseCoverArtPackageId);
   return found[releaseId] ?? null;
 });
@@ -191,7 +190,7 @@ export function releaseCoverFieldId(
 export const getReleaseCoversByIds = Effect.fn("getReleaseCoversByIds")(function* (
   releaseIdsInput: readonly string[],
   releaseCoverArtPackageId: string,
-): Effect.fn.Return<Partial<Record<string, ReleaseCoverView>>, SuiRpcError, SuiClient> {
+): Effect.fn.Return<Partial<Record<string, ReleaseCoverView>>, TransportError, Sui> {
   const releaseIds = [...new Set(releaseIdsInput)];
   const targets = releaseIds.map((releaseId) => ({
     releaseId,
@@ -199,13 +198,13 @@ export const getReleaseCoversByIds = Effect.fn("getReleaseCoversByIds")(function
   }));
   if (targets.length === 0) return {};
 
-  const contentById = yield* getObjectsContent(targets.map((target) => target.fieldId));
+  const sui = yield* Sui;
+  const results = yield* sui.getObjects(targets.map((target) => ObjectId.make(target.fieldId)));
   const out: Partial<Record<string, ReleaseCoverView>> = {};
-  for (const target of targets) {
-    const found = contentById.get(target.fieldId);
-    if (!found) continue;
-    const cover = parseReleaseCoverContent(found.content);
-    if (cover) out[target.releaseId] = cover;
-  }
+  results.forEach((result, index) => {
+    if (!Result.isSuccess(result)) return;
+    const cover = parseReleaseCoverContent(result.success.content);
+    if (cover) out[targets[index]!.releaseId] = cover;
+  });
   return out;
 });

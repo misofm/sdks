@@ -6,7 +6,7 @@
 // entry), so the builder passes `tx.object(genreId)`; removal is by id.
 
 import * as genreMod from "../../contracts/party_genre/party_genre.ts";
-import type { TxThunk } from "@misofm/partyos";
+import type { Recipe } from "@unconfirmed/sui-effect";
 
 export interface AddGenreParams {
   partyId: string;
@@ -17,7 +17,7 @@ export interface AddGenreParams {
 }
 
 /** Tags a genre on the party. Aborts on-chain if already present or the max is reached. */
-export function addGenre(params: AddGenreParams): TxThunk {
+export function addGenre(params: AddGenreParams): Recipe {
   return (tx) => {
     tx.add(
       genreMod.addGenre({
@@ -37,7 +37,7 @@ export interface RemoveGenreParams {
 }
 
 /** Untags a genre from the party. Aborts on-chain if not present. */
-export function removeGenre(params: RemoveGenreParams): TxThunk {
+export function removeGenre(params: RemoveGenreParams): Recipe {
   return (tx) => {
     tx.add(
       genreMod.removeGenre({
@@ -55,7 +55,7 @@ export interface ClearGenresParams {
 }
 
 /** Removes the party's entire genre set. No-op on-chain if none is set. */
-export function clearGenres(params: ClearGenresParams): TxThunk {
+export function clearGenres(params: ClearGenresParams): Recipe {
   return (tx) => {
     tx.add(genreMod.clearGenres({ package: params.partyGenrePackageId, arguments: [params.partyId, params.capId] }));
   };

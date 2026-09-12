@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
+import { Effect, Layer } from "effect";
 import { contracts } from "@misofm/musicos";
-import { SuiClient } from "@misofm/effect";
+import { Sui, SuiGraphQL } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as vaultContract from "../../src/contracts/vault/vault.ts";
 import type { MisoConfig } from "../../src/read/config.ts";
 import {
@@ -24,6 +24,7 @@ const VAULT_CAP = `0x${"77".repeat(32)}`;
 const RAW_CAP = `0x${"88".repeat(32)}`;
 const REFERENT = `0x${"99".repeat(32)}`;
 const PLUGINS = `0x${"aa".repeat(32)}`;
+const OWNER = `0x${"bb".repeat(32)}`;
 
 const RELEASE_CAP_TYPE = `${MISO}::release::ReleaseAdminCap`;
 const VAULT_CAP_TYPE = `${VAULT_PACKAGE}::vault::VaultAdminCap<${RELEASE_CAP_TYPE}>`;
@@ -54,58 +55,29 @@ function vaultCapBytes(): Uint8Array {
   return vaultContract.VaultAdminCap.serialize({ id: VAULT_CAP, vault_id: VAULT }).toBytes();
 }
 
-function fakeClient(): ClientWithCoreApi {
-  const core = {
-    listOwnedObjects: async ({ type }: { type?: string }) => ({
-      objects:
-        type === `${VAULT_PACKAGE}::vault::VaultAdminCap`
-          ? [{ objectId: VAULT_CAP, type: VAULT_CAP_TYPE, content: vaultCapBytes() }]
-          : [],
-      hasNextPage: false,
-      cursor: null,
-    }),
-    getObjects: async ({ objectIds }: { objectIds: string[] }) => ({
-      objects: objectIds.map((objectId) =>
-        objectId === VAULT
-          ? { objectId, type: VAULT_TYPE, content: vaultBytes() }
-          : { objectId, type: `${MISO}::release::Release`, content: releaseBytes() },
-      ),
-    }),
-    getObject: async ({ objectId }: { objectId: string }) => {
-      if (objectId === VAULT_CAP) {
-        return {
-          object: {
-            objectId,
-            type: VAULT_CAP_TYPE,
-            content: vaultCapBytes(),
-            json: { vault_id: VAULT },
-            version: "1",
-          },
-        };
-      }
-      if (objectId === RELEASE) {
-        return {
-          object: {
-            objectId,
-            type: `${MISO}::release::Release`,
-            content: releaseBytes(),
-            version: "1",
-          },
-        };
-      }
-      throw new Error(`Unexpected object ${objectId}`);
-    },
-  };
-  return { core } as unknown as ClientWithCoreApi;
-}
+const releaseObject: FakeObject = { objectId: RELEASE, type: `${MISO}::release::Release`, version: 1n, content: releaseBytes() };
+const vaultObject: FakeObject = { objectId: VAULT, type: VAULT_TYPE, version: 1n, content: vaultBytes() };
+const vaultCapObject: FakeObject = {
+  objectId: VAULT_CAP,
+  type: VAULT_CAP_TYPE,
+  version: 1n,
+  content: vaultCapBytes(),
+  owner: { $kind: "AddressOwner", AddressOwner: OWNER },
+};
 
 const config = {
   deployment: { musicos: MISO },
   protocol: { vault: VAULT_PACKAGE },
 } as unknown as MisoConfig;
 
-function run<A, E>(effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
-  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(fakeClient()))));
+function run<A, E>(effect: Effect.Effect<A, E, Sui | SuiGraphQL>): Promise<A> {
+  return Effect.runPromise(
+    Effect.provide(
+      effect,
+      Layer.mergeAll(layerTest({ objects: [releaseObject, vaultObject, vaultCapObject] }), SuiGraphQL.layerUnavailable),
+      { local: true },
+    ),
+  );
 }
 
 describe("vaulted work cap classification", () => {
@@ -147,7 +119,7 @@ describe("vaulted work cap classification", () => {
 });
 
 test("getOwnedWorks lists a release through its owner-held VaultAdminCap", async () => {
-  await expect(run(getOwnedWorks(`0x${"bb".repeat(32)}`, config))).resolves.toEqual([
+  await expect(run(getOwnedWorks(OWNER, config))).resolves.toEqual([
     {
       capId: VAULT_CAP,
       kind: "release",

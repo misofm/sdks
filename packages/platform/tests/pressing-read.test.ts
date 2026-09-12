@@ -3,10 +3,10 @@
 
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
-import type { ClientWithCoreApi } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { SuiClient } from "@misofm/effect";
+import type { Sui } from "@unconfirmed/sui-effect";
+import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import {
   authorizeRecordShop,
   deriveListingId,
@@ -64,40 +64,11 @@ const recordBytes = record.Record.serialize({
   purchased_timestamp_ms: "1234",
 }).toBytes();
 
-function fixtureClient(): ClientWithCoreApi {
-  const object = (objectId: string) =>
-    objectId === PRESSING
-      ? {
-          objectId,
-          content: pressingBytes,
-          type: `${RECORD_PACKAGE}::pressing::Pressing`,
-        }
-      : objectId === LISTING
-        ? {
-            objectId,
-            content: listingBytes,
-            type: `${SHOP_PACKAGE}::listing::Listing<${CURRENCY}>`,
-          }
-        : objectId === RECORD
-          ? {
-              objectId,
-              content: recordBytes,
-              type: `${RECORD_PACKAGE}::record::Record`,
-            }
-          : undefined;
-  return {
-    core: {
-      getObject: async ({ objectId }: { objectId: string }) => ({
-        object: object(objectId),
-      }),
-      getObjects: async ({ objectIds }: { objectIds: string[] }) => ({
-        objects: objectIds.map(
-          (id) => object(id) ?? new Error("Object not found"),
-        ),
-      }),
-    },
-  } as unknown as ClientWithCoreApi;
-}
+const fixtureObjects: FakeObject[] = [
+  { objectId: PRESSING, type: `${RECORD_PACKAGE}::pressing::Pressing`, version: 1n, content: pressingBytes },
+  { objectId: LISTING, type: `${SHOP_PACKAGE}::listing::Listing<${CURRENCY}>`, version: 1n, content: listingBytes },
+  { objectId: RECORD, type: `${RECORD_PACKAGE}::record::Record`, version: 1n, content: recordBytes },
+];
 
 test("matches the fixed independent edition, cap, listing, and record derivation vector", () => {
   expect(derivePressingId(RELEASE, EDITION, RECORD_PACKAGE)).toBe(PRESSING);
@@ -132,26 +103,25 @@ test("matches the fixed independent edition, cap, listing, and record derivation
   );
 });
 
-function run<A, E>(client: ClientWithCoreApi, effect: Effect.Effect<A, E, SuiClient>): Promise<A> {
-  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client))));
+function run<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<A> {
+  return Effect.runPromise(Effect.provide(effect, layerTest({ objects }), { local: true }));
 }
 
-function flip<A, E>(client: ClientWithCoreApi, effect: Effect.Effect<A, E, SuiClient>): Promise<E> {
-  return Effect.runPromise(effect.pipe(Effect.provide(SuiClient.layer(client)), Effect.flip));
+function flip<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<E> {
+  return Effect.runPromise(Effect.provide(Effect.flip(effect), layerTest({ objects }), { local: true }));
 }
 
 test("reads exact Pressing, Listing, and concrete Record provenance", async () => {
-  const client = fixtureClient();
-  await expect(run(client, getPressing(PRESSING, RECORD_PACKAGE))).resolves.toMatchObject({
+  await expect(run(fixtureObjects, getPressing(PRESSING, RECORD_PACKAGE))).resolves.toMatchObject({
     edition: EDITION,
     supply: 7,
     maxSupply: 100,
   });
-  await expect(run(client, getListing(LISTING, SHOP_PACKAGE))).resolves.toMatchObject({
+  await expect(run(fixtureObjects, getListing(LISTING, SHOP_PACKAGE))).resolves.toMatchObject({
     pricing: { kind: "floor", amount: "2500" },
     state: "enabled",
   });
-  await expect(run(client, getRecord(RECORD, RECORD_PACKAGE))).resolves.toMatchObject({
+  await expect(run(fixtureObjects, getRecord(RECORD, RECORD_PACKAGE))).resolves.toMatchObject({
     pressingId: PRESSING,
     edition: EDITION,
     number: 7,
@@ -159,7 +129,7 @@ test("reads exact Pressing, Listing, and concrete Record provenance", async () =
     purchasedTimestampMs: "1234",
   });
   const sale = await run(
-    client,
+    fixtureObjects,
     getSale({
       releaseId: RELEASE,
       edition: EDITION,
@@ -172,29 +142,50 @@ test("reads exact Pressing, Listing, and concrete Record provenance", async () =
   expect(sale.listing?.pricing.kind).toBe("floor");
 });
 
+test("getSale fails typed DecodeError (not a defect) for an inconsistent Listing", async () => {
+  // B9, misofm/sdks#35 verification: `getSale`'s post-decode consistency
+  // checks (`requireId`/the currency comparison) used to `throw` directly
+  // inside the `Effect.gen` body, which is an unrecoverable defect, not a
+  // typed failure a caller can `catchTag`. This fixture's Listing sits at
+  // the address the requested currency derives (so it IS found and
+  // decodes), but its own `Listing<Currency>` type tag names a different
+  // currency — `mapListing`'s own internal derived-id check (itself already
+  // a safely-`decodeInto`-wrapped throw) is what actually catches this
+  // particular fixture first, since a real network's address derivation
+  // makes the getSale-level currency comparison itself unreachable without
+  // a hash collision; either way, the contract this test pins is "getSale
+  // never dies for a malformed/inconsistent read — it fails typed".
+  const OTHER_CURRENCY = "0x7777777777777777777777777777777777777777777777777777777777777777::fakeusd::FakeUsd";
+  const adversarialObjects: FakeObject[] = [
+    { objectId: PRESSING, type: `${RECORD_PACKAGE}::pressing::Pressing`, version: 1n, content: pressingBytes },
+    { objectId: LISTING, type: `${SHOP_PACKAGE}::listing::Listing<${OTHER_CURRENCY}>`, version: 1n, content: listingBytes },
+  ];
+  const error = await flip(
+    adversarialObjects,
+    getSale({
+      releaseId: RELEASE,
+      edition: EDITION,
+      currencyType: CURRENCY,
+      recordPackageId: RECORD_PACKAGE,
+      recordShopPackageId: SHOP_PACKAGE,
+    }),
+  );
+  expect(error._tag).toBe("DecodeError");
+});
+
 test("exact readers reject the wrong package and Listing currency", async () => {
-  const client = fixtureClient();
-  const pressingError = await flip(client, getPressing(PRESSING, "0xc"));
-  expect(pressingError._tag).toBe("ObjectTypeMismatchError");
+  const pressingError = await flip(fixtureObjects, getPressing(PRESSING, "0xc"));
+  expect(pressingError._tag).toBe("DecodeError");
 
-  const listingError = await flip(client, getListing(LISTING, "0xc"));
-  expect(listingError._tag).toBe("ObjectTypeMismatchError");
+  const listingError = await flip(fixtureObjects, getListing(LISTING, "0xc"));
+  expect(listingError._tag).toBe("DecodeError");
 
-  const wrongCurrency = {
-    core: {
-      getObject: async () => ({
-        object: {
-          objectId: LISTING,
-          content: listingBytes,
-          type: `${SHOP_PACKAGE}::listing::Listing<0x2::other::OTHER>`,
-          version: "1",
-        },
-      }),
-    },
-  } as unknown as ClientWithCoreApi;
-  const decodeError = await flip(wrongCurrency, getListing(LISTING, SHOP_PACKAGE));
-  expect(decodeError._tag).toBe("BcsDecodeError");
-  expect(String((decodeError as { cause?: unknown }).cause)).toMatch(/derived id/);
+  const wrongCurrencyObjects: FakeObject[] = [
+    { objectId: LISTING, type: `${SHOP_PACKAGE}::listing::Listing<0x2::other::OTHER>`, version: 1n, content: listingBytes },
+  ];
+  const decodeError = await flip(wrongCurrencyObjects, getListing(LISTING, SHOP_PACKAGE));
+  expect(decodeError._tag).toBe("DecodeError");
+  expect(String((decodeError as { issue?: unknown }).issue)).toMatch(/derived id/);
 });
 
 function calls(
