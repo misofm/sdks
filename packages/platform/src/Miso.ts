@@ -665,12 +665,12 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
 
   // ── Submissions ───────────────────────────────────────────────────────────
   const misoCreateShareCurrency = (params: Parameters<typeof createShareCurrency>[0], opts: RunOpts): Effect.Effect<ShareCurrency, RunError | UnexpectedEffects> => withSui(createShareCurrency(params, opts));
-  const misoPublishShareCurrencies = (count: number, opts: Parameters<typeof publishShareCurrencies>[1]): Effect.Effect<{ packageIds: string[]; gasUsed: bigint }, RunError> => withSui(publishShareCurrencies(count, opts));
+  const misoPublishShareCurrencies = (count: number, opts: Parameters<typeof publishShareCurrencies>[1]): Effect.Effect<{ packageIds: string[]; gasUsed: bigint }, RunError | UnexpectedEffects> => withSui(publishShareCurrencies(count, opts));
   const misoInitializeShareCurrencies = <E = never>(
     packageIds: readonly string[],
     metaOf: (packageId: string) => ShareCurrencyMeta,
     opts: Parameters<typeof initializeShareCurrencies<E>>[2],
-  ): Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | E> => withSui(initializeShareCurrencies(packageIds, metaOf, opts));
+  ): Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | UnexpectedEffects | E> => withSui(initializeShareCurrencies(packageIds, metaOf, opts));
 
   const misoPublishCatalog = (
     params: Omit<AtomicPublicationParams, "deployment">,
@@ -804,14 +804,14 @@ export interface MisoService {
 
   /** Two `Tx.run`s (publish, then initialize) under one signer. Fails with: `RunError`, `UnexpectedEffects`. */
   readonly createShareCurrency: (params: Parameters<typeof createShareCurrency>[0], opts: RunOpts) => Effect.Effect<ShareCurrency, RunError | UnexpectedEffects>;
-  /** Batched publishing, ≤5 per `Tx.run`. Fails with: `RunError`. */
-  readonly publishShareCurrencies: (count: number, opts: Parameters<typeof publishShareCurrencies>[1]) => Effect.Effect<{ packageIds: string[]; gasUsed: bigint }, RunError>;
-  /** Batched initialization, ≤10 per `Tx.run`; `onBatch` reports each succeeded batch before a later one's typed failure. Fails with: `RunError | E`. */
+  /** Batched publishing, ≤5 per `Tx.run`. Fails with: `RunError`, `UnexpectedEffects`. */
+  readonly publishShareCurrencies: (count: number, opts: Parameters<typeof publishShareCurrencies>[1]) => Effect.Effect<{ packageIds: string[]; gasUsed: bigint }, RunError | UnexpectedEffects>;
+  /** Batched initialization, ≤10 per `Tx.run`; `onBatch` reports each succeeded batch before a later one's typed failure. Fails with: `RunError | UnexpectedEffects | E`. */
   readonly initializeShareCurrencies: <E = never>(
     packageIds: readonly string[],
     metaOf: (packageId: string) => ShareCurrencyMeta,
     opts: Parameters<typeof initializeShareCurrencies<E>>[2],
-  ) => Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | E>;
+  ) => Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | UnexpectedEffects | E>;
   /** The complete post-share catalog graph as one atomic PTB, submitted once. Fails with: `RunError`, `UnexpectedEffects`. */
   readonly publishCatalog: (params: Omit<AtomicPublicationParams, "deployment">, opts: RunOpts) => Effect.Effect<AtomicPublicationResult, RunError | UnexpectedEffects>;
 

@@ -17,6 +17,7 @@ import type { Sui, SuiCore } from "@unconfirmed/sui-effect";
 import { FakeOutcome, layerTest, SuiTest } from "@unconfirmed/sui-effect/testing";
 import type { SuiCoreFake } from "@unconfirmed/sui-effect/testing";
 import { Journal, Signer } from "@unconfirmed/sui-effect/tx";
+import { SuiError, UnexpectedEffects } from "@unconfirmed/sui-effect";
 import { createShareCurrency, initializeShareCurrencies, publishShareCurrencies } from "../src/share.ts";
 
 const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;
@@ -91,6 +92,18 @@ describe("createShareCurrency: two Tx.run's, one signer", () => {
     expect(currency.shareType).toBe(`${PKG}::share::Share`);
     expect(typeof currency.gasUsed).toBe("bigint");
   });
+
+  // B9, misofm/sdks#35 verification: the publish `Tx.run` applies (gas is
+  // charged) but the effects carry no published package — this must fail
+  // typed `UnexpectedEffects` (outcome "applied"), not die.
+  test("fails typed UnexpectedEffects when the publish creates no package", async () => {
+    const error = await provide(
+      Effect.flip(createShareCurrency({ name: "Test Share", description: "d" }, { signer })),
+      [FakeOutcome.succeed({ created: [] })],
+    );
+    expect(error).toBeInstanceOf(UnexpectedEffects);
+    expect(SuiError.outcome(error)).toBe("applied");
+  });
 });
 
 describe("publishShareCurrencies: batched at 5 publishes per Tx.run", () => {
@@ -112,6 +125,16 @@ describe("publishShareCurrencies: batched at 5 publishes per Tx.run", () => {
     );
     expect(calls).toHaveLength(2);
     expect(packageIds).toHaveLength(6);
+  });
+
+  // B9, misofm/sdks#35 verification: every batch applied (gas charged) but
+  // the total published count disagrees with what was requested.
+  test("fails typed UnexpectedEffects when the published count disagrees with what was requested", async () => {
+    const error = await provide(Effect.flip(publishShareCurrencies(2, { signer })), [
+      FakeOutcome.succeed({ created: [{ objectId: padded("f01"), type: "package", version: 2n, outputState: "PackageWrite" }] }),
+    ]);
+    expect(error).toBeInstanceOf(UnexpectedEffects);
+    expect(SuiError.outcome(error)).toBe("applied");
   });
 });
 
@@ -192,5 +215,17 @@ describe("initializeShareCurrencies: onBatch fires per succeeded batch, a failur
     // second batch's failure surfaced — a resume needs only the failed batch.
     expect(reported).toHaveLength(1);
     expect(reported[0]).toHaveLength(10);
+  });
+
+  // B9, misofm/sdks#35 verification: the init `Tx.run` applied, but the
+  // effects carry no `Currency<Share>`/`TreasuryCap<Share>` for this package.
+  test("fails typed UnexpectedEffects when a package's Currency/TreasuryCap is missing from the applied effects", async () => {
+    const PKG = padded("ff1");
+    const error = await provide(
+      Effect.flip(initializeShareCurrencies([PKG], () => ({ name: "n", description: "d" }), { signer })),
+      [FakeOutcome.succeed({ created: [] })],
+    );
+    expect(error).toBeInstanceOf(UnexpectedEffects);
+    expect(SuiError.outcome(error)).toBe("applied");
   });
 });

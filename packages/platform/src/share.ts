@@ -32,7 +32,7 @@
 import { fromBase64, fromHex, toBase64 } from "@mysten/sui/utils";
 import { update_constants } from "@mysten/move-bytecode-template";
 import { Effect } from "effect";
-import { type Executed, type Sui, type SuiAddress, type UnexpectedEffects } from "@unconfirmed/sui-effect";
+import { ObjectId, UnexpectedEffects, type Executed, type Sui, type SuiAddress } from "@unconfirmed/sui-effect";
 import { Tx, type RunError, type Signer } from "@unconfirmed/sui-effect/tx";
 
 import { publishShareCurrency, initializeShareCurrency, type PackageBytecode } from "./transactions.ts";
@@ -136,9 +136,20 @@ export const createShareCurrency = Effect.fn("createShareCurrency")(function* (
   // Tx 1: publish the share package with the initializer baked in.
   const patched = patchInitializer(params.template ?? SHARE_TEMPLATE, initializer);
   const published = yield* Tx.run(publishShareCurrency(patched), opts);
-  const packageId = String(published.packagesPublished()[0]?.id ?? "");
+  const packagesPublished = published.packagesPublished();
+  const packageId = String(packagesPublished[0]?.id ?? "");
   if (packageId === "") {
-    return yield* Effect.die(new Error("createShareCurrency: publish produced no package"));
+    // The publish `Tx.run` already applied (gas was charged) but the effects
+    // carried no published package — `UnexpectedEffects` (outcome "applied"),
+    // not a defect, per B9 (misofm/sdks#35 verification): a caller must be
+    // able to `catchTag` this the same way `expectCreated` lets it below.
+    return yield* Effect.fail(
+      new UnexpectedEffects({
+        digest: published.digest,
+        expected: "a published share package",
+        found: packagesPublished.map((ref) => ref.id),
+      }),
+    );
   }
 
   // Tx 2: initialize → creates the Currency object + transfers the TreasuryCap.
@@ -189,7 +200,7 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 export const publishShareCurrencies = Effect.fn("publishShareCurrencies")(function* (
   count: number,
   opts: RunOpts & { readonly initializerAddress?: string; readonly template?: PackageBytecode },
-): Effect.fn.Return<{ packageIds: string[]; gasUsed: bigint }, RunError, Sui> {
+): Effect.fn.Return<{ packageIds: string[]; gasUsed: bigint }, RunError | UnexpectedEffects, Sui> {
   if (count <= 0) return { packageIds: [], gasUsed: 0n };
 
   // One patched template, reused for every publish (identical bytecode → distinct packages).
@@ -216,23 +227,40 @@ export const publishShareCurrencies = Effect.fn("publishShareCurrencies")(functi
   const packageIds = results.flatMap((executed) => executed.packagesPublished().map((ref) => String(ref.id)));
   const gasUsed = results.reduce((sum, r) => sum + r.gasUsedTotal, 0n);
   if (packageIds.length !== count) {
-    return yield* Effect.die(new Error(`Expected ${count} published share packages, got ${packageIds.length}.`));
+    // Every batch here already applied (each is its own `Tx.run`, gas
+    // charged) but the total published count disagrees with what was asked
+    // for — `UnexpectedEffects` (outcome "applied"), not a defect, per B9
+    // (misofm/sdks#35 verification). The last batch's digest is the most
+    // recent applied transaction; `found` lists every package actually seen.
+    const lastResult = results[results.length - 1]!;
+    return yield* Effect.fail(
+      new UnexpectedEffects({
+        digest: lastResult.digest,
+        expected: `${count} published share packages`,
+        found: packageIds.map((id) => ObjectId.make(id)),
+      }),
+    );
   }
   return { packageIds, gasUsed };
 });
 
-/** Re-associates one init PTB's created objects back to their packages by share type. */
-function currenciesFromResult(executed: Executed, batchPkgs: readonly string[]): ShareCurrency[] {
-  const currencies = executed.created(CURRENCY_TYPE);
-  const treasuries = executed.created(TREASURY_CAP_TYPE);
-  return batchPkgs.map((pkg) => {
-    const shareType = `${pkg}::share::Share`;
-    const currency = currencies.find((ref) => ref.type?.includes(shareType) === true);
-    const treasury = treasuries.find((ref) => ref.type?.includes(shareType) === true);
-    if (!currency) throw new Error(`No Currency<${shareType}> created during initialize.`);
-    if (!treasury) throw new Error(`No TreasuryCap<${shareType}> created during initialize.`);
-    return { packageId: pkg, currencyId: String(currency.id), shareType, treasuryCapId: String(treasury.id), gasUsed: 0n };
-  });
+/**
+ * Re-associates one init PTB's created objects back to their packages by
+ * share type. `expectCreated` (an already-applied `Executed`'s own typed
+ * accessor) is what turns "the initialize applied but this package's
+ * Currency/TreasuryCap is missing" into `UnexpectedEffects` (outcome
+ * `"applied"`) instead of a bare throw a caller could not `catchTag` (B9,
+ * misofm/sdks#35 verification).
+ */
+function currenciesFromResult(executed: Executed, batchPkgs: readonly string[]): Effect.Effect<ShareCurrency[], UnexpectedEffects> {
+  return Effect.forEach(batchPkgs, (pkg) =>
+    Effect.gen(function* () {
+      const shareType = `${pkg}::share::Share`;
+      const currency = yield* executed.expectCreated(`${CURRENCY_TYPE}<${shareType}>`);
+      const treasury = yield* executed.expectCreated(`${TREASURY_CAP_TYPE}<${shareType}>`);
+      return { packageId: pkg, currencyId: String(currency.id), shareType, treasuryCapId: String(treasury.id), gasUsed: 0n };
+    }),
+  );
 }
 
 /**
@@ -248,8 +276,9 @@ function currenciesFromResult(executed: Executed, batchPkgs: readonly string[]):
  * then fails with that batch's own typed error (the first one encountered),
  * so a resume re-initializes only the still-missing packages.
  *
- * Fails with: `RunError`, `UnexpectedEffects` from a rejecting `onBatch`
- * effect (typed `E`), or whatever `onBatch` itself declares.
+ * Fails with: `RunError`; `UnexpectedEffects` when a batch applied but a
+ * package's `Currency`/`TreasuryCap` is missing from its effects, or from a
+ * rejecting `onBatch` effect; or whatever `onBatch` itself declares (typed `E`).
  */
 export function initializeShareCurrencies<E = never>(
   packageIds: readonly string[],
@@ -257,7 +286,7 @@ export function initializeShareCurrencies<E = never>(
   opts: RunOpts & {
     readonly onBatch?: (currencies: ShareCurrency[], gasUsed: bigint) => Effect.Effect<void, E>;
   },
-): Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | E, Sui> {
+): Effect.Effect<{ currencies: ShareCurrency[]; gasUsed: bigint }, RunError | UnexpectedEffects | E, Sui> {
   return Effect.gen(function* () {
     if (packageIds.length === 0) return { currencies: [], gasUsed: 0n };
 
@@ -283,10 +312,12 @@ export function initializeShareCurrencies<E = never>(
           },
           { signer: opts.signer, gasOwner: opts.gasOwner, sponsor: opts.sponsor },
         ).pipe(
-          Effect.map((executed) => ({
-            batchCurrencies: currenciesFromResult(executed, batchPkgs),
-            gasUsed: executed.gasUsedTotal,
-          })),
+          Effect.flatMap((executed) =>
+            Effect.map(currenciesFromResult(executed, batchPkgs), (batchCurrencies) => ({
+              batchCurrencies,
+              gasUsed: executed.gasUsedTotal,
+            })),
+          ),
           Effect.flatMap(({ batchCurrencies, gasUsed }) =>
             (opts.onBatch ? opts.onBatch(batchCurrencies, gasUsed) : Effect.void).pipe(
               Effect.as({ batchCurrencies, gasUsed }),
@@ -299,7 +330,7 @@ export function initializeShareCurrencies<E = never>(
 
     const currencies: ShareCurrency[] = [];
     let gasUsed = 0n;
-    let firstFailure: RunError | E | undefined;
+    let firstFailure: RunError | UnexpectedEffects | E | undefined;
     for (const outcome of outcomes) {
       if (outcome._tag === "Success") {
         currencies.push(...outcome.success.batchCurrencies);
