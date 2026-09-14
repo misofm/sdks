@@ -33,7 +33,7 @@ test("release resolves required full objects and preserves repeated tracks", asy
       expect(track.title).toBe("Song");
       expect(track).not.toHaveProperty("recordingId");
       expect(track).not.toHaveProperty("compositionId");
-      expect(track.recording).toEqual({ id: recordingId, state: { type: "Published", timestampMs: 123 }, compositionId });
+      expect(track.recording).toEqual({ id: recordingId, state: { type: "Published", timestampMs: 123 }, compositionId, shareType: `0x${"2".padStart(64, "0")}::sui::SUI` });
       expect(track.composition).toEqual({ id: compositionId, state: { type: "Published", timestampMs: 122 }, title: "Song", royaltyRate: { value: 1500 } });
     }
     expect(() => JSON.stringify(result)).not.toThrow();
