@@ -44,6 +44,9 @@ export interface ProtocolIds {
   releaseKind: string;
   /** `release_description` — optional editorial description. */
   releaseDescription: string;
+  /** `genre` vocabulary and `release_genre` assignment extension. */
+  genre: string;
+  releaseGenre: string;
   /** `recording_master_reference` — optional Walrus master pointers. */
   recordingMasterReference: string;
   /** `recording_streaming_transcode` — the `miso-hls/v1` Quilt a track streams from, or null when the generation lacks it. */
@@ -147,6 +150,8 @@ export function configFromDeployment(deployment: MisoPlatformDeployment, overrid
       releaseCoverArt: deployment.packages.releaseCoverArt,
       releaseKind: deployment.packages.releaseKind,
       releaseDescription: deployment.packages.releaseDescription,
+      genre: deployment.packages.genre,
+      releaseGenre: deployment.packages.releaseGenre,
       recordingMasterReference: deployment.packages.recordingMasterReference,
       recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode ?? null,
       recordingEngineSession: deployment.packages.recordingEngineSession ?? null,

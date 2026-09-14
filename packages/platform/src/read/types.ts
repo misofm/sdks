@@ -127,6 +127,8 @@ export interface ReleaseDetail {
   credits: Credit[];
   /** The release's primary artists in chain order — its artist line. */
   primaryArtists: string[];
+  /** Ordered human-readable genre names; index 0 is the primary genre. */
+  genres: string[];
   discCount: number;
   tracks: TrackView[];
   /** Present only when requested via `include`, keyed by recording id. */

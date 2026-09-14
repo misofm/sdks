@@ -40,6 +40,7 @@ import {
   releaseDescriptionFieldId,
   parseReleaseDescriptionContent,
 } from "../release-extensions.ts";
+import { getReleaseGenres } from "../genre.ts";
 import {
   getRecordingEngineSessionsByIds,
   getRecordingMasterReferencesByIds,
@@ -63,6 +64,7 @@ import {
 import { ReleaseNotFoundError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
 import { getWorksByIds, parseReleaseObject, type WorksById } from "./works.ts";
+import { resolveGenreNames } from "./genres.ts";
 import { int } from "./internal/scalars.ts";
 import {
   u256ToB64Url,
@@ -402,12 +404,18 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
   config: MisoConfig,
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
-  const { release, cover, credits, kind, description } = yield* getReleaseResources(releaseId, config, [
-    "cover",
-    "credits",
-    "kind",
-    "description",
+  const [{ release, cover, credits, kind, description }, genreIds] = yield* Effect.all([
+    getReleaseResources(releaseId, config, [
+      "cover",
+      "credits",
+      "kind",
+      "description",
+    ]),
+    getReleaseGenres(releaseId, config.protocol.releaseGenre).pipe(
+      Effect.catch(() => Effect.succeed([] as string[])),
+    ),
   ]);
+  const genres = yield* resolveGenreNames(genreIds);
 
   const recordingIds = release.tracks.map((track) => track.recordingId);
   const { recordingStreamingTranscode, recordingEngineSession } = config.protocol;
@@ -457,6 +465,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
     cover: cover ?? null,
     credits: creditViews,
     primaryArtists: primaryArtistNames(creditViews),
+    genres,
     discCount: release.tracks.length > 0 ? 1 : 0,
     tracks: toTracks(release, audio, works),
     ...(trackCredits !== undefined ? { trackCredits } : {}),

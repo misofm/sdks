@@ -25,6 +25,8 @@ describe("misoConfig", () => {
       royaltyPool: deployment.packages.royaltyPool,
       releaseKind: deployment.packages.releaseKind,
       releaseDescription: deployment.packages.releaseDescription,
+      genre: deployment.packages.genre,
+      releaseGenre: deployment.packages.releaseGenre,
       recordingMasterReference: deployment.packages.recordingMasterReference,
       recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode ?? null,
       recordingEngineSession: deployment.packages.recordingEngineSession ?? null,
