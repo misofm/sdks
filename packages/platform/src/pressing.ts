@@ -425,6 +425,8 @@ export class Listing extends Schema.Class<Listing>("@misofm/platform/Listing")({
     amount: Schema.String,
   }),
   state: Schema.Literals(["enabled", "disabled"]),
+  /** Gross proceeds from completed sales, in currency base units. */
+  totalProceeds: Schema.String,
   currencyType: Schema.String,
 }) {}
 
@@ -545,6 +547,7 @@ function mapListing(
     pressingId: parsed.pressing_id,
     pricing: parsePricing(parsed.pricing),
     state: state === "Enabled" ? "enabled" : "disabled",
+    totalProceeds: parsed.total_proceeds,
     currencyType,
   };
 }

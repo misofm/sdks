@@ -98,7 +98,8 @@ maximum supply, and authorized distributor witness types.
 
 Selling in a currency is a `Listing<Currency>`, one per currency, permanent, edited in
 place rather than replaced. The Listing's enabled/disabled state is the sale switch;
-the Pressing has no schedule state.
+the Pressing has no schedule state. Each Listing also records its gross proceeds from
+completed sales, including accepted floor-price overpayments.
 
 **Everything is address math.** The pressing's UID derives off its release's, each
 listing's off the pressing's. The protocol's canonical `ReleaseRegistry` creates the

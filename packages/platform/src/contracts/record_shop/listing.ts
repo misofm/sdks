@@ -39,7 +39,9 @@ export const Listing = new MoveStruct({ name: `${$moduleName}::Listing<phantom C
         /** The active payment rule. */
         pricing: Pricing,
         /** Whether the Listing currently accepts purchases. */
-        state: State
+        state: State,
+        /** The total gross proceeds paid through this Listing across completed sales. */
+        total_proceeds: bcs.u128()
     } });
 export const ListingCreatedEvent = new MoveStruct({ name: `${$moduleName}::ListingCreatedEvent<phantom Currency>`, fields: {
         /** The newly created Listing. */
@@ -533,6 +535,36 @@ export function state(options: StateOptions) {
         package: packageAddress,
         module: 'listing',
         function: 'state',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface TotalProceedsArguments {
+    self: RawTransactionArgument<string>;
+}
+export interface TotalProceedsOptions {
+    package?: string;
+    arguments: TotalProceedsArguments | [
+        self: RawTransactionArgument<string>
+    ];
+    typeArguments: [
+        string
+    ];
+}
+/**
+ * Return the total gross proceeds paid through this Listing across completed
+ * sales.
+ */
+export function totalProceeds(options: TotalProceedsOptions) {
+    const packageAddress = options.package ?? '@local-pkg/record_shop';
+    const argumentsTypes = [
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["self"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'listing',
+        function: 'total_proceeds',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

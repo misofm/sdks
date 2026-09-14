@@ -167,6 +167,8 @@ export interface ListingView {
   currency: Currency;
   /** The per-currency purchase switch. */
   state: "enabled" | "disabled";
+  /** Gross proceeds from completed sales, in currency base units. */
+  totalProceeds: string;
 }
 
 /** A Pressing plus the requested currency's Listing. */

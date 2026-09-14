@@ -51,6 +51,7 @@ const listingBytes = listing.Listing.serialize({
   pressing_id: PRESSING,
   pricing: { Floor: "2500" },
   state: { Enabled: true },
+  total_proceeds: "7500",
 }).toBytes();
 const recordBytes = record.Record.serialize({
   id: RECORD,
@@ -120,6 +121,7 @@ test("reads exact Pressing, Listing, and concrete Record provenance", async () =
   await expect(run(fixtureObjects, getListing(LISTING, SHOP_PACKAGE))).resolves.toMatchObject({
     pricing: { kind: "floor", amount: "2500" },
     state: "enabled",
+    totalProceeds: "7500",
   });
   await expect(run(fixtureObjects, getRecord(RECORD, RECORD_PACKAGE))).resolves.toMatchObject({
     pressingId: PRESSING,

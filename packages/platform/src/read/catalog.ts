@@ -170,6 +170,7 @@ function toListingView(listing: ContractListing): ListingView {
     pricing: price,
     currency: currencyInfo(listing.currencyType),
     state: listing.state,
+    totalProceeds: listing.totalProceeds,
   };
 }
 

@@ -41,6 +41,7 @@ const listingBytes = listing.Listing.serialize({
   pressing_id: PRESSING,
   pricing: { Floor: "2500" },
   state: { Enabled: true },
+  total_proceeds: "7500",
 }).toBytes();
 
 const pressingObject: FakeObject = {
@@ -92,6 +93,7 @@ test("projects a derived listing to JSON-safe values", async () => {
     pricing: { kind: "floor", amount: "2500" },
     currency: { symbol: "SUI", decimals: 9 },
     state: "enabled",
+    totalProceeds: "7500",
   });
   expect(() => JSON.stringify(view)).not.toThrow();
 });
