@@ -45,3 +45,25 @@ test("release fails when a referenced recording cannot be resolved", async () =>
   expect(error._tag).toBe("DecodeError");
   expect(error.message).toContain(recordingId);
 });
+
+import { bcs } from "@mysten/sui/bcs";
+import { Audio } from "../../src/contracts/audio/audio.ts";
+import { ExtensionKey } from "../../src/contracts/recording_master/recording_master.ts";
+import { recordingMasterFieldId } from "../../src/recording-extensions.ts";
+import { u256ToB64Url } from "../../src/read/internal/walrus.ts";
+
+test("release retains the complete master Audio alongside the legacy blob ID", async () => {
+  const id = recordingMasterFieldId(recordingId, config.protocol.recordingMaster!);
+  const master = { format: "flac", channels: 2, bit_depth: 24, sample_rate_hz: 44100,
+    samples: "8500549", pcm_digest: Array(32).fill(3),
+    data: { blob_id: "42", confidentiality: { Encrypted: { sealed_dek: [1, 2, 3] } } } };
+  const content = bcs.struct("Field", { id: bcs.Address, name: ExtensionKey, value: Audio })
+    .serialize({ id, name: [false], value: master }).toBytes();
+  const result = await Effect.runPromise(Effect.provide(getReleaseDetail(releaseId, config),
+    Layer.mergeAll(layerTest({ objects: [...objects(true), { objectId: id, type: "0x2::dynamic_field::Field", version: 1n, content }] }), SuiGraphQL.layer(graphql)), { local: true }));
+  for (const track of result.tracks) {
+    expect(track.master).toMatchObject(master);
+    expect(track.masterBlobId).toBe(u256ToB64Url("42"));
+  }
+  expect(JSON.parse(JSON.stringify(result)).tracks[0].master).toEqual(result.tracks[0]!.master);
+});

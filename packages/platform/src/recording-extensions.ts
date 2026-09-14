@@ -153,14 +153,24 @@ export const getRecordingMaster = Effect.fn("getRecordingMaster")(function* (rec
   return masters[recordingId] ?? null;
 });
 
+export type RecordingMasterView = ReturnType<typeof parseRecordingMasterContent>;
+
+/** Read complete masters and historical blob references without fetching masters twice. */
+export function getRecordingMasterAttachments(recordingIds: readonly string[], legacyPackageId: string, packageId?: string) {
+  return Effect.gen(function* () {
+    const [legacy, masters] = yield* Effect.all([
+      getRecordingMasterReferencesByIds(recordingIds, legacyPackageId),
+      packageId ? getRecordingMastersByIds(recordingIds, packageId)
+        : Effect.succeed({} as Partial<Record<string, RecordingMasterView>>),
+    ]);
+    const blobIds = { ...legacy, ...Object.fromEntries(Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)])) };
+    return { masters, blobIds };
+  });
+}
+
 /** Prefer new Audio fields; fall back to explicit historical reference fields for unmigrated works. */
 export function getRecordingMasterBlobIds(recordingIds: readonly string[], legacyPackageId: string, packageId?: string) {
-  return Effect.gen(function* () {
-    const legacy = yield* getRecordingMasterReferencesByIds(recordingIds, legacyPackageId);
-    if (!packageId) return legacy;
-    const masters = yield* getRecordingMastersByIds(recordingIds, packageId);
-    return { ...legacy, ...Object.fromEntries(Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)])) };
-  });
+  return getRecordingMasterAttachments(recordingIds, legacyPackageId, packageId).pipe(Effect.map(({ blobIds }) => blobIds));
 }
 
 export interface SetRecordingStreamingTranscodeParams extends RecordingExtensionTarget {

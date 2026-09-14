@@ -43,7 +43,8 @@ import {
 import { getReleaseGenres } from "../genre.ts";
 import {
   getRecordingEngineSessionsByIds,
-  getRecordingMasterBlobIds,
+  getRecordingMasterAttachments,
+  type RecordingMasterView,
   getRecordingStreamingTranscodesByIds,
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
@@ -66,10 +67,7 @@ import type { MisoConfig } from "./config.ts";
 import { getWorksByIds, parseReleaseObject, type WorksById } from "./works.ts";
 import { resolveGenreNames } from "./genres.ts";
 import { int } from "./internal/scalars.ts";
-import {
-  u256ToB64Url,
-  walrusBlobReadUrl,
-} from "./internal/walrus.ts";
+import { u256ToB64Url } from "./internal/walrus.ts";
 import type {
   Cover,
   CoverImage,
@@ -106,26 +104,12 @@ function withMusicos<A, E>(
   }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
 }
 
-// ── Walrus URLs ──────────────────────────────────────────────────────────────
+// ── Cover references ──────────────────────────────────────────────────────────────
 
-/** Aggregator URL for a cover image ref (a standalone Walrus blob). */
-function imageUrl(aggregator: string, ref: CoverImageRef): string {
-  return walrusBlobReadUrl(aggregator.replace(/\/$/, ""), ref.blobId);
-}
-
-function toCover(
-  aggregator: string,
-  view: ReleaseCoverView | null,
-): Cover | null {
+function toCover(view: ReleaseCoverView | null): Cover | null {
   if (!view) return null;
-  const image = (ref: CoverImageRef): CoverImage => ({
-    kind: ref.kind,
-    url: imageUrl(aggregator, ref),
-  });
-  return {
-    still: image(view.still),
-    animated: view.animated ? image(view.animated) : null,
-  };
+  const image = (ref: CoverImageRef): CoverImage => ({ kind: ref.kind, blobId: u256ToB64Url(ref.blobId) });
+  return { still: image(view.still), animated: view.animated ? image(view.animated) : null };
 }
 
 // ── Currency ─────────────────────────────────────────────────────────────────
@@ -226,8 +210,9 @@ export function primaryArtistNames(credits: Credit[]): string[] {
     .map((c) => c.displayName);
 }
 
-/** Per-recording audio attachments, every id already base64url. */
+/** Complete master payloads plus normalized base64url attachment IDs. */
 export interface TrackAudio {
+  masters?: Partial<Record<string, RecordingMasterView>>;
   masterBlobIds?: Partial<Record<string, string>>;
   transcodeQuiltIds?: Partial<Record<string, string>>;
   engineSessions?: Partial<Record<string, TrackEngineSession>>;
@@ -243,6 +228,7 @@ export function toTracks(
   works: WorksById,
 ): Effect.Effect<TrackView[], DecodeError> {
   return Effect.forEach(release.tracks, (track, index) => Effect.gen(function* () {
+    const master = audio.masters?.[track.recordingId];
     const masterBlobId = audio.masterBlobIds?.[track.recordingId];
     const transcodeQuiltId = audio.transcodeQuiltIds?.[track.recordingId];
     const engineSession = audio.engineSessions?.[track.recordingId];
@@ -269,6 +255,7 @@ export function toTracks(
       composition,
       splitBps: int(track.splitBps.value),
       disc: 1,
+      ...(master ? { master } : {}),
       ...(masterBlobId ? { masterBlobId } : {}),
       ...(transcodeQuiltId ? { transcodeQuiltId } : {}),
       ...(engineSession ? { engineSession } : {}),
@@ -305,7 +292,7 @@ export const readReleaseCover = Effect.fn("readReleaseCover")(function* (
   const covers = yield* getReleaseCoversByIds([releaseId], releaseCoverArt).pipe(
     Effect.catch(() => Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>)),
   );
-  return toCover(config.walrusAggregatorUrl, covers[releaseId] ?? null);
+  return toCover(covers[releaseId] ?? null);
 });
 
 export type ReleaseResourceInclude = "cover" | "credits" | "kind" | "description";
@@ -364,7 +351,7 @@ export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
         view = null;
       }
     }
-    cover = toCover(config.walrusAggregatorUrl, view);
+    cover = toCover(view);
   }
 
   let credits: Credit[] | undefined;
@@ -433,14 +420,14 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
 
   const recordingIds = release.tracks.map((track) => track.recordingId);
   const { recordingStreamingTranscode, recordingEngineSession } = config.protocol;
-  const [works, masterReferences, transcodes, engineSessions, trackCredits] = yield* Effect.all([
+  const [works, masterAttachments, transcodes, engineSessions, trackCredits] = yield* Effect.all([
     getWorksByIds({
       recordings: recordingIds,
       compositions: release.tracks.map((track) => track.compositionId),
       releases: [],
     }),
-    getRecordingMasterBlobIds(recordingIds, config.protocol.recordingMasterReference, config.protocol.recordingMaster).pipe(
-      Effect.catch(() => Effect.succeed({} as Partial<Record<string, string>>)),
+    getRecordingMasterAttachments(recordingIds, config.protocol.recordingMasterReference, config.protocol.recordingMaster).pipe(
+      Effect.catch(() => Effect.succeed({ masters: {}, blobIds: {} })),
     ),
     recordingStreamingTranscode
       ? getRecordingStreamingTranscodesByIds(recordingIds, recordingStreamingTranscode).pipe(
@@ -457,7 +444,8 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
       : Effect.succeed(undefined),
   ]);
   const audio: TrackAudio = {
-    masterBlobIds: b64UrlByRecording(masterReferences),
+    masters: masterAttachments.masters,
+    masterBlobIds: b64UrlByRecording(masterAttachments.blobIds),
     transcodeQuiltIds: b64UrlByRecording(transcodes),
     engineSessions: Object.fromEntries(
       Object.entries(engineSessions).flatMap(([recordingId, view]) =>
@@ -595,7 +583,7 @@ export const getPressingPreview = Effect.fn("getPressingPreview")(function* (
     pressingId,
     title: release.title,
     subtitle: null,
-    coverUrl: cover?.still.url ?? null,
+    coverUrl: cover ? `${config.walrusAggregatorUrl.replace(/\/$/, "")}/v1/blobs/${cover.still.blobId}` : null,
     edition: pressing.edition,
     supply: pressing.supply,
     maxSupply: pressing.maxSupply,
@@ -683,14 +671,14 @@ export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
     const releaseId = result.pressing.releaseId;
     const release = releases.get(releaseId);
     if (!release) return [];
-    const cover = toCover(config.walrusAggregatorUrl, coverViews[releaseId] ?? null);
+    const cover = toCover(coverViews[releaseId] ?? null);
     return [
       {
         sale: toSaleView(result.pressing, result.listing),
         releaseId,
         title: release.title,
         artist: primaryArtistNames(toCredits(credits[releaseId] ?? null)).join(", "),
-        coverUrl: cover?.still.url ?? null,
+        coverUrl: cover ? `${config.walrusAggregatorUrl.replace(/\/$/, "")}/v1/blobs/${cover.still.blobId}` : null,
       },
     ];
   });
