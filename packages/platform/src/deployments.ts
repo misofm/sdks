@@ -299,8 +299,6 @@ export interface MisoPlatformDeployment {
      * before signing rather than calling a retired single-blob package.
      */
     readonly recordingEngineSession?: string;
-    /** Original immutable Record-gated Seal policy; absent before publication. */
-    readonly recordSealPolicy?: string;
     /** External `ori` package (`data::WalrusBlob`, `data::WalrusQuilt`) used by Walrus-backed extensions. */
     readonly ori: string;
     /** `country_code` — dependency of `party_profile`. */
@@ -312,8 +310,6 @@ export interface MisoPlatformDeployment {
     readonly releaseRegistry: string;
     /** Shared parent used to derive canonical Genre object ids. */
     readonly genreRegistry: string;
-    /** Frozen namespace object embedded in Recording-session Seal identities. */
-    readonly recordGate?: string;
   };
   readonly legacy: {
     readonly releaseCoverArtPackages: readonly string[];
@@ -325,7 +321,7 @@ export interface MisoPlatformDeployment {
  * is constructed from them: every required id must be a canonical 32-byte Sui
  * package ID, and no two of them (nor the core `musicos` package) may collide.
  * Optional generation fields (`recordingGenre`, `recordingStreamingTranscode`,
- * `recordingEngineSession`, `recordSealPolicy`) are validated only when present.
+ * `recordingEngineSession`) are validated only when present.
  */
 export function assertMisoPlatformDeployment(
   deployment: unknown,
@@ -521,8 +517,6 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0xc1bd01a68b39081267b8b089d74e4e6fddb39637b3b165c8186542a2dd826845",
       recordingStreamingTranscode:
         "0x04c2dd271e782d5d5e43656e378c78a97d6c75c7d7fa2267f1ac388d2e495afe",
-      recordSealPolicy:
-        "0x7e3759ef22d85901af148ecbf972607ee5b92c362c9e2e9092af309d343a2b54",
       ori: "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
       countryCode:
         "0x69fb214a74d5253971a45b2d07f83f13ae96992dd38198d7bacb21e1f5fb5f81",
