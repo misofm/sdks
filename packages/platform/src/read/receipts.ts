@@ -513,11 +513,11 @@ export function breakdown(
   const paidUnits = BigInt(paid);
   return tracks.map((track) => {
     const amount = (paidUnits * BigInt(track.splitBps)) / BPS;
-    const rate = compositionRates[track.recordingId];
+    const rate = compositionRates[track.recording.id];
     const base = {
       no: track.no,
       title: track.title,
-      recordingId: track.recordingId,
+      recordingId: track.recording.id,
       splitBps: track.splitBps,
       amount: amount.toString(),
     };
@@ -559,7 +559,7 @@ const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
 
   // Best-effort: a failed composition lookup costs the sub-rows, not the page.
   const rates = yield* compositionRatesByRecording(
-    detail.release.tracks.map((t) => t.recordingId),
+    detail.release.tracks.map((t) => t.recording.id),
     config,
   ).pipe(Effect.catch(() => Effect.succeed({} as CompositionRates)));
 

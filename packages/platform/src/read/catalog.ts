@@ -241,25 +241,39 @@ export function toTracks(
   release: Release,
   audio: TrackAudio,
   works: WorksById,
-): TrackView[] {
-  return release.tracks.map((track, index) => {
+): Effect.Effect<TrackView[], DecodeError> {
+  return Effect.forEach(release.tracks, (track, index) => Effect.gen(function* () {
     const masterBlobId = audio.masterBlobIds?.[track.recordingId];
     const transcodeQuiltId = audio.transcodeQuiltIds?.[track.recordingId];
     const engineSession = audio.engineSessions?.[track.recordingId];
+    const recording = works.recordings[track.recordingId];
+    if (!recording) {
+      return yield* new DecodeError({
+        objectId: ObjectId.make(release.id),
+        expectedType: "Recording",
+        issue: `release track references unavailable recording ${track.recordingId}`,
+      });
+    }
+    const composition = works.compositions[track.compositionId];
+    if (!composition) {
+      return yield* new DecodeError({
+        objectId: ObjectId.make(release.id),
+        expectedType: "Composition",
+        issue: `release track references unavailable composition ${track.compositionId}`,
+      });
+    }
     return {
       no: `${index + 1}`,
-      title: works.compositions[track.compositionId]?.title ?? "Untitled",
-      recordingId: track.recordingId,
-      compositionId: track.compositionId,
-      recording: works.recordings[track.recordingId] ?? null,
-      composition: works.compositions[track.compositionId] ?? null,
+      title: composition.title,
+      recording,
+      composition,
       splitBps: int(track.splitBps.value),
       disc: 1,
       ...(masterBlobId ? { masterBlobId } : {}),
       ...(transcodeQuiltId ? { transcodeQuiltId } : {}),
       ...(engineSession ? { engineSession } : {}),
     };
-  });
+  }));
 }
 
 /** Re-key a soft per-recording read of decimal `u256` ids to base64url. */
@@ -467,7 +481,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
     primaryArtists: primaryArtistNames(creditViews),
     genres,
     discCount: release.tracks.length > 0 ? 1 : 0,
-    tracks: toTracks(release, audio, works),
+    tracks: yield* toTracks(release, audio, works),
     ...(trackCredits !== undefined ? { trackCredits } : {}),
   };
 });

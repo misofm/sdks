@@ -24,17 +24,24 @@ function objects(includeRecording: boolean): FakeObject[] {
       content: contracts.recording.Recording.serialize({ id: recordingId, state: { Published: 123n }, composition_id: compositionId }).toBytes() }] : []),
   ];
 }
-for (const present of [true, false]) {
-  test(`release resolves full objects and preserves repeated tracks (recording present: ${present})`, async () => {
+test("release resolves required full objects and preserves repeated tracks", async () => {
     const result = await Effect.runPromise(Effect.provide(getReleaseDetail(releaseId, config),
-      Layer.mergeAll(layerTest({ objects: objects(present) }), SuiGraphQL.layer(graphql)), { local: true }));
+      Layer.mergeAll(layerTest({ objects: objects(true) }), SuiGraphQL.layer(graphql)), { local: true }));
     expect(result.tracks).toHaveLength(2);
     expect(result.tracks.map(track => track.splitBps)).toEqual([6000, 4000]);
     for (const track of result.tracks) {
       expect(track.title).toBe("Song");
-      expect(track.recording).toEqual(present ? { id: recordingId, state: { type: "Published", timestampMs: 123 }, compositionId } : null);
+      expect(track).not.toHaveProperty("recordingId");
+      expect(track).not.toHaveProperty("compositionId");
+      expect(track.recording).toEqual({ id: recordingId, state: { type: "Published", timestampMs: 123 }, compositionId });
       expect(track.composition).toEqual({ id: compositionId, state: { type: "Published", timestampMs: 122 }, title: "Song", royaltyRate: { value: 1500 } });
     }
     expect(() => JSON.stringify(result)).not.toThrow();
-  });
-}
+});
+
+test("release fails when a referenced recording cannot be resolved", async () => {
+  const error = await Effect.runPromise(Effect.flip(Effect.provide(getReleaseDetail(releaseId, config),
+    Layer.mergeAll(layerTest({ objects: objects(false) }), SuiGraphQL.layer(graphql)), { local: true })));
+  expect(error._tag).toBe("DecodeError");
+  expect(error.message).toContain(recordingId);
+});

@@ -82,12 +82,8 @@ export interface TrackView {
   /** Display number — `"1"`, or `"1.2"` (disc.track) on a multi-disc set. */
   no: string;
   title: string;
-  recordingId: string;
-  /** Null when the referenced object is unavailable (for example an unassigned draft track). */
-  recording: RecordingView | null;
-  composition: CompositionView | null;
-  /** ID of the composition underlying this track's recording. */
-  compositionId: string;
+  recording: RecordingView;
+  composition: CompositionView;
   /** This track's share of the release's revenue, in basis points. */
   splitBps: number;
   /** 1-based disc this track sits on. */

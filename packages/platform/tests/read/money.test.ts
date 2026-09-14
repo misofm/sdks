@@ -31,10 +31,8 @@ describe("currencyInfo", () => {
 const track = (no: string, recordingId: string, splitBps: number): TrackView => ({
   no,
   title: `Track ${no}`,
-  recordingId,
-  recording: null,
-  composition: null,
-  compositionId: `${recordingId}-composition`,
+  recording: { id: recordingId, state: { type: "Initialized" }, compositionId: `${recordingId}-composition` },
+  composition: { id: `${recordingId}-composition`, state: { type: "Initialized" }, title: "Track", royaltyRate: { value: 0 } },
   splitBps,
   disc: 1,
 });
