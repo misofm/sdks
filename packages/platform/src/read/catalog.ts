@@ -62,7 +62,7 @@ import {
 } from "@unconfirmed/sui-effect";
 import { ReleaseNotFoundError } from "../errors.ts";
 import type { MisoConfig } from "./config.ts";
-import { getRecordingTitles, parseReleaseObject } from "./works.ts";
+import { getWorksByIds, parseReleaseObject, type WorksById } from "./works.ts";
 import { int } from "./internal/scalars.ts";
 import {
   u256ToB64Url,
@@ -236,8 +236,8 @@ export interface TrackAudio {
  */
 export function toTracks(
   release: Release,
-  titles: Record<string, string>,
   audio: TrackAudio,
+  works: WorksById,
 ): TrackView[] {
   return release.tracks.map((track, index) => {
     const masterBlobId = audio.masterBlobIds?.[track.recordingId];
@@ -245,9 +245,11 @@ export function toTracks(
     const engineSession = audio.engineSessions?.[track.recordingId];
     return {
       no: `${index + 1}`,
-      title: titles[track.recordingId] ?? "Untitled",
+      title: works.compositions[track.compositionId]?.title ?? "Untitled",
       recordingId: track.recordingId,
       compositionId: track.compositionId,
+      recording: works.recordings[track.recordingId] ?? null,
+      composition: works.compositions[track.compositionId] ?? null,
       splitBps: int(track.splitBps.value),
       disc: 1,
       ...(masterBlobId ? { masterBlobId } : {}),
@@ -408,10 +410,12 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
 
   const recordingIds = release.tracks.map((track) => track.recordingId);
   const { recordingStreamingTranscode, recordingEngineSession } = config.protocol;
-  const [titles, masterReferences, transcodes, engineSessions, trackCredits] = yield* Effect.all([
-    getRecordingTitles(recordingIds, config.deployment.musicos).pipe(
-      Effect.catch(() => Effect.succeed({} as Record<string, string>)),
-    ),
+  const [works, masterReferences, transcodes, engineSessions, trackCredits] = yield* Effect.all([
+    getWorksByIds({
+      recordings: recordingIds,
+      compositions: release.tracks.map((track) => track.compositionId),
+      releases: [],
+    }),
     getRecordingMasterReferencesByIds(recordingIds, config.protocol.recordingMasterReference).pipe(
       Effect.catch(() => Effect.succeed({} as Partial<Record<string, string>>)),
     ),
@@ -453,7 +457,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
     credits: creditViews,
     primaryArtists: primaryArtistNames(creditViews),
     discCount: release.tracks.length > 0 ? 1 : 0,
-    tracks: toTracks(release, titles, audio),
+    tracks: toTracks(release, audio, works),
     ...(trackCredits !== undefined ? { trackCredits } : {}),
   };
 });

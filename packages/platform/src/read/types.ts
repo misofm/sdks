@@ -62,12 +62,30 @@ export interface TrackCredits {
   recordingCredits: RecordingCredits;
 }
 
+/** Full core recording object; audio attachments remain on the track. */
+export interface RecordingView {
+  id: string;
+  state: WorkState;
+  compositionId: string;
+}
+
+/** Full core composition object. */
+export interface CompositionView {
+  id: string;
+  state: WorkState;
+  title: string;
+  royaltyRate: { value: number };
+}
+
 /** One track as a tracklist renders it. */
 export interface TrackView {
   /** Display number — `"1"`, or `"1.2"` (disc.track) on a multi-disc set. */
   no: string;
   title: string;
   recordingId: string;
+  /** Null when the referenced object is unavailable (for example an unassigned draft track). */
+  recording: RecordingView | null;
+  composition: CompositionView | null;
   /** ID of the composition underlying this track's recording. */
   compositionId: string;
   /** This track's share of the release's revenue, in basis points. */
