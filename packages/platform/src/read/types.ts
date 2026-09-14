@@ -65,6 +65,8 @@ export interface TrackCredits {
 
 /** Full core recording object; audio attachments remain on the track. */
 export interface RecordingView {
+  /** Canonical recording share coin type from the Recording object type. */
+  shareType?: string;
   id: string;
   state: WorkState;
   compositionId: string;

@@ -137,7 +137,7 @@ export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
       out.compositions[objectId] = mapComposition(objectId, raw as Parsed) as unknown as Composition;
     } else if (kind === "recordings") {
       const raw = yield* SuiSchema.decode(SuiSchema.bcs(contracts.recording.Recording), content, { objectId });
-      out.recordings[objectId] = mapRecording(objectId, raw as Parsed) as unknown as Recording;
+      out.recordings[objectId] = { ...mapRecording(objectId, raw as Parsed), shareType: extractTypeParams2(object.type)[0] } as unknown as Recording;
     } else if (kind === "releases") {
       out.releases[objectId] = yield* parseReleaseObject(objectId, content);
     }
