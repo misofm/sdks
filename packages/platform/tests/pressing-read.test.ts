@@ -112,6 +112,28 @@ function flip<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Pr
   return Effect.runPromise(Effect.provide(Effect.flip(effect), layerTest({ objects }), { local: true }));
 }
 
+test("reads the deployed Listing ABI without inventing historical proceeds", async () => {
+  const shop = "0xeaee1a75ff9900cc76b4fd27f3fb697c75119ac54ba4114a379d93a3fd5627ac";
+  const id = deriveListingId(PRESSING, CURRENCY, shop);
+  const content = listing.Listing.serialize({
+    id, release_id: RELEASE, pressing_id: PRESSING,
+    pricing: { Floor: "2500" }, state: { Enabled: true }, total_proceeds: "0",
+  }).toBytes().slice(0, -16);
+  const object = { objectId: id, type: `${shop}::listing::Listing<${CURRENCY}>`, version: 1n, content };
+  await expect(run([object], getListing(id, shop))).resolves.toMatchObject({
+    pricing: { kind: "floor", amount: "2500" }, state: "enabled", totalProceeds: null,
+  });
+  for (const bad of [content.slice(0, -1), new Uint8Array([...content, 0])]) {
+    expect(await flip([{ ...object, content: bad }], getListing(id, shop))).toMatchObject({ _tag: "DecodeError" });
+  }
+});
+
+test("a newer Listing missing proceeds remains a decoding error", async () => {
+  const objects = fixtureObjects.map((object) => object.objectId === LISTING
+    ? { ...object, content: listingBytes.slice(0, -16) } : object);
+  expect(await flip(objects, getListing(LISTING, SHOP_PACKAGE))).toMatchObject({ _tag: "DecodeError" });
+});
+
 test("reads exact Pressing, Listing, and concrete Record provenance", async () => {
   await expect(run(fixtureObjects, getPressing(PRESSING, RECORD_PACKAGE))).resolves.toMatchObject({
     edition: EDITION,

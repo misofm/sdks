@@ -11,6 +11,7 @@ import {
   parseStructTag,
 } from "@mysten/sui/utils";
 import { Effect, Option, Result, Schema } from "effect";
+import { bcs } from "@mysten/sui/bcs";
 import { DecodeError, ObjectId, Sui, type ObjectDeleted, type ObjectUnavailable, type TransportError, type Recipe } from "@unconfirmed/sui-effect";
 import { asU64, type U64Input } from "./vault.ts";
 import * as pressingContract from "./contracts/record/pressing.ts";
@@ -20,6 +21,18 @@ import * as listingContract from "./contracts/record_shop/listing.ts";
 const MAX_U16 = 0xffff;
 const MAX_U32 = 0xffff_ffff;
 const UNIT_STRUCT_KEY_BYTES = new Uint8Array([0]);
+
+// This immutable deployment predates the total_proceeds field. Select its
+// exact ABI by package identity; never reinterpret a truncated newer Listing.
+const LISTING_WITHOUT_PROCEEDS_PACKAGE =
+  "0xeaee1a75ff9900cc76b4fd27f3fb697c75119ac54ba4114a379d93a3fd5627ac";
+const ListingWithoutProceeds = bcs.struct("ListingWithoutProceeds", {
+  id: bcs.Address,
+  release_id: bcs.Address,
+  pressing_id: bcs.Address,
+  pricing: listingContract.Pricing,
+  state: listingContract.State,
+});
 
 /** Fixed cross-client parity vector for the finalized Record/Record Shop
  * derived-object ABI. Outputs are literals, not initialized through the
@@ -425,8 +438,8 @@ export class Listing extends Schema.Class<Listing>("@misofm/platform/Listing")({
     amount: Schema.String,
   }),
   state: Schema.Literals(["enabled", "disabled"]),
-  /** Gross proceeds from completed sales, in currency base units. */
-  totalProceeds: Schema.String,
+  /** Gross proceeds in base units, or null when the deployment does not track them. */
+  totalProceeds: Schema.NullOr(Schema.String),
   currencyType: Schema.String,
 }) {}
 
@@ -533,7 +546,14 @@ function mapListing(
   currencyType: string,
   content: Uint8Array,
 ): typeof Listing.Encoded {
-  const parsed = listingContract.Listing.parse(content);
+  const legacy = normalizeSuiAddress(recordShopPackageId) === LISTING_WITHOUT_PROCEEDS_PACKAGE;
+  const parsed = legacy
+    ? { ...ListingWithoutProceeds.parse(content), total_proceeds: null }
+    : listingContract.Listing.parse(content);
+  const encoded = legacy
+    ? ListingWithoutProceeds.serialize(parsed).toBytes()
+    : listingContract.Listing.serialize({ ...parsed, total_proceeds: parsed.total_proceeds! }).toBytes();
+  if (encoded.length !== content.length) throw new Error("Listing has unexpected trailing bytes");
   requireId("Listing UID", parsed.id, listingId);
   requireId(
     "Listing derived id",
