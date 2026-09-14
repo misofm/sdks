@@ -26,6 +26,7 @@ function withoutUnsafeCalls<M extends object, K extends readonly (keyof M)[]>(
 }
 
 import * as rawCompositionCredits from "./contracts/composition_credits/composition_credits.ts";
+import * as rawAudio from "./contracts/audio/audio.ts";
 import * as rawRecordingCredits from "./contracts/recording_credits/recording_credits.ts";
 import * as rawRecordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as rawReleaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
@@ -80,6 +81,7 @@ export * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_
 export * as releaseRevenueDistributorPlugin from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 
 // Cover art (the CoverArt value type + the release attachment extension).
+export const audio = withoutUnsafeCalls(rawAudio, ["data", "format", "pcmDigest"] as const);
 export * as coverArt from "./contracts/cover_art/cover_art.ts";
 export const releaseCoverArt = withoutUnsafeCalls(rawReleaseCoverArt, ["cover"] as const);
 

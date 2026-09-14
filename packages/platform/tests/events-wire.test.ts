@@ -18,6 +18,16 @@ type WireField = readonly [name: string, type: WireToken];
 type WireFixture = { readonly path: string; readonly name: string; readonly fields: readonly WireField[] };
 
 const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
+  { path: 'primitives.audio.ingested', name: 'AudioIngestedEvent', fields: [
+    ['blob_id', 'u256'],
+    ['format', 'string'],
+    ['channels', 'u8'],
+    ['bit_depth', 'u8'],
+    ['sample_rate_hz', 'u32'],
+    ['samples', 'u64'],
+    ['duration_ms', 'u64'],
+    ['pcm_digest', 'bytes'],
+  ] },
   { path: 'extensions.compositionCredits.creditAdded', name: 'CompositionCreditAddedEvent', fields: [
     ['composition_id', 'address'],
     ['composition_admin_cap_id', 'address'],
@@ -989,7 +999,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
   { path: 'primitives.share.initialized', name: 'ShareInitializedEvent', fields: [
     ['currency_id', 'address'],
     ['treasury_cap_id', 'address'],
-    ['share_type', 'bytes'],
     ['decimals', 'u8'],
     ['supply', 'u64'],
     ['fixed_supply', 'bool'],
@@ -1380,11 +1389,9 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['pressing_id', 'address'],
     ['edition', 'u16'],
     ['number', 'u32'],
-    ['purchase_currency', 'string'],
     ['purchase_price', 'u64'],
     ['purchased_by', 'address'],
     ['purchased_timestamp_ms', 'u64'],
-    ['distributor', 'string'],
     ['supply_before', 'u32'],
     ['supply_delta', 'u32'],
     ['supply_after', 'u32'],
@@ -1403,7 +1410,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['release_id', 'address'],
     ['edition', 'u16'],
     ['pressing_admin_cap_id', 'address'],
-    ['distributor', 'string'],
     ['authorized_before', 'bool'],
     ['authorized_after', 'bool'],
     ['distributor_count_before', 'u64'],
@@ -1414,7 +1420,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['release_id', 'address'],
     ['edition', 'u16'],
     ['pressing_admin_cap_id', 'address'],
-    ['distributor', 'string'],
     ['authorized_before', 'bool'],
     ['authorized_after', 'bool'],
     ['distributor_count_before', 'u64'],
@@ -1473,14 +1478,12 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['pressing_id', 'address'],
     ['edition', 'u16'],
     ['number', 'u32'],
-    ['purchase_currency', 'bytes'],
     ['purchase_price', 'u64'],
     ['purchased_by', 'address'],
     ['purchased_timestamp_ms', 'u64'],
     ['pricing_is_fixed', 'bool'],
     ['price', 'u64'],
     ['enabled', 'bool'],
-    ['distributor', 'bytes'],
     ['supply_before', 'u32'],
     ['supply_delta', 'u32'],
     ['supply_after', 'u32'],
@@ -1582,6 +1585,6 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
 }
 
 test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(135);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(135);
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(136);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(136);
 });

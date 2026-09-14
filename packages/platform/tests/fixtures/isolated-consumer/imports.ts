@@ -132,7 +132,7 @@ type _PlatformClientProtocolMemberIsPromise = Assert<ReturnsPromise<MisoClient["
 type _PlatformClientPartyMemberIsPromise = Assert<ReturnsPromise<MisoClient["party"]["getPartyById"]>>;
 type _PlatformClientVaultMemberIsPromise = Assert<ReturnsPromise<MisoClient["vault"]["getVaultAdminCap"]>>;
 type _PlatformContractsRecordReleaseIdOptions = Parameters<typeof platformRecord.releaseId>[0];
-type _PlatformRecordSoldCurrencyByte = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_currency"][number];
+type _PlatformRecordSoldPurchasePrice = ReturnType<typeof platformListing.RecordSoldEvent.parse>["purchase_price"];
 type _PlatformShareEvent = ReturnType<typeof platformShare.ShareInitializedEvent.parse>;
 type _PlatformLinkEvent = ReturnType<typeof platformLinkContract.PlatformLinkSetEvent.parse>;
 type _PlatformPaymentEventFactory = typeof platformPay.PaymentSentEvent;
@@ -225,7 +225,7 @@ export type IsolatedConsumerTypeProbe = [
   _PlatformPartyService,
   _MisoExtensionRegistration,
   _PlatformContractsRecordReleaseIdOptions,
-  _PlatformRecordSoldCurrencyByte,
+  _PlatformRecordSoldPurchasePrice,
   _PlatformShareEvent,
   _PlatformLinkEvent,
   _PlatformPaymentEventFactory,

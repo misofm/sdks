@@ -42,6 +42,7 @@ import * as releaseGenre from "./contracts/release_genre/release_genre.ts";
 import * as releaseKind from "./contracts/release_kind/release_kind.ts";
 
 import * as royaltyPool from "./contracts/royalty_pool/pool.ts";
+import * as audio from "./contracts/audio/audio.ts";
 import * as royaltyStake from "./contracts/royalty_pool/stake.ts";
 import * as routedStake from "./contracts/routed_stake/routed_stake.ts";
 
@@ -74,6 +75,7 @@ function codecsOnly<M extends object>(mod: M): CodecModule<M> {
  * Keep them out of `call`; use object/dynamic-field BCS queries instead.
  */
 export const REF_RETURNING_CALLS = {
+  audio: ["data", "format", "pcmDigest"],
   compositionCredits: ["credits"],
   recordingCredits: ["credits", "primaryArtistIds", "featuredArtistIds"],
   recordingMasterReference: ["masterReference"],
@@ -163,6 +165,7 @@ export class MisoPlatformPackageBindings {
         releaseKind: bindModulePackage(releaseKind, p.releaseKind),
       },
       primitives: {
+        audio: p.audio ? bindModulePackage(audio, p.audio, REF_RETURNING_CALLS.audio) : undefined,
         royaltyPool: {
           pool: bindModulePackage(royaltyPool, p.royaltyPool, REF_RETURNING_CALLS.royaltyPool),
           stake: bindModulePackage(royaltyStake, p.royaltyPool, REF_RETURNING_CALLS.royaltyStake),
@@ -215,6 +218,7 @@ export class MisoPlatformPackageBindings {
         releaseKind: codecsOnly(releaseKind),
       },
       primitives: {
+        audio: codecsOnly(audio),
         royaltyPool: { pool: codecsOnly(royaltyPool), stake: codecsOnly(royaltyStake) },
         routedStake: codecsOnly(routedStake),
       },
