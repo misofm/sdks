@@ -287,6 +287,10 @@ export interface MisoPlatformDeployment {
     /** Ordered recording genre list (primary first). Optional until first published. */
     readonly recordingGenre?: string;
     readonly recordingMasterReference: string;
+    /** Self-attested Audio master extension; legacy reference retained for historical reads. */
+    readonly recordingMaster?: string;
+    /** Exact Audio dependency of recordingMaster (a distinct immutable type identity). */
+    readonly recordingMasterAudio?: string;
     /** Complete Walrus Quilt containing the Recording's streaming transcodes. */
     readonly recordingStreamingTranscode?: string;
     /**
@@ -507,6 +511,10 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0x6df226240ab9bfb7a828f9aaf5fa7cae32987e0a6f57f50d8030520a1075f30e",
       recordingMasterReference:
         "0x70cda8fe00dd05124e3ec219963ab680e5894f397ee98a12078e534529b14e8f",
+      recordingMaster:
+        "0xa42ff0bc709c7ee69847ba6ee6a2f9084b8763f271f53bf63f100abc6dfd1300",
+      recordingMasterAudio:
+        "0x5b5fd443fc953bae224d995fcfefdd8c15aeff866323dbe49e43df8243c8e074",
       // Stems generation (Session V1 blob + Stem { digest, data } vector).
       // 0x2fcb9ab9… was the retired single-blob generation.
       recordingEngineSession:

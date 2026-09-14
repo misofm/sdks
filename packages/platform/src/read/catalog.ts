@@ -43,7 +43,7 @@ import {
 import { getReleaseGenres } from "../genre.ts";
 import {
   getRecordingEngineSessionsByIds,
-  getRecordingMasterReferencesByIds,
+  getRecordingMasterBlobIds,
   getRecordingStreamingTranscodesByIds,
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
@@ -439,7 +439,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
       compositions: release.tracks.map((track) => track.compositionId),
       releases: [],
     }),
-    getRecordingMasterReferencesByIds(recordingIds, config.protocol.recordingMasterReference).pipe(
+    getRecordingMasterBlobIds(recordingIds, config.protocol.recordingMasterReference, config.protocol.recordingMaster).pipe(
       Effect.catch(() => Effect.succeed({} as Partial<Record<string, string>>)),
     ),
     recordingStreamingTranscode
