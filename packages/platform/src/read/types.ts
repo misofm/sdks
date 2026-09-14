@@ -21,14 +21,15 @@
 // ── Catalog ──────────────────────────────────────────────────────────────────
 
 /** Lifecycle state shared by compositions, recordings, and releases. */
+import type { RecordingMasterView } from "../recording-extensions.ts";
+
 export type WorkState =
   { type: "Initialized" } | { type: "Published"; timestampMs: number };
 
-/** A cover image's location on Walrus, plus the URL to fetch it from. */
+/** A cover image reference; consumers choose the delivery host. */
 export interface CoverImage {
-  kind: "blob" | "quiltPatch";
-  /** Aggregator URL for the image — the only field a renderer needs. */
-  url: string;
+  kind: "blob";
+  blobId: string;
 }
 
 export interface Cover {
@@ -89,6 +90,7 @@ export interface TrackView {
   /** 1-based disc this track sits on. */
   disc: number;
   /** Base64url Walrus blob id of the archival master, when attached on-chain. */
+  master?: RecordingMasterView;
   masterBlobId?: string;
   /**
    * Base64url Walrus Quilt id of the `miso-hls/v1` streaming transcode, when
