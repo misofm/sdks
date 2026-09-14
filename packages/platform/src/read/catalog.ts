@@ -37,6 +37,8 @@ import {
 import {
   parseReleaseKindContent,
   releaseKindFieldId,
+  releaseDescriptionFieldId,
+  parseReleaseDescriptionContent,
 } from "../release-extensions.ts";
 import {
   getRecordingEngineSessionsByIds,
@@ -287,13 +289,14 @@ export const readReleaseCover = Effect.fn("readReleaseCover")(function* (
   return toCover(config.walrusAggregatorUrl, covers[releaseId] ?? null);
 });
 
-export type ReleaseResourceInclude = "cover" | "credits" | "kind";
+export type ReleaseResourceInclude = "cover" | "credits" | "kind" | "description";
 
 export interface ReleaseResources {
   release: Release;
   cover?: Cover | null;
   credits?: Credit[];
   kind?: string | null;
+  description?: string | null;
 }
 
 /**
@@ -309,6 +312,8 @@ export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
   const wantsCover = include.includes("cover");
   const wantsCredits = include.includes("credits");
   const wantsKind = include.includes("kind");
+  const wantsDescription = include.includes("description");
+  const descriptionFieldId = wantsDescription ? releaseDescriptionFieldId(releaseId, config.protocol.releaseDescription) : null;
   const coverFieldId = wantsCover ? releaseCoverFieldId(releaseId, config.protocol.releaseCoverArt) : null;
   const creditsFieldId = wantsCredits ? releaseCreditsFieldId(releaseId, config.protocol.releaseCredits) : null;
   const kindFieldId = wantsKind ? releaseKindFieldId(releaseId, config.protocol.releaseKind) : null;
@@ -317,6 +322,7 @@ export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
     ...(coverFieldId ? [coverFieldId] : []),
     ...(creditsFieldId ? [creditsFieldId] : []),
     ...(kindFieldId ? [kindFieldId] : []),
+    ...(descriptionFieldId ? [descriptionFieldId] : []),
   ];
   const sui = yield* Sui;
   const results = yield* sui.getObjects(objectIds.map((id) => ObjectId.make(id)));
@@ -360,11 +366,14 @@ export const getReleaseResources = Effect.fn("getReleaseResources")(function* (
     const found = kindFieldId ? contentById.get(kindFieldId) : undefined;
     kind = found ? parseReleaseKindContent(found.content) : null;
   }
+  const descriptionContent = descriptionFieldId ? contentById.get(descriptionFieldId) : undefined;
+  const description = descriptionContent ? parseReleaseDescriptionContent(descriptionContent.content) : null;
   return {
     release,
     ...(wantsCover ? { cover: cover ?? null } : {}),
     ...(wantsCredits ? { credits: credits ?? [] } : {}),
     ...(wantsKind ? { kind: kind ?? null } : {}),
+    ...(wantsDescription ? { description } : {}),
   };
 });
 
@@ -390,10 +399,11 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
   config: MisoConfig,
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
-  const { release, cover, credits, kind } = yield* getReleaseResources(releaseId, config, [
+  const { release, cover, credits, kind, description } = yield* getReleaseResources(releaseId, config, [
     "cover",
     "credits",
     "kind",
+    "description",
   ]);
 
   const recordingIds = release.tracks.map((track) => track.recordingId);
@@ -435,6 +445,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
     title: release.title,
     subtitle: null,
     kind: kind ?? null,
+    description: description ?? null,
     state: toWorkState(release.state),
     publishedAtMs:
       release.state.type === "Published" ? release.state.timestampMs : null,

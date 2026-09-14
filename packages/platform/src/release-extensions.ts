@@ -95,6 +95,42 @@ export const getReleaseKind = Effect.fn("getReleaseKind")(function* (
   return Option.isNone(found) ? null : parseReleaseKindContent(found.value.content);
 });
 
+const ReleaseDescriptionField = bcs.struct("Field", {
+  id: bcs.Address,
+  name: releaseDescription.ExtensionKey,
+  value: bcs.string(),
+});
+const RELEASE_DESCRIPTION_KEY_BYTES = releaseDescription.ExtensionKey.serialize([
+  false,
+]).toBytes();
+
+/** Deterministic dynamic-field id for a Release's optional editorial description. */
+export function releaseDescriptionFieldId(
+  releaseId: string,
+  releaseDescriptionPackageId: string,
+): string {
+  return deriveDynamicFieldID(
+    releaseId,
+    `${releaseDescriptionPackageId}::release_description::ExtensionKey`,
+    RELEASE_DESCRIPTION_KEY_BYTES,
+  );
+}
+
+/** Parse the dynamic field storing `String` description. */
+export function parseReleaseDescriptionContent(content: Uint8Array): string {
+  return ReleaseDescriptionField.parse(content).value;
+}
+
+/** Read a Release's editorial description, or `null` when the extension is absent. */
+export const getReleaseDescription = Effect.fn("getReleaseDescription")(function* (
+  releaseId: string,
+  releaseDescriptionPackageId: string,
+): Effect.fn.Return<string | null, DecodeError | ObjectUnavailable | TransportError, Sui> {
+  const sui = yield* Sui;
+  const found = yield* sui.getObjectOption(ObjectId.make(releaseDescriptionFieldId(releaseId, releaseDescriptionPackageId)));
+  return Option.isNone(found) ? null : parseReleaseDescriptionContent(found.value.content);
+});
+
 export type SetReleaseDescriptionParams = ReleaseExtensionTarget & {
   description: string;
   releaseDescriptionPackageId: string;

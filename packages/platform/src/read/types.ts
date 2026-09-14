@@ -100,6 +100,8 @@ export interface ReleaseDetail {
   subtitle: string | null;
   /** Self-declared `release_kind`, or null when no extension is attached. */
   kind: string | null;
+  /** Editorial description, or null when the extension is absent. */
+  description: string | null;
   state: WorkState;
   /** Publish time (ms), or null while unpublished. */
   publishedAtMs: number | null;
