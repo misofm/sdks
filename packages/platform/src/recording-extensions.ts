@@ -15,6 +15,8 @@ import * as language from "./contracts/recording_language/recording_language.ts"
 // under cover_art. Both generated modules describe the same WalrusBlob ABI.
 import * as walrusData from "./contracts/cover_art/deps/ori/data.ts";
 import * as masterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
+import { Audio } from "./contracts/audio/audio.ts";
+import * as recordingMaster from "./contracts/recording_master/recording_master.ts";
 import * as engineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
 import * as streamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import { unencryptedWalrusBlob } from "./internal.ts";
@@ -97,6 +99,68 @@ export function setRecordingMasterReference(p: SetRecordingMasterReferenceParams
       adminCapIndex: 1,
     });
   };
+}
+
+/** Unencrypted self-attested master metadata. Digest covers signed LE interleaved PCM at source bit depth. */
+export interface RecordingMasterInput {
+  readonly blobId: bigint | string;
+  readonly format: string;
+  readonly channels: number;
+  readonly bitDepth: number;
+  readonly sampleRateHz: number;
+  readonly samples: bigint | string;
+  readonly pcmDigest: string;
+}
+
+export interface SetRecordingMasterParams extends RecordingExtensionTarget {
+  readonly recordingMasterPackageId: string;
+  readonly audioPackageId: string;
+  readonly oriPackageId: string;
+  readonly master: RecordingMasterInput;
+}
+
+/** Borrow and return Vault custody, or use a caller-owned raw cap, to set the new Audio master. */
+export function setRecordingMaster(p: SetRecordingMasterParams): Recipe {
+  if (!/^[0-9a-fA-F]{64}$/.test(p.master.pcmDigest)) throw new Error("Master PCM digest must be 32-byte BLAKE3 hex");
+  return (tx) => {
+    const m = p.master;
+    const plain = tx.moveCall({ target: `${p.oriPackageId}::confidentiality::new_unencrypted` });
+    const blob = tx.moveCall({ target: `${p.oriPackageId}::data::new_blob`, arguments: [tx.pure.u256(m.blobId), plain] });
+    const audio = tx.moveCall({ target: `${p.audioPackageId}::audio::new`, arguments: [
+      tx.pure.string(m.format), tx.pure.u8(m.channels), tx.pure.u8(m.bitDepth),
+      tx.pure.u32(m.sampleRateHz), tx.pure.u64(m.samples), tx.pure.vector("u8", Array.from(fromHex(m.pcmDigest))), blob,
+    ] });
+    invokeWithAdminCap(tx, p.authority, {
+      target: `${p.recordingMasterPackageId}::recording_master::set_master`,
+      typeArguments: [p.recordingShareType, p.compositionShareType],
+      arguments: [object(tx, p.recordingId), audio], adminCapIndex: 1,
+    });
+  };
+}
+
+const MasterField = bcs.struct("Field", { id: bcs.Address, name: recordingMaster.ExtensionKey, value: Audio });
+export function recordingMasterFieldId(recordingId: string, packageId: string): string {
+  return deriveDynamicFieldID(recordingId, `${packageId}::recording_master::ExtensionKey`, recordingMaster.ExtensionKey.serialize([false]).toBytes());
+}
+export function parseRecordingMasterContent(content: Uint8Array) {
+  return MasterField.parse(content).value;
+}
+export function getRecordingMastersByIds(recordingIds: readonly string[], packageId: string) {
+  return readSoftFields(recordingIds, (id) => recordingMasterFieldId(id, packageId), parseRecordingMasterContent);
+}
+export const getRecordingMaster = Effect.fn("getRecordingMaster")(function* (recordingId: string, packageId: string) {
+  const masters = yield* getRecordingMastersByIds([recordingId], packageId);
+  return masters[recordingId] ?? null;
+});
+
+/** Prefer new Audio fields; fall back to explicit historical reference fields for unmigrated works. */
+export function getRecordingMasterBlobIds(recordingIds: readonly string[], legacyPackageId: string, packageId?: string) {
+  return Effect.gen(function* () {
+    const legacy = yield* getRecordingMasterReferencesByIds(recordingIds, legacyPackageId);
+    if (!packageId) return legacy;
+    const masters = yield* getRecordingMastersByIds(recordingIds, packageId);
+    return { ...legacy, ...Object.fromEntries(Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)])) };
+  });
 }
 
 export interface SetRecordingStreamingTranscodeParams extends RecordingExtensionTarget {

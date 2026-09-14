@@ -1,4 +1,5 @@
 // Copyright (c) Miso Labs, Inc.
+import * as recordingMaster from "./contracts/recording_master/recording_master.ts";
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -106,6 +107,10 @@ export const platformEventParsers = {
       masterReferenceSet: decoder(recordingMasterReference.RecordingMasterReferenceSetEvent),
       masterReferenceUnset: decoder(recordingMasterReference.RecordingMasterReferenceClearedEvent),
       masterReferenceCleared: decoder(recordingMasterReference.RecordingMasterReferenceClearedEvent),
+    },
+    recordingMaster: {
+      set: decoder(recordingMaster.MasterSetEvent),
+      unset: decoder(recordingMaster.MasterUnsetEvent),
     },
     recordingStreamingTranscode: {
       set: decoder(recordingStreamingTranscode.RecordingStreamingTranscodeSetEvent),

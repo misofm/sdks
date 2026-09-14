@@ -1,4 +1,6 @@
 // Copyright (c) Miso Labs, Inc.
+import * as rawRecordingMaster from "./contracts/recording_master/recording_master.ts";
+export const recordingMaster = withoutUnsafeCalls(rawRecordingMaster, ["master"] as const);
 // SPDX-License-Identifier: Apache-2.0
 
 // Barrel for the codegen-generated, ABI-bound bindings (BCS structs + type-safe

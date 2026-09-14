@@ -52,6 +52,8 @@ import {
   setRecordingInstrumental,
   setRecordingLanguages,
   setRecordingMasterReference,
+  setRecordingMaster,
+  type RecordingMasterInput,
   setRecordingStreamingTranscode,
 } from "./recording-extensions.ts";
 import { unencryptedWalrusBlob } from "./internal.ts";
@@ -187,6 +189,7 @@ export type PublicationRecording = PublicationRecordingParent & {
   readonly genres?: string[];
   readonly languages?: PublicationRecordingLanguages;
   readonly masterReferenceBlobId?: bigint | string;
+  readonly master?: RecordingMasterInput;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
   readonly streamingTranscodeQuiltId?: bigint | string;
   /** This Recording's Miso Engine session: the Session V1 blob and every stem it plays. */
@@ -890,6 +893,17 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
         recordingLanguagePackageId: p.deployment.packages.recordingLanguage,
         languages: languageVector(tx, p, node.languages.codes),
       })(tx);
+      if (node.master !== undefined) {
+        if (!p.deployment.packages.recordingMaster || !p.deployment.packages.recordingMasterAudio) throw new Error("Recording master deployment unavailable");
+        if (node.masterReferenceBlobId !== undefined) throw new Error("Specify master or legacy masterReferenceBlobId, not both");
+        setRecordingMaster({
+          recordingId: parts.work, authority, recordingShareType: node.shareType,
+          compositionShareType: node.compositionShareType,
+          recordingMasterPackageId: p.deployment.packages.recordingMaster,
+          audioPackageId: p.deployment.packages.recordingMasterAudio,
+          oriPackageId: p.deployment.packages.ori, master: node.master,
+        })(tx);
+      }
       if (node.masterReferenceBlobId !== undefined) setRecordingMasterReference({
         recordingId: parts.work, authority,
         recordingShareType: node.shareType,
