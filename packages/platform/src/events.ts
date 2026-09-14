@@ -19,6 +19,7 @@ import type { BcsParser } from "@misofm/musicos/queries";
 import type { BcsType } from "@mysten/sui/bcs";
 
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
+import * as audio from "./contracts/audio/audio.ts";
 import * as compositionRoutedStake from "./contracts/composition_routed_stake/composition_routed_stake.ts";
 import * as compositionRoyaltyPool from "./contracts/composition_royalty_pool/composition_royalty_pool.ts";
 import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
@@ -200,6 +201,9 @@ export const platformEventParsers = {
     },
   },
   primitives: {
+    audio: {
+      ingested: decoder(audio.AudioIngestedEvent),
+    },
     royaltyPool: {
       poolCreated: decoder(royaltyPool.RoyaltyPoolCreatedEvent),
       poolShared: decoder(royaltyPool.RoyaltyPoolSharedEvent),

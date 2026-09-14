@@ -124,8 +124,6 @@ export const RecordSoldEvent = new MoveStruct({ name: `${$moduleName}::RecordSol
         edition: bcs.u16(),
         /** The Record's number within its edition. */
         number: bcs.u32(),
-        /** The defining type of the purchase currency, as raw UTF-8 bytes. */
-        purchase_currency: bcs.vector(bcs.u8()),
         /** The amount paid for the Record. */
         purchase_price: bcs.u64(),
         /** The transaction sender who purchased the Record. */
@@ -138,8 +136,6 @@ export const RecordSoldEvent = new MoveStruct({ name: `${$moduleName}::RecordSol
         price: bcs.u64(),
         /** Whether the Listing accepted purchases. */
         enabled: bcs.bool(),
-        /** The defining type of the distributor that authorized the mint. */
-        distributor: bcs.vector(bcs.u8()),
         /** Supply immediately before this mint. */
         supply_before: bcs.u32(),
         /** Supply delta applied by this mint. */

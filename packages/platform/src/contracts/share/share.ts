@@ -24,7 +24,6 @@ const $moduleName = '@local-pkg/share::share';
 export const ShareInitializedEvent = new MoveStruct({ name: `${$moduleName}::ShareInitializedEvent<phantom ShareType>`, fields: {
         currency_id: bcs.Address,
         treasury_cap_id: bcs.Address,
-        share_type: bcs.vector(bcs.u8()),
         decimals: bcs.u8(),
         supply: bcs.u64(),
         fixed_supply: bcs.bool(),

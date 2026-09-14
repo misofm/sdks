@@ -178,7 +178,9 @@ function saleFromJson(
   const recordId = json.record_id;
   const pricing = priceFromRichFields(json.pricing_is_fixed, json.price);
   const currencyText = utf8ByteVector(json.purchase_currency);
-  const embeddedCurrency = currencyText == null ? null : typeName(currencyText);
+  const embeddedCurrency = json.purchase_currency === undefined
+    ? currencyType
+    : currencyText == null ? null : typeName(currencyText);
   if (
     edition == null ||
     number == null ||
@@ -271,16 +273,12 @@ export function findRecordSales(
     );
     if (!currencyType) continue;
     try {
-      // The generated struct decodes addresses to 0x-hex and unsigned values
-      // to decimal strings. `purchase_currency` is the raw Move byte vector,
-      // so decode it before normalizing the defining type tag.
+      // Currency is the event's phantom type argument in this generation.
       const s = listingContract.RecordSoldEvent.parse(e.bcs);
       const pricing = priceFromRichFields(s.pricing_is_fixed, s.price);
-      const currencyText = utf8ByteVector(s.purchase_currency);
-      const embeddedCurrency = currencyText == null ? null : typeName(currencyText);
       const purchasePrice = coerceU64(s.purchase_price);
       if (
-        !pricing || embeddedCurrency !== currencyType || purchasePrice == null ||
+        !pricing || purchasePrice == null ||
         purchasePrice <= 0n || !validPricingRelationship(purchasePrice, pricing) ||
         s.edition <= 0 || s.number <= 0
       ) throw new MalformedRecordSoldEventError({ reason: "malformed canonical RecordSoldEvent" });
@@ -291,7 +289,7 @@ export function findRecordSales(
         recordId: s.record_id,
         edition: s.edition,
         number: s.number,
-        purchaseCurrency: embeddedCurrency,
+        purchaseCurrency: currencyType,
         purchasePrice: purchasePrice.toString(),
         pricing,
         currencyType,

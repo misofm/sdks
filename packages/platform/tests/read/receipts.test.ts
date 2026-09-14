@@ -33,7 +33,6 @@ function eventType(packageId = SHOP_PACKAGE, currency = CURRENCY): string {
 function bcsEvent(
   pricing: { fixed: boolean; price: string },
   recordId = IDS.record,
-  purchaseCurrency = CURRENCY,
 ) {
   const configured = BigInt(pricing.price);
   const purchasePrice = pricing.fixed ? configured : configured + 50n;
@@ -44,14 +43,12 @@ function bcsEvent(
     pressing_id: IDS.pressing,
     edition: 2,
     number: recordId === IDS.record ? 7 : 8,
-    purchase_currency: Array.from(new TextEncoder().encode(purchaseCurrency)),
     purchase_price: purchasePrice.toString(),
     purchased_by: IDS.buyer,
     purchased_timestamp_ms: "1234",
     pricing_is_fixed: pricing.fixed,
     price: configured.toString(),
     enabled: true,
-    distributor: Array.from(new TextEncoder().encode("0xvendor::dist::D")),
     supply_before: 1,
     supply_delta: 1,
     supply_after: 2,
@@ -85,10 +82,10 @@ describe("Record Shop sale receipts", () => {
     expect(findRecordSale(events, SHOP_PACKAGE, IDS.secondRecord)?.recordId).toBe(IDS.secondRecord);
   });
 
-  test("validates embedded TypeName and never falls back from malformed canonical BCS", () => {
+  test("never falls back from malformed canonical BCS", () => {
     const malformed = {
       eventType: eventType(),
-      bcs: bcsEvent({ fixed: true, price: "99" }, IDS.record, "0x2::other::OTHER"),
+      bcs: bcsEvent({ fixed: true, price: "99" }).slice(0, -1),
       json: {
         listing_id: IDS.listing,
         record_id: IDS.record,
@@ -118,7 +115,6 @@ describe("Record Shop sale receipts", () => {
         pressing_id: IDS.pressing,
         edition: 2,
         number: 7,
-        purchase_currency: Array.from(new TextEncoder().encode(CURRENCY)),
         purchase_price: "123",
         purchased_by: IDS.buyer,
         purchased_timestamp_ms: "5678",

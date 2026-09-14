@@ -126,6 +126,7 @@ const config: MisoCodegenConfig = {
     platform("release_kind", "misofm/musicos-extensions/release_kind"),
 
     // Primitives.
+    platform("audio", "misofm/audio"),
     platform("royalty_pool", "misofm/royalty-pool"),
     platform("routed_stake", "misofm/routed-stake"),
     platform("vault", "misofm/vault"),

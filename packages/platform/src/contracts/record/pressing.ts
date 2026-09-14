@@ -83,16 +83,12 @@ export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::Reco
         edition: bcs.u16(),
         /** The Record's number within its edition. */
         number: bcs.u32(),
-        /** The defining type of the purchase currency. */
-        purchase_currency: bcs.string(),
         /** The amount paid for the Record. */
         purchase_price: bcs.u64(),
         /** The transaction sender who purchased the Record. */
         purchased_by: bcs.Address,
         /** The purchase time in Unix milliseconds from Sui's Clock. */
         purchased_timestamp_ms: bcs.u64(),
-        /** The defining type of the distributor that authorized the mint. */
-        distributor: bcs.string(),
         /** Supply immediately before this mint. */
         supply_before: bcs.u32(),
         /** Supply delta applied by this mint. */
@@ -115,7 +111,6 @@ export const PressingDistributorAuthorizedEvent = new MoveStruct({ name: `${$mod
         release_id: bcs.Address,
         edition: bcs.u16(),
         pressing_admin_cap_id: bcs.Address,
-        distributor: bcs.string(),
         authorized_before: bcs.bool(),
         authorized_after: bcs.bool(),
         distributor_count_before: bcs.u64(),
@@ -126,7 +121,6 @@ export const PressingDistributorRevokedEvent = new MoveStruct({ name: `${$module
         release_id: bcs.Address,
         edition: bcs.u16(),
         pressing_admin_cap_id: bcs.Address,
-        distributor: bcs.string(),
         authorized_before: bcs.bool(),
         authorized_after: bcs.bool(),
         distributor_count_before: bcs.u64(),
