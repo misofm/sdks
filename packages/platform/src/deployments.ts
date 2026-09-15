@@ -261,7 +261,7 @@ export interface MisoPlatformDeployment {
   /** Fail-closed, structurally complete Vault/Action/plugin identity set. */
   readonly operations: OperationsDeployment;
   readonly packages: {
-    /** Self-attested audio metadata and Walrus blob primitive, when published. */
+    /** Self-attested audio metadata and bare Walrus blob ID, when published. */
     readonly audio?: string;
     readonly minato: string;
     readonly credit: string;
@@ -293,8 +293,8 @@ export interface MisoPlatformDeployment {
     readonly recordingStreamingTranscode?: string;
     /**
      * Miso Engine session: the Session V1 blob plus each stem's PCM digest and
-     * blob. Optional so a deployment without the stems generation fails closed
-     * before signing rather than calling a retired single-blob package.
+     * blob IDs. Optional so a deployment without the stems generation fails
+     * closed before signing.
      */
     readonly recordingEngineSession?: string;
     /** External `ori` package used by cover-art and streaming-transcode Walrus values. */
