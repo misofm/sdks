@@ -13,9 +13,30 @@ import { platformEventParsers } from "../src/events.ts";
 type WireToken =
   | "address" | "bool" | "u8" | "u16" | "u32" | "u64" | "u128" | "u256"
   | "string" | "bytes" | "bytes[]" | "bytes[][]"
-  | "address[]" | "string[]" | "u64[]" | "u256[]" | "option_u32" | "option_bytes" | "type_name";
+  | "address[]" | "string[]" | "u64[]" | "u256[]" | "option_u32" | "option_bytes" | "type_name" | "audio";
 type WireField = readonly [name: string, type: WireToken];
 type WireFixture = { readonly path: string; readonly name: string; readonly fields: readonly WireField[] };
+
+// Keep this nested layout independent from the generated recording_master
+// dependency codecs. MasterSetEvent embeds audio::Audio, which embeds
+// ori::data::WalrusBlob and ori::confidentiality::Confidentiality.
+const wireConfidentiality = bcs.enum("Confidentiality", {
+  Unencrypted: null,
+  Encrypted: bcs.struct("Confidentiality.Encrypted", { sealed_dek: bcs.vector(bcs.u8()) }),
+});
+const wireWalrusBlob = bcs.struct("WalrusBlob", {
+  blob_id: bcs.u256(),
+  confidentiality: wireConfidentiality,
+});
+const wireAudio = bcs.struct("Audio", {
+  format: bcs.string(),
+  channels: bcs.u8(),
+  bit_depth: bcs.u8(),
+  sample_rate_hz: bcs.u32(),
+  samples: bcs.u64(),
+  pcm_digest: bcs.vector(bcs.u8()),
+  data: wireWalrusBlob,
+});
 
 const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
   { path: 'extensions.compositionCredits.creditAdded', name: 'CompositionCreditAddedEvent', fields: [
@@ -156,6 +177,13 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['removed_stem_count', 'u64'],
     ['removed_stem_digests', 'bytes[]'],
     ['removed_stem_blob_ids', 'u256[]'],
+  ] },
+  { path: 'extensions.recordingMaster.set', name: 'MasterSetEvent', fields: [
+    ['recording_id', 'address'],
+    ['master', 'audio'],
+  ] },
+  { path: 'extensions.recordingMaster.unset', name: 'MasterUnsetEvent', fields: [
+    ['recording_id', 'address'],
   ] },
   { path: 'extensions.recordingGenre.genreAdded', name: 'RecordingGenreAddedEvent', fields: [
     ['recording_id', 'address'],
@@ -1314,6 +1342,7 @@ function schemaFor(name: string, fields: readonly WireField[]) {
     option_u32: bcs.option(bcs.u32()),
     option_bytes: bcs.option(bcs.vector(bcs.u8())),
     type_name: bcs.struct("TypeName", { name: bcs.string() }),
+    audio: wireAudio,
   };
   return bcs.struct(name, Object.fromEntries(fields.map(([field, type]) => [field, schemas[type]])) as any);
 }
@@ -1342,6 +1371,23 @@ function valueFor(type: WireToken, eventIndex: number, fieldIndex: number): unkn
     case "option_u32": return (n % 100000) + 1000;
     case "option_bytes": return [n % 250, (n + 1) % 250];
     case "type_name": return { name: `0x${((n % 200) + 1).toString(16).padStart(2, "0")}::wire::Type${n}` };
+    case "audio": {
+      const confidentiality = n % 2 === 0
+        ? { Unencrypted: true, $kind: "Unencrypted" }
+        : { Encrypted: { sealed_dek: [n % 250, (n + 1) % 250] }, $kind: "Encrypted" };
+      return {
+        format: `wire-${eventIndex}-${fieldIndex}`,
+        channels: (n % 2) + 1,
+        bit_depth: 8 + (n % 4) * 8,
+        sample_rate_hz: 44100 + n,
+        samples: u64(n + 1),
+        pcm_digest: [n % 250, (n + 1) % 250, (n + 2) % 250],
+        data: {
+          blob_id: (1n << 200n | BigInt(n + 1)).toString(),
+          confidentiality,
+        },
+      };
+    }
   }
 }
 
@@ -1376,6 +1422,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
 }
 
 test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(115);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(115);
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(117);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(117);
+  for (const fixture of EVENT_WIRE_FIXTURES) {
+    expect(typeof parserAt(fixture.path)).toBe("function");
+  }
 });
