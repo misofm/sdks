@@ -347,11 +347,8 @@ export type MisoBcs = {
   readonly Listing: typeof listingContract.Listing;
   readonly Pricing: typeof listingContract.Pricing;
   readonly ListingState: typeof listingContract.State;
-  readonly RecordCreatedEvent: typeof recordContract.RecordCreatedEvent;
   readonly RecordDestroyedEvent: typeof recordContract.RecordDestroyedEvent;
   readonly PressingCreatedEvent: typeof pressingContract.PressingCreatedEvent;
-  readonly DistributorAuthorizedEvent: typeof pressingContract.DistributorAuthorizedEvent;
-  readonly DistributorRevokedEvent: typeof pressingContract.DistributorRevokedEvent;
   readonly RecordPurchasedEvent: typeof pressingContract.RecordPurchasedEvent;
   readonly PressingSharedEvent: typeof pressingContract.PressingSharedEvent;
   readonly PressingDistributorAuthorizedEvent: typeof pressingContract.PressingDistributorAuthorizedEvent;
@@ -603,11 +600,8 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     Listing: listingContract.Listing,
     Pricing: listingContract.Pricing,
     ListingState: listingContract.State,
-    RecordCreatedEvent: recordContract.RecordCreatedEvent,
     RecordDestroyedEvent: recordContract.RecordDestroyedEvent,
     PressingCreatedEvent: pressingContract.PressingCreatedEvent,
-    DistributorAuthorizedEvent: pressingContract.DistributorAuthorizedEvent,
-    DistributorRevokedEvent: pressingContract.DistributorRevokedEvent,
     RecordPurchasedEvent: pressingContract.RecordPurchasedEvent,
     PressingSharedEvent: pressingContract.PressingSharedEvent,
     PressingDistributorAuthorizedEvent: pressingContract.PressingDistributorAuthorizedEvent,

@@ -333,8 +333,5 @@ test("registry exposes every current platform event family", () => {
     const value = (platformEventParsers as Record<string, any>)[family]?.[group]?.[operation];
     expect(typeof value).toBe("function");
   }
-  expect(typeof platformEventParsers.products.record.legacy.created).toBe("function");
-  expect(typeof platformEventParsers.products.pressing.legacy.distributorAuthorized).toBe("function");
-  expect(typeof platformEventParsers.products.pressing.legacy.distributorRevoked).toBe("function");
   expect(typeof platformEventParsers.actions.pay.paymentSent).toBe("function");
 });

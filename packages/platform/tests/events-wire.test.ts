@@ -1366,13 +1366,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['purchased_by', 'address'],
     ['purchased_timestamp_ms', 'u64'],
   ] },
-  { path: 'products.record.legacy.created', name: 'RecordCreatedEvent', fields: [
-    ['record_id', 'address'],
-    ['release_id', 'address'],
-    ['pressing_id', 'address'],
-    ['edition', 'u16'],
-    ['number', 'u32'],
-  ] },
   { path: 'products.pressing.created', name: 'PressingCreatedEvent', fields: [
     ['pressing_id', 'address'],
     ['release_id', 'address'],
@@ -1424,14 +1417,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['authorized_after', 'bool'],
     ['distributor_count_before', 'u64'],
     ['distributor_count_after', 'u64'],
-  ] },
-  { path: 'products.pressing.legacy.distributorAuthorized', name: 'DistributorAuthorizedEvent', fields: [
-    ['pressing_id', 'address'],
-    ['distributor', 'type_name'],
-  ] },
-  { path: 'products.pressing.legacy.distributorRevoked', name: 'DistributorRevokedEvent', fields: [
-    ['pressing_id', 'address'],
-    ['distributor', 'type_name'],
   ] },
   { path: 'products.listing.created', name: 'ListingCreatedEvent', fields: [
     ['listing_id', 'address'],
@@ -1585,6 +1570,6 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
 }
 
 test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(136);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(136);
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(133);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(133);
 });

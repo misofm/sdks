@@ -37,18 +37,6 @@ export const Record = new MoveStruct({ name: `${$moduleName}::Record`, fields: {
         purchased_timestamp_ms: bcs.u64()
     } });
 export const RecordKey = new MoveTuple({ name: `${$moduleName}::RecordKey`, fields: [bcs.u32()] });
-export const RecordCreatedEvent = new MoveStruct({ name: `${$moduleName}::RecordCreatedEvent`, fields: {
-        /** The newly created Record. */
-        record_id: bcs.Address,
-        /** The release represented by the Record. */
-        release_id: bcs.Address,
-        /** The Pressing that issued the Record. */
-        pressing_id: bcs.Address,
-        /** The edition represented by the Pressing. */
-        edition: bcs.u16(),
-        /** The Record's number within the edition. */
-        number: bcs.u32()
-    } });
 export const RecordDestroyedEvent = new MoveStruct({ name: `${$moduleName}::RecordDestroyedEvent`, fields: {
         /** The destroyed Record. */
         record_id: bcs.Address,
