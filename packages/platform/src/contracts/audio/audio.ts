@@ -47,16 +47,6 @@ export const Audio = new MoveStruct({ name: `${$moduleName}::Audio`, fields: {
         /** Standalone Walrus blob reference for the audio. */
         data: data_1.WalrusBlob
     } });
-export const AudioIngestedEvent = new MoveStruct({ name: `${$moduleName}::AudioIngestedEvent`, fields: {
-        blob_id: bcs.u256(),
-        format: bcs.string(),
-        channels: bcs.u8(),
-        bit_depth: bcs.u8(),
-        sample_rate_hz: bcs.u32(),
-        samples: bcs.u64(),
-        duration_ms: bcs.u64(),
-        pcm_digest: bcs.vector(bcs.u8())
-    } });
 export interface NewArguments {
     format: RawTransactionArgument<string>;
     channels: RawTransactionArgument<number>;

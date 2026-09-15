@@ -765,7 +765,10 @@ export interface ClearTrackLinksOptions {
         platform: RawTransactionArgument<number>
     ];
 }
-/** Removes a DSP's entire per-track array. No-op if absent. */
+/**
+ * Removes a DSP's entire per-track array. Reclaims an attached but empty array
+ * without emitting; emits only when one or more links were removed.
+ */
 export function clearTrackLinks(options: ClearTrackLinksOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_dsp_link';
     const argumentsTypes = [

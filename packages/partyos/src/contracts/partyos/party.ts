@@ -211,7 +211,11 @@ export interface SetNameOptions {
         name: RawTransactionArgument<string>
     ];
 }
-/** Sets the human-readable name of the party. Requires the admin capability. */
+/**
+ * Sets the human-readable name of the party. Requires the admin capability.
+ * Equal-value writes retain their validation, authorization, and state assignment
+ * but do not emit a change event.
+ */
 export function setName(options: SetNameOptions) {
     const packageAddress = options.package ?? '@local-pkg/partyos';
     const argumentsTypes = [

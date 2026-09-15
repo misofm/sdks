@@ -192,7 +192,8 @@ export interface SetOptions {
 /**
  * Sets the `PlatformLink<Data>` under `uid`, replacing any existing one. Emits
  * `PlatformLinkSetEvent<Data>` with bounded summaries of the previous and new
- * payloads. An equal replacement still emits an event.
+ * payloads only when the complete `Data` value changes. Equal replacements still
+ * write the new value but do not emit.
  */
 export function set(options: SetOptions) {
     const packageAddress = options.package ?? '@local-pkg/platform_link';

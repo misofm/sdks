@@ -192,9 +192,9 @@ export interface RemoveGenreOptions {
 }
 /**
  * Removes a genre by id. If it was the primary, the next genre in the list becomes
- * primary. Removing the last remaining genre drops the field entirely and
- * additionally emits `RecordingGenresClearedEvent`. Aborts `EGenreNotPresent` if
- * the genre is not assigned — including when nothing is attached at all.
+ * primary. Removing the last remaining genre drops the field entirely before
+ * emitting its final-state `RecordingGenreRemovedEvent`. Aborts `EGenreNotPresent`
+ * if the genre is not assigned — including when nothing is attached at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_genre';

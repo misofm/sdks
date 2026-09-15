@@ -110,12 +110,6 @@ export const VaultCapabilityBorrowedByAdminEvent = new MoveStruct({ name: `${$mo
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });
-export const VaultCapabilityReturnedEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityReturnedEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        active: bcs.bool(),
-        capability_available: bcs.bool()
-    } });
 export interface NewArguments<Cap extends BcsType<any>> {
     registry: RawTransactionArgument<string>;
     cap: RawTransactionArgument<Cap>;

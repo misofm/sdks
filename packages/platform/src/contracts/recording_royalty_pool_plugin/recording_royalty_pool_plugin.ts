@@ -5,27 +5,8 @@
 
 /** Vault adapter for Recording royalty-pool Actions. */
 
-import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
-import { bcs } from '@mysten/sui/bcs';
-import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-const $moduleName = '@local-pkg/recording_royalty_pool_plugin::recording_royalty_pool_plugin';
-export const RecordingRoyaltyPoolPluginInstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginInstalledEvent<phantom RecordingShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
-export const RecordingRoyaltyPoolPluginUninstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginUninstalledEvent<phantom RecordingShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;

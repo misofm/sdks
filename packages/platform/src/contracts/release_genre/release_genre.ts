@@ -168,8 +168,8 @@ export interface RemoveGenreOptions {
 /**
  * Removes a genre from the release by id. If it was the primary, the next entry
  * (if any) becomes primary by virtue of now sitting at index 0. Removing the last
- * genre drops the field entirely and additionally emits
- * `ReleaseGenresClearedEvent`. Aborts `EGenreNotPresent` if the genre is not
+ * genre drops the field entirely before emitting its final-state
+ * `ReleaseGenreRemovedEvent`. Aborts `EGenreNotPresent` if the genre is not
  * currently assigned, including when the release has no genres at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {

@@ -5,27 +5,8 @@
 
 /** Vault adapter for Composition royalty-pool Actions. */
 
-import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
-import { bcs } from '@mysten/sui/bcs';
-import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-const $moduleName = '@local-pkg/composition_royalty_pool_plugin::composition_royalty_pool_plugin';
-export const CompositionRoyaltyPoolPluginInstalledEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoyaltyPoolPluginInstalledEvent<phantom CompositionShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
-export const CompositionRoyaltyPoolPluginUninstalledEvent = new MoveStruct({ name: `${$moduleName}::CompositionRoyaltyPoolPluginUninstalledEvent<phantom CompositionShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;

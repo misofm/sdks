@@ -22,7 +22,10 @@
  * at the parent, exactly as with `RoyaltyPool` creation. `register`/`unregister`
  * are gated because a stake registers at most once per `Currency`: a
  * permissionless register could grief by binding the stake to a garbage same-typed
- * pool, permanently blocking the real one for that currency.
+ * pool, permanently blocking the real one for that currency. The one binding
+ * `register` refuses even from the parent is to the parent's own destination pool
+ * (`ESelfRoute`): with the source and destination being one object, `sweep` could
+ * never be called and the position could never exit.
  *
  * The derivation key encodes only `StakeShare` — at most one routed stake per
  * `(parent, StakeShare)` pair, whatever `PoolShare` it used (the same
@@ -219,7 +222,12 @@ export interface RegisterOptions {
  * Register the wrapped stake with the pool it earns from, so future deposits
  * accrue to it. Which same-typed pool is the _correct_ one is the caller's concern
  * — the parent's extension is expected to pin it (e.g. by derivation from the
- * asset object) before delegating here.
+ * asset object) before delegating here. The one pool refused outright
+ * (`ESelfRoute`) is the parent's own `RoyaltyPool<PoolShare, Currency>` —
+ * `sweep`'s destination — which only coincides with a
+ * `RoyaltyPool<StakeShare, Currency>` when `StakeShare == PoolShare`. This is an
+ * object-identity check, not a type check: the same share type staked in a pool
+ * under a _different_ parent is a different object and stays allowed.
  */
 export function register(options: RegisterOptions) {
     const packageAddress = options.package ?? '@local-pkg/routed_stake';
