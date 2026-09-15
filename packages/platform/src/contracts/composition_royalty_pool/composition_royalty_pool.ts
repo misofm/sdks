@@ -132,19 +132,17 @@ export function receiveAndDeposit(options: ReceiveAndDepositOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface RedeemAndDepositArguments {
+export interface RedeemAllAndDepositArguments {
     composition: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;
     pool: RawTransactionArgument<string>;
-    value: RawTransactionArgument<number | bigint>;
 }
-export interface RedeemAndDepositOptions {
+export interface RedeemAllAndDepositOptions {
     package?: string;
-    arguments: RedeemAndDepositArguments | [
+    arguments: RedeemAllAndDepositArguments | [
         composition: RawTransactionArgument<string>,
         adminCap: RawTransactionArgument<string>,
-        pool: RawTransactionArgument<string>,
-        value: RawTransactionArgument<number | bigint>
+        pool: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -152,23 +150,33 @@ export interface RedeemAndDepositOptions {
     ];
 }
 /**
- * Redeem `value` from the Composition's funds accumulator and deposit it into the
- * canonical pool derived from that same Composition. Emits
- * `CompositionFundsDepositedEvent` after successful deposit.
+ * Redeem all funds settled at the Composition's address at the start of the
+ * current consensus commit and deposit them into the canonical pool derived from
+ * that same Composition.
+ *
+ * This is the only accumulator redemption path: callers cannot select an amount,
+ * so a permissionless crank cannot fragment revenue. The call is an authorized,
+ * idempotent no-op that emits no event when the settled snapshot is zero or when
+ * the pool has no registered stake. With no stakers nothing is redeemed: the funds
+ * stay in the Composition's accumulator until a stake registers, rather than being
+ * folded into a pool nobody can claim from. Either no-op lets one already-cranked
+ * or unstaked item pass through a batched crank without aborting it. The framework
+ * snapshot is capped at `u64::MAX`; excess and newly sent funds settle for a later
+ * call. Emits `CompositionFundsDepositedEvent` after a successful deposit.
  */
-export function redeemAndDeposit(options: RedeemAndDepositOptions) {
+export function redeemAllAndDeposit(options: RedeemAllAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/composition_royalty_pool';
     const argumentsTypes = [
         null,
         null,
         null,
-        'u64'
+        '0x2::accumulator::AccumulatorRoot'
     ] satisfies (string | null)[];
-    const parameterNames = ["composition", "adminCap", "pool", "value"];
+    const parameterNames = ["composition", "adminCap", "pool"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'composition_royalty_pool',
-        function: 'redeem_and_deposit',
+        function: 'redeem_all_and_deposit',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

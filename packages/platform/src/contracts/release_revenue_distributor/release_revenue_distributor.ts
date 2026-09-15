@@ -7,8 +7,9 @@
  * Raw-cap Release revenue actions.
  *
  * Revenue is split from the immutable Release tracklist and sent to the
- * corresponding Recording addresses. Callers select only funds already held by the
- * Release; they cannot select recipients or alter split amounts.
+ * corresponding Recording addresses. Callers either receive coins already held by
+ * the Release or redeem its full settled accumulator snapshot; they cannot select
+ * amounts, recipients, or split values.
  */
 
 import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -43,42 +44,6 @@ export const ReleaseRevenueDistributedEvent = new MoveStruct({ name: `${$moduleN
         total_distributed: bcs.u64(),
         remainder: bcs.u64()
     } });
-export interface RedeemAndDistributeArguments {
-    release: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
-    value: RawTransactionArgument<number | bigint>;
-}
-export interface RedeemAndDistributeOptions {
-    package?: string;
-    arguments: RedeemAndDistributeArguments | [
-        release: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>,
-        value: RawTransactionArgument<number | bigint>
-    ];
-    typeArguments: [
-        string
-    ];
-}
-/**
- * Redeem `value` from the Release accumulator and distribute it according to the
- * immutable tracklist.
- */
-export function redeemAndDistribute(options: RedeemAndDistributeOptions) {
-    const packageAddress = options.package ?? '@local-pkg/release_revenue_distributor';
-    const argumentsTypes = [
-        null,
-        null,
-        'u64'
-    ] satisfies (string | null)[];
-    const parameterNames = ["release", "adminCap", "value"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'release_revenue_distributor',
-        function: 'redeem_and_distribute',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-        typeArguments: options.typeArguments
-    });
-}
 export interface RedeemAllAndDistributeArguments {
     release: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;
@@ -97,10 +62,12 @@ export interface RedeemAllAndDistributeOptions {
  * Redeem all Release funds settled at the start of the current consensus commit
  * and distribute them according to the immutable tracklist.
  *
+ * This is the only accumulator redemption path: callers cannot select an amount,
+ * so a permissionless crank cannot fragment revenue into dust-sized distributions.
  * The framework snapshot is capped at `u64::MAX`; excess funds, newly sent funds,
- * and per-track flooring remainder settle for a later call. This fixed crank
- * prevents permissionless adapters from selecting dust-sized fragments. A zero
- * settled snapshot is an idempotent no-op.
+ * and per-track flooring remainder settle for a later call. A zero settled
+ * snapshot is an authorized, idempotent no-op that emits no event, so one
+ * already-cranked Release never aborts a batch.
  */
 export function redeemAllAndDistribute(options: RedeemAllAndDistributeOptions) {
     const packageAddress = options.package ?? '@local-pkg/release_revenue_distributor';

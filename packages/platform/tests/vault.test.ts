@@ -11,13 +11,18 @@ import * as vaultContract from "../src/contracts/vault/vault.ts";
 import * as vaultApi from "../src/vault.ts";
 import * as releasePluginContract from "../src/contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import * as releaseDistributorContract from "../src/contracts/release_revenue_distributor/release_revenue_distributor.ts";
+import * as compositionPoolContract from "../src/contracts/composition_royalty_pool/composition_royalty_pool.ts";
+import * as compositionPluginContract from "../src/contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
+import * as recordingPoolContract from "../src/contracts/recording_royalty_pool/recording_royalty_pool.ts";
+import * as recordingPluginContract from "../src/contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
 import {
   createCompositionRoutedStake, directAdminCap,
   custodyNewAdminCap, deriveVaultAdminCapId, deriveVaultId,
   installCompositionRoyaltyPoolPlugin, installRecordingRoyaltyPoolPlugin,
   installReleaseRevenueDistributorPlugin, invokeWithAdminCap,
   newCompositionRoyaltyPool, receivePartyWalletBalance,
-  redeemAndDistributeReleaseRevenue, redeemPartyWalletBalance,
+  redeemAllAndDepositCompositionRoyaltyPool, redeemAllAndDepositRecordingRoyaltyPool,
+  redeemPartyWalletBalance,
   registerCompositionRoutedStake, restoreVaultCapability,
   restakeCompositionRoutedStake, settleAndDistributeReleaseRevenue,
   shareRoutedStake,
@@ -301,28 +306,36 @@ test("routed-stake sharing consumes the configured value through the routed-stak
   });
 });
 
-test("explicit Release amounts remain raw Action composition only", () => {
-  const tx = new Transaction();
-  redeemAndDistributeReleaseRevenue(tx, {
-    authority: vaulted(tx),
-    release: tx.object(A),
-    currencyType: SUI,
-    actionPackageId: ACTION,
-    value: 9n,
-  });
-  expect(labels(tx)).toEqual([
-    "vault::borrow_as_admin",
-    "release_revenue_distributor::redeem_and_distribute",
-    "vault::put_back",
-  ]);
-  expect(calls(tx)[1]).toMatchObject({
-    package: ACTION,
-    typeArguments: [SUI],
-  });
+test("no caller-chosen-amount redemption exists on chain or in the SDK", () => {
+  // misofm/audit#1: `redeem_and_distribute(value)` / `redeem_and_deposit(value)`
+  // were removed from the Actions and plugins; only the redeem-all cranks remain.
+  expect("redeemAndDistribute" in releaseDistributorContract).toBe(false);
   expect("redeemAndDistribute" in releasePluginContract).toBe(false);
+  expect("redeemAndDeposit" in compositionPoolContract).toBe(false);
+  expect("redeemAndDeposit" in compositionPluginContract).toBe(false);
+  expect("redeemAndDeposit" in recordingPoolContract).toBe(false);
+  expect("redeemAndDeposit" in recordingPluginContract).toBe(false);
+  expect(typeof compositionPoolContract.redeemAllAndDeposit).toBe("function");
+  expect(typeof compositionPluginContract.redeemAllAndDeposit).toBe("function");
+  expect(typeof recordingPoolContract.redeemAllAndDeposit).toBe("function");
+  expect(typeof recordingPluginContract.redeemAllAndDeposit).toBe("function");
+  expect("redeemAndDistributeReleaseRevenue" in vaultApi).toBe(false);
+  expect("redeemAndDepositCompositionRoyaltyPool" in vaultApi).toBe(false);
+  expect("redeemAndDepositRecordingRoyaltyPool" in vaultApi).toBe(false);
 });
 
-test("settlement cranks use suffixed plugin modules in exact order", () => {
+const ROOT_ID = `0x${"acc".padStart(64, "0")}`;
+
+function rootInputOf(tx: Transaction, module: string): { objectId?: string } | undefined {
+  const call = tx.getData().commands.find(
+    (command) => command.$kind === "MoveCall" && command.MoveCall.module === module,
+  ) as { MoveCall: { arguments: Array<{ $kind: string; Input?: number }> } } | undefined;
+  const rootArgument = call?.MoveCall.arguments.at(-1);
+  expect(rootArgument?.$kind).toBe("Input");
+  return tx.getData().inputs[rootArgument!.Input!]?.UnresolvedObject;
+}
+
+test("settlement cranks are one redeem-all plugin call each, with the accumulator root last", () => {
   const tx = new Transaction();
   settleCompositionRoyaltyPool(tx, {
     vault: tx.object(A), compositionId: A, pool: tx.object(B), compositionShareType: COMPOSITION_SHARE,
@@ -335,23 +348,47 @@ test("settlement cranks use suffixed plugin modules in exact order", () => {
   settleAndDistributeReleaseRevenue(tx, {
     vault: tx.object(A), releaseId: A, currencyType: SUI, pluginPackageId: PLUGIN,
   });
+  // No `balance::settled_funds_value` pre-read and no pure `value` input: the
+  // plugin reads the snapshot on chain, so a batch never aborts on a zero item.
   expect(labels(tx)).toEqual([
-    "balance::settled_funds_value", "composition_royalty_pool_plugin::redeem_and_deposit",
-    "balance::settled_funds_value", "recording_royalty_pool_plugin::redeem_and_deposit",
+    "composition_royalty_pool_plugin::redeem_all_and_deposit",
+    "recording_royalty_pool_plugin::redeem_all_and_deposit",
     "release_revenue_distributor_plugin::redeem_all_and_distribute",
   ]);
-  const releaseCall = tx.getData().commands.find(
-    (command) =>
-      command.$kind === "MoveCall" &&
-      command.MoveCall.module === "release_revenue_distributor_plugin",
-  ) as { MoveCall: { arguments: Array<{ $kind: string; Input?: number }> } } | undefined;
-  expect(releaseCall?.MoveCall.arguments).toHaveLength(3);
-  const rootArgument = releaseCall?.MoveCall.arguments[2];
-  expect(rootArgument?.$kind).toBe("Input");
-  const rootInput = tx.getData().inputs[rootArgument!.Input!];
-  expect(rootInput?.UnresolvedObject?.objectId).toBe(
-    `0x${"acc".padStart(64, "0")}`,
-  );
+  expect(tx.getData().inputs.every((input) => input.$kind !== "Pure")).toBe(true);
+  expect(calls(tx).every((call) => call.package === PLUGIN)).toBe(true);
+  expect(calls(tx)[0]?.typeArguments).toEqual([COMPOSITION_SHARE, SUI]);
+  expect(calls(tx)[1]?.typeArguments).toEqual([RECORDING_SHARE, COMPOSITION_SHARE, SUI]);
+  expect(calls(tx)[2]?.typeArguments).toEqual([SUI]);
+  for (const module of [
+    "composition_royalty_pool_plugin",
+    "recording_royalty_pool_plugin",
+    "release_revenue_distributor_plugin",
+  ]) {
+    expect(rootInputOf(tx, module)?.objectId).toBe(ROOT_ID);
+  }
+  const compositionCall = tx.getData().commands[0] as { MoveCall: { arguments: unknown[] } };
+  const recordingCall = tx.getData().commands[1] as { MoveCall: { arguments: unknown[] } };
+  expect(compositionCall.MoveCall.arguments).toHaveLength(4);
+  expect(recordingCall.MoveCall.arguments).toHaveLength(4);
+});
+
+test("pool redeem-all cranks honor an explicit accumulator root and object arguments", () => {
+  const tx = new Transaction();
+  redeemAllAndDepositCompositionRoyaltyPool(tx, {
+    vault: tx.object(A), composition: tx.object(B), pool: tx.object(C), compositionShareType: COMPOSITION_SHARE,
+    currencyType: SUI, pluginPackageId: PLUGIN, accumulatorRoot: VAULT,
+  });
+  redeemAllAndDepositRecordingRoyaltyPool(tx, {
+    vault: tx.object(A), recording: tx.object(B), pool: tx.object(C), recordingShareType: RECORDING_SHARE,
+    compositionShareType: COMPOSITION_SHARE, currencyType: SUI, pluginPackageId: PLUGIN, accumulatorRoot: VAULT,
+  });
+  expect(labels(tx)).toEqual([
+    "composition_royalty_pool_plugin::redeem_all_and_deposit",
+    "recording_royalty_pool_plugin::redeem_all_and_deposit",
+  ]);
+  expect(rootInputOf(tx, "composition_royalty_pool_plugin")?.objectId).toBe(normalizeSuiObjectId(VAULT));
+  expect(rootInputOf(tx, "recording_royalty_pool_plugin")?.objectId).toBe(normalizeSuiObjectId(VAULT));
 });
 
 // ── `getVaultAdminCap` / `resolveReceivingCoins` (B4/B9, misofm/sdks#35 ────

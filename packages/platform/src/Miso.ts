@@ -312,13 +312,13 @@ export type MisoCall = {
   >;
   readonly releaseGenre: ReturnType<typeof bindModulePackage<typeof releaseGenreContract, readonly ["addGenre", "removeGenre", "clearGenres"]>>;
   readonly releaseKind: ReturnType<typeof bindModulePackage<typeof releaseKindContract, readonly ["setKind", "unsetKind", "hasKind"]>>;
-  readonly releaseRevenueDistributor: ReturnType<typeof bindModulePackage<typeof releaseRevenueDistributorContract, readonly ["redeemAndDistribute", "redeemAllAndDistribute", "receiveAndDistribute"]>> | undefined;
+  readonly releaseRevenueDistributor: ReturnType<typeof bindModulePackage<typeof releaseRevenueDistributorContract, readonly ["redeemAllAndDistribute", "receiveAndDistribute"]>> | undefined;
   readonly releaseRevenueDistributorPlugin: ReturnType<typeof bindModulePackage<typeof releaseRevenueDistributorPluginContract, readonly ["install", "uninstall", "redeemAllAndDistribute", "receiveAndDistribute", "isInstalled"]>> | undefined;
   readonly vault: ReturnType<typeof bindModulePackage<typeof vaultContract, readonly ["share", "withdrawCap", "restoreCap", "derivedAddress", "capId", "isActive", "authorizedPlugins", "isPluginAuthorized"]>> | undefined;
-  readonly compositionRoyaltyPool: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAndDeposit", "poolAddress"]>> | undefined;
-  readonly compositionRoyaltyPoolPlugin: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolPluginContract, readonly ["install", "uninstall", "receiveAndDeposit", "redeemAndDeposit", "isInstalled"]>> | undefined;
-  readonly recordingRoyaltyPool: ReturnType<typeof bindModulePackage<typeof recordingRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAndDeposit", "poolAddress"]>> | undefined;
-  readonly recordingRoyaltyPoolPlugin: ReturnType<typeof bindModulePackage<typeof recordingRoyaltyPoolPluginContract, readonly ["install", "uninstall", "receiveAndDeposit", "redeemAndDeposit", "isInstalled"]>> | undefined;
+  readonly compositionRoyaltyPool: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"]>> | undefined;
+  readonly compositionRoyaltyPoolPlugin: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolPluginContract, readonly ["install", "uninstall", "receiveAndDeposit", "redeemAllAndDeposit", "isInstalled"]>> | undefined;
+  readonly recordingRoyaltyPool: ReturnType<typeof bindModulePackage<typeof recordingRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"]>> | undefined;
+  readonly recordingRoyaltyPoolPlugin: ReturnType<typeof bindModulePackage<typeof recordingRoyaltyPoolPluginContract, readonly ["install", "uninstall", "receiveAndDeposit", "redeemAllAndDeposit", "isInstalled"]>> | undefined;
   readonly partyWallet: ReturnType<typeof bindModulePackage<typeof partyWalletContract, readonly ["receive", "receiveBalance", "redeemBalance", "inboxAddress"]>> | undefined;
   readonly compositionRoutedStake: ReturnType<typeof bindModulePackage<typeof compositionRoutedStakeContract, readonly ["createStake", "register", "unregister", "unstake", "restake", "stakeAddress"]>> | undefined;
   readonly routedStake: ReturnType<typeof bindModulePackage<typeof routedStakeContract, readonly ["share", "register", "unregister", "sweep", "unstake", "restake", "derivedAddress"]>>;
@@ -551,7 +551,7 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     releaseGenre: bindModulePackage(releaseGenreContract, deployment.packages.releaseGenre, ["addGenre", "removeGenre", "clearGenres"] as const),
     releaseKind: bindModulePackage(releaseKindContract, deployment.packages.releaseKind, ["setKind", "unsetKind", "hasKind"] as const),
     releaseRevenueDistributor: ops
-      ? bindModulePackage(releaseRevenueDistributorContract, ops.actions.releaseRevenueDistributor, ["redeemAndDistribute", "redeemAllAndDistribute", "receiveAndDistribute"] as const)
+      ? bindModulePackage(releaseRevenueDistributorContract, ops.actions.releaseRevenueDistributor, ["redeemAllAndDistribute", "receiveAndDistribute"] as const)
       : undefined,
     releaseRevenueDistributorPlugin: ops
       ? bindModulePackage(releaseRevenueDistributorPluginContract, ops.plugins.releaseRevenueDistributor, ["install", "uninstall", "redeemAllAndDistribute", "receiveAndDistribute", "isInstalled"] as const)
@@ -560,16 +560,16 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
       ? bindModulePackage(vaultContract, ops.vault.packageId, ["share", "withdrawCap", "restoreCap", "derivedAddress", "capId", "isActive", "authorizedPlugins", "isPluginAuthorized"] as const)
       : undefined,
     compositionRoyaltyPool: ops
-      ? bindModulePackage(compositionRoyaltyPoolContract, ops.actions.compositionRoyaltyPool, ["newPool", "receiveAndDeposit", "redeemAndDeposit", "poolAddress"] as const)
+      ? bindModulePackage(compositionRoyaltyPoolContract, ops.actions.compositionRoyaltyPool, ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"] as const)
       : undefined,
     compositionRoyaltyPoolPlugin: ops
-      ? bindModulePackage(compositionRoyaltyPoolPluginContract, ops.plugins.compositionRoyaltyPool, ["install", "uninstall", "receiveAndDeposit", "redeemAndDeposit", "isInstalled"] as const)
+      ? bindModulePackage(compositionRoyaltyPoolPluginContract, ops.plugins.compositionRoyaltyPool, ["install", "uninstall", "receiveAndDeposit", "redeemAllAndDeposit", "isInstalled"] as const)
       : undefined,
     recordingRoyaltyPool: ops
-      ? bindModulePackage(recordingRoyaltyPoolContract, ops.actions.recordingRoyaltyPool, ["newPool", "receiveAndDeposit", "redeemAndDeposit", "poolAddress"] as const)
+      ? bindModulePackage(recordingRoyaltyPoolContract, ops.actions.recordingRoyaltyPool, ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"] as const)
       : undefined,
     recordingRoyaltyPoolPlugin: ops
-      ? bindModulePackage(recordingRoyaltyPoolPluginContract, ops.plugins.recordingRoyaltyPool, ["install", "uninstall", "receiveAndDeposit", "redeemAndDeposit", "isInstalled"] as const)
+      ? bindModulePackage(recordingRoyaltyPoolPluginContract, ops.plugins.recordingRoyaltyPool, ["install", "uninstall", "receiveAndDeposit", "redeemAllAndDeposit", "isInstalled"] as const)
       : undefined,
     partyWallet: ops ? bindModulePackage(partyWalletContract, ops.actions.partyWallet, ["receive", "receiveBalance", "redeemBalance", "inboxAddress"] as const) : undefined,
     compositionRoutedStake: ops

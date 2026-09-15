@@ -428,28 +428,35 @@ export function settledFundsValue(
   });
 }
 
-/** Permissionless crank: redeem an exact Composition amount into its pool. */
-export function redeemAndDepositCompositionRoyaltyPool(
+/**
+ * Fixed permissionless crank: redeem the Composition's whole commit-settled
+ * accumulator snapshot into its canonical pool. The plugin takes the
+ * framework `AccumulatorRoot` and no amount; a zero snapshot or a pool with no
+ * registered stake is an on-chain no-op, so several of these can share one
+ * PTB without one already-cranked item aborting the batch.
+ */
+export function redeemAllAndDepositCompositionRoyaltyPool(
   tx: Transaction,
   params: CompositionRoyaltyPoolCrankParams & {
-    readonly value: U64Argument;
+    readonly accumulatorRoot?: ObjectInput;
   },
 ): void {
-  tx.add(
-    compositionRoyaltyPoolPlugin.redeemAndDeposit({
-      package: params.pluginPackageId,
-      typeArguments: [params.compositionShareType, params.currencyType],
-      arguments: [
-        params.vault,
-        params.composition,
-        params.pool,
-        asU64Argument(tx, "value", params.value),
-      ],
-    }),
-  );
+  // The generated binding resolves the chain-wide accumulator root itself and
+  // does not accept one. Call the target directly to keep honoring an explicit
+  // `accumulatorRoot` (a test fixture root) while the on-chain shape is unchanged.
+  tx.moveCall({
+    target: `${params.pluginPackageId}::composition_royalty_pool_plugin::redeem_all_and_deposit`,
+    typeArguments: [params.compositionShareType, params.currencyType],
+    arguments: [
+      object(tx, params.vault),
+      params.composition,
+      params.pool,
+      object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
+    ],
+  });
 }
 
-/** Redeem exactly the framework-reported settled Composition funds. */
+/** Convenience form of the fixed Composition crank for a known Composition object ID. */
 export function settleCompositionRoyaltyPool(
   tx: Transaction,
   params: Omit<CompositionRoyaltyPoolCrankParams, "composition"> & {
@@ -457,15 +464,9 @@ export function settleCompositionRoyaltyPool(
     readonly accumulatorRoot?: ObjectInput;
   },
 ): void {
-  const value = settledFundsValue(tx, {
-    address: params.compositionId,
-    currencyType: params.currencyType,
-    accumulatorRoot: params.accumulatorRoot,
-  });
-  redeemAndDepositCompositionRoyaltyPool(tx, {
+  redeemAllAndDepositCompositionRoyaltyPool(tx, {
     ...params,
     composition: tx.object(params.compositionId),
-    value,
   });
 }
 
@@ -611,32 +612,37 @@ export interface RecordingRoyaltyPoolCrankParams {
   readonly pluginPackageId: string;
 }
 
-/** Permissionless crank: redeem an exact Recording amount into its pool. */
-export function redeemAndDepositRecordingRoyaltyPool(
+/**
+ * Fixed permissionless crank: redeem the Recording's whole commit-settled
+ * accumulator snapshot into its canonical pool. The plugin takes the
+ * framework `AccumulatorRoot` and no amount; a zero snapshot or a pool with no
+ * registered stake is an on-chain no-op, so several of these can share one
+ * PTB without one already-cranked item aborting the batch.
+ */
+export function redeemAllAndDepositRecordingRoyaltyPool(
   tx: Transaction,
   params: RecordingRoyaltyPoolCrankParams & {
-    readonly value: U64Argument;
+    readonly accumulatorRoot?: ObjectInput;
   },
 ): void {
-  tx.add(
-    recordingRoyaltyPoolPlugin.redeemAndDeposit({
-      package: params.pluginPackageId,
-      typeArguments: [
-        params.recordingShareType,
-        params.compositionShareType,
-        params.currencyType,
-      ],
-      arguments: [
-        params.vault,
-        params.recording,
-        params.pool,
-        asU64Argument(tx, "value", params.value),
-      ],
-    }),
-  );
+  // See `redeemAllAndDepositCompositionRoyaltyPool` for why this is a direct call.
+  tx.moveCall({
+    target: `${params.pluginPackageId}::recording_royalty_pool_plugin::redeem_all_and_deposit`,
+    typeArguments: [
+      params.recordingShareType,
+      params.compositionShareType,
+      params.currencyType,
+    ],
+    arguments: [
+      object(tx, params.vault),
+      params.recording,
+      params.pool,
+      object(tx, params.accumulatorRoot ?? SUI_ACCUMULATOR_ROOT_OBJECT_ID),
+    ],
+  });
 }
 
-/** Redeem exactly the framework-reported settled Recording funds. */
+/** Convenience form of the fixed Recording crank for a known Recording object ID. */
 export function settleRecordingRoyaltyPool(
   tx: Transaction,
   params: Omit<RecordingRoyaltyPoolCrankParams, "recording"> & {
@@ -644,15 +650,9 @@ export function settleRecordingRoyaltyPool(
     readonly accumulatorRoot?: ObjectInput;
   },
 ): void {
-  const value = settledFundsValue(tx, {
-    address: params.recordingId,
-    currencyType: params.currencyType,
-    accumulatorRoot: params.accumulatorRoot,
-  });
-  redeemAndDepositRecordingRoyaltyPool(tx, {
+  redeemAllAndDepositRecordingRoyaltyPool(tx, {
     ...params,
     recording: tx.object(params.recordingId),
-    value,
   });
 }
 
@@ -702,28 +702,6 @@ export function uninstallReleaseRevenueDistributorPlugin(
   params: ReleaseRevenueDistributorPluginParams,
 ): void {
   tx.add(releaseRevenueDistributorPlugin.uninstall({ package: params.pluginPackageId, arguments: [params.vault, params.vaultAdminCap] }));
-}
-
-export interface ReleaseRevenueDistributorActionParams {
-  readonly authority: AdminCapAuthority;
-  readonly release: TransactionObjectArgument;
-  readonly currencyType: string;
-  readonly actionPackageId: string;
-}
-
-/** Raw-admin composition: redeem an explicit amount and route it by track BPS. */
-export function redeemAndDistributeReleaseRevenue(
-  tx: Transaction,
-  params: ReleaseRevenueDistributorActionParams & {
-    readonly value: U64Argument;
-  },
-): void {
-  invokeWithAdminCap(tx, params.authority, {
-    target: `${params.actionPackageId}::release_revenue_distributor::redeem_and_distribute`,
-    typeArguments: [params.currencyType],
-    arguments: [params.release, asU64Argument(tx, "value", params.value)],
-    adminCapIndex: 1,
-  });
 }
 
 /** Fixed permissionless crank: redeem the commit-settled Release balance. */
