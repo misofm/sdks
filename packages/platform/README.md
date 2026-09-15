@@ -768,6 +768,13 @@ identity and initial accounting state. Sharing is silent: the generated
 are removed. Use `primitives.royaltyPool.poolCreated` for pool discovery;
 registration and deposit events report any changes made before sharing.
 
+Routed stakes likewise retain `RoutedStakeCreatedEvent` at construction with
+parent identity and initial stake value. Sharing is silent; the generated
+`RoutedStakeSharedEvent` codec and `primitives.routedStake.shared` parser are
+removed. Use `primitives.routedStake.created` for discovery and the retained
+registration, unstaking and restaking events for subsequent state changes,
+including changes made before sharing.
+
 Route the events that still exist by their owning purpose:
 
 | Purpose | Parser path |

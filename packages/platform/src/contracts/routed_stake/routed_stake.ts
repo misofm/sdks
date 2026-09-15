@@ -56,13 +56,6 @@ export const RoutedStakeCreatedEvent = new MoveStruct({ name: `${$moduleName}::R
         stake_id: bcs.Address,
         staked_value: bcs.u64()
     } });
-export const RoutedStakeSharedEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeSharedEvent<phantom StakeShare, phantom PoolShare>`, fields: {
-        routed_stake_id: bcs.Address,
-        has_stake: bcs.bool(),
-        stake_id: bcs.Address,
-        staked_value: bcs.u64(),
-        registration_count: bcs.u64()
-    } });
 export const RoutedStakeRegisteredEvent = new MoveStruct({ name: `${$moduleName}::RoutedStakeRegisteredEvent<phantom StakeShare, phantom PoolShare, phantom Currency>`, fields: {
         routed_stake_id: bcs.Address,
         parent_id: bcs.Address,

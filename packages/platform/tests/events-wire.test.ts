@@ -809,13 +809,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['stake_id', 'address'],
     ['staked_value', 'u64'],
   ] },
-  { path: 'primitives.routedStake.shared', name: 'RoutedStakeSharedEvent', fields: [
-    ['routed_stake_id', 'address'],
-    ['has_stake', 'bool'],
-    ['stake_id', 'address'],
-    ['staked_value', 'u64'],
-    ['registration_count', 'u64'],
-  ] },
   { path: 'primitives.routedStake.registered', name: 'RoutedStakeRegisteredEvent', fields: [
     ['routed_stake_id', 'address'],
     ['parent_id', 'address'],
@@ -1386,9 +1379,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   });
 }
 
-test("wire fixture inventory contains 114 unique existing parser paths, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(114);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(114);
+test("wire fixture inventory contains 113 unique existing parser paths, including generic pay metadata", () => {
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(113);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(113);
   for (const fixture of EVENT_WIRE_FIXTURES) {
     expect(typeof parserAt(fixture.path)).toBe("function");
   }

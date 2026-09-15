@@ -209,7 +209,6 @@ export const platformEventParsers = {
     },
     routedStake: {
       created: decoder(routedStake.RoutedStakeCreatedEvent),
-      shared: decoder(routedStake.RoutedStakeSharedEvent),
       registered: decoder(routedStake.RoutedStakeRegisteredEvent),
       unregistered: decoder(routedStake.RoutedStakeUnregisteredEvent),
       swept: decoder(routedStake.RoutedStakeSweptEvent),
