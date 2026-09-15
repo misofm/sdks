@@ -83,7 +83,7 @@ history from it, append instead.
     `getReleaseCoversByIds`), `src/credits.ts` (`fetchCreditFields` and the
     three `get*Credits`/`get*CreditsByIds` pairs), `src/release-extensions.ts`
     (`getReleaseKind`), `src/recording-extensions.ts` (`readSoftFields` and
-    the three engine-session/master-reference/streaming-transcode read
+    the engine-session and streaming-transcode read
     families) — these five files' tx builders are untouched.
   - Standalone functions kept their exact names and now require
     `Sui`/`Sui | SuiGraphQL` (never a service) — this was already true

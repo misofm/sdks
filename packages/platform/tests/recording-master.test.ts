@@ -3,11 +3,12 @@ import { bcs } from "@mysten/sui/bcs";
 import { Transaction } from "@mysten/sui/transactions";
 import { Audio } from "../src/contracts/audio/audio.ts";
 import { ExtensionKey } from "../src/contracts/recording_master/recording_master.ts";
-import { parseRecordingMasterContent, recordingMasterFieldId, recordingMasterReferenceFieldId, setRecordingMaster } from "../src/recording-extensions.ts";
+import { parseRecordingMasterContent, recordingMasterFieldId, setRecordingMaster } from "../src/recording-extensions.ts";
 
-test("new master field has distinct identity and decodes the complete Audio", () => {
+test("master field id is package-scoped and decodes the complete Audio", () => {
   const id = recordingMasterFieldId("0x1", "0x2");
-  expect(id).not.toBe(recordingMasterReferenceFieldId("0x1", "0x2"));
+  expect(id).toMatch(/^0x[0-9a-f]{64}$/);
+  expect(id).not.toBe(recordingMasterFieldId("0x1", "0x3"));
   const value = { format: "flac", channels: 2, bit_depth: 24, sample_rate_hz: 44100, samples: "8500549", pcm_digest: Array(32).fill(1), data: { blob_id: "42", confidentiality: { Unencrypted: true as const } } };
   const bytes = bcs.struct("Field", { id: bcs.Address, name: ExtensionKey, value: Audio }).serialize({ id, name: [false], value }).toBytes();
   expect(parseRecordingMasterContent(bytes)).toMatchObject(value);

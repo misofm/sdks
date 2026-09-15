@@ -861,7 +861,7 @@ src/
   cover.ts               EXTENSION: release cover art (Walrus blob via ori)
   genre.ts               EXTENSION: release/recording genre vocabulary
   release-extensions.ts  EXTENSION: release kind, description, DSP links
-  recording-extensions.ts EXTENSION: recording advisory, language, master reference, streaming transcode
+  recording-extensions.ts EXTENSION: recording advisory, language, master, engine session, streaming transcode
   party/                 Party EXTENSIONS: profile, media, roles, tags, genres, CTAs, links (party/client.ts's makeMisoParty assembles MisoPartyService over the converted Partyos) — also `@misofm/platform/party`
   read/                  high-level catalog, artist, wallet, and receipt views (config.ts, client.ts's createMisoClient); Miso.read.* binds these to one deployment
   vault.ts               Vault authority, plugin, event, and receiving-coin builders; Miso.vault gates these with OperationsUnavailableError

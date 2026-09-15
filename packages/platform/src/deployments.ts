@@ -39,7 +39,6 @@ const REQUIRED_PLATFORM_PACKAGE_KEYS = [
   "releaseKind",
   "recordingAdvisory",
   "recordingLanguage",
-  "recordingMasterReference",
   "ori",
   "countryCode",
   "languageCode",
@@ -286,8 +285,7 @@ export interface MisoPlatformDeployment {
     readonly recordingLanguage: string;
     /** Ordered recording genre list (primary first). Optional until first published. */
     readonly recordingGenre?: string;
-    readonly recordingMasterReference: string;
-    /** Self-attested Audio master extension; legacy reference retained for historical reads. */
+    /** Self-attested Audio master extension (`recording_master`). */
     readonly recordingMaster?: string;
     /** Exact Audio dependency of recordingMaster (a distinct immutable type identity). */
     readonly recordingMasterAudio?: string;
@@ -505,8 +503,6 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0xd01d9fcfdde98d0aada3fa8fa237d6a753176d9f656590012eb2cb45cee5ec07",
       recordingGenre:
         "0x6df226240ab9bfb7a828f9aaf5fa7cae32987e0a6f57f50d8030520a1075f30e",
-      recordingMasterReference:
-        "0x70cda8fe00dd05124e3ec219963ab680e5894f397ee98a12078e534529b14e8f",
       recordingMaster:
         "0xa42ff0bc709c7ee69847ba6ee6a2f9084b8763f271f53bf63f100abc6dfd1300",
       recordingMasterAudio:

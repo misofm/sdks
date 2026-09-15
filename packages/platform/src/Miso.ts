@@ -165,7 +165,6 @@ import * as routedStakeContract from "./contracts/routed_stake/routed_stake.ts";
 import * as royaltyPoolContract from "./contracts/royalty_pool/pool.ts";
 import * as recordingAdvisoryContract from "./contracts/recording_advisory/recording_advisory.ts";
 import * as recordingLanguageContract from "./contracts/recording_language/recording_language.ts";
-import * as recordingMasterReferenceContract from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as recordingStreamingTranscodeContract from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import * as recordingGenreContract from "./contracts/recording_genre/recording_genre.ts";
 import * as coverArtContract from "./contracts/cover_art/cover_art.ts";
@@ -331,7 +330,6 @@ export type MisoCall = {
   >;
   readonly recordingAdvisory: ReturnType<typeof bindModulePackage<typeof recordingAdvisoryContract, readonly ["explicit", "notExplicit", "cleaned", "setRating", "unsetRating", "hasRating", "isExplicit", "isNotExplicit", "isCleaned"]>>;
   readonly recordingLanguage: ReturnType<typeof bindModulePackage<typeof recordingLanguageContract, readonly ["setLanguages", "setInstrumental", "unsetLanguages", "hasLanguages", "isInstrumental"]>>;
-  readonly recordingMasterReference: ReturnType<typeof bindModulePackage<typeof recordingMasterReferenceContract, readonly ["setMasterReference", "unsetMasterReference", "hasMasterReference"]>>;
   readonly recordingStreamingTranscode: ReturnType<typeof bindModulePackage<typeof recordingStreamingTranscodeContract, readonly ["setStreamingTranscode", "unsetStreamingTranscode", "hasStreamingTranscode"]>> | undefined;
   readonly recordingGenre: ReturnType<typeof bindModulePackage<typeof recordingGenreContract, readonly ["addGenre", "removeGenre", "clearGenres"]>> | undefined;
   readonly coverArt: ReturnType<typeof bindModulePackage<typeof coverArtContract, readonly []>>;
@@ -583,7 +581,6 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     ] as const),
     recordingAdvisory: bindModulePackage(recordingAdvisoryContract, deployment.packages.recordingAdvisory, ["explicit", "notExplicit", "cleaned", "setRating", "unsetRating", "hasRating", "isExplicit", "isNotExplicit", "isCleaned"] as const),
     recordingLanguage: bindModulePackage(recordingLanguageContract, deployment.packages.recordingLanguage, ["setLanguages", "setInstrumental", "unsetLanguages", "hasLanguages", "isInstrumental"] as const),
-    recordingMasterReference: bindModulePackage(recordingMasterReferenceContract, deployment.packages.recordingMasterReference, ["setMasterReference", "unsetMasterReference", "hasMasterReference"] as const),
     recordingStreamingTranscode: deployment.packages.recordingStreamingTranscode
       ? bindModulePackage(recordingStreamingTranscodeContract, deployment.packages.recordingStreamingTranscode, ["setStreamingTranscode", "unsetStreamingTranscode", "hasStreamingTranscode"] as const)
       : undefined,

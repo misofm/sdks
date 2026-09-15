@@ -426,7 +426,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
       compositions: release.tracks.map((track) => track.compositionId),
       releases: [],
     }),
-    getRecordingMasterAttachments(recordingIds, config.protocol.recordingMasterReference, config.protocol.recordingMaster).pipe(
+    getRecordingMasterAttachments(recordingIds, config.protocol.recordingMaster).pipe(
       Effect.catch(() => Effect.succeed({ masters: {}, blobIds: {} })),
     ),
     recordingStreamingTranscode

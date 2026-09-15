@@ -11,10 +11,6 @@ import { ObjectId, Sui, type DecodeError, type ObjectUnavailable, type Transport
 import { invokeWithAdminCap, type AdminCapAuthority, type ObjectInput } from "./vault.ts";
 import * as advisory from "./contracts/recording_advisory/recording_advisory.ts";
 import * as language from "./contracts/recording_language/recording_language.ts";
-// The generator prunes duplicate dependency subtrees and retains ori::data
-// under cover_art. Both generated modules describe the same WalrusBlob ABI.
-import * as walrusData from "./contracts/cover_art/deps/ori/data.ts";
-import * as masterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import { Audio } from "./contracts/audio/audio.ts";
 import * as recordingMaster from "./contracts/recording_master/recording_master.ts";
 import * as engineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
@@ -82,25 +78,6 @@ export function setRecordingInstrumental(p: Omit<SetRecordingLanguagesParams, "l
   };
 }
 
-interface RecordingWalrusReferenceParams extends RecordingExtensionTarget {
-  /** An `ori::data::WalrusBlob` value assembled in the same PTB. */
-  readonly reference: TransactionArgument;
-}
-
-export interface SetRecordingMasterReferenceParams extends RecordingWalrusReferenceParams {
-  readonly recordingMasterReferencePackageId: string;
-}
-export function setRecordingMasterReference(p: SetRecordingMasterReferenceParams): Recipe {
-  return (tx) => {
-    invokeWithAdminCap(tx, p.authority, {
-      target: `${p.recordingMasterReferencePackageId}::recording_master_reference::set_master_reference`,
-      typeArguments: [p.recordingShareType, p.compositionShareType],
-      arguments: [object(tx, p.recordingId), p.reference],
-      adminCapIndex: 1,
-    });
-  };
-}
-
 /** Unencrypted self-attested master metadata. Digest covers signed LE interleaved PCM at source bit depth. */
 export interface RecordingMasterInput {
   readonly blobId: bigint | string;
@@ -155,22 +132,21 @@ export const getRecordingMaster = Effect.fn("getRecordingMaster")(function* (rec
 
 export type RecordingMasterView = ReturnType<typeof parseRecordingMasterContent>;
 
-/** Read complete masters and historical blob references without fetching masters twice. */
-export function getRecordingMasterAttachments(recordingIds: readonly string[], legacyPackageId: string, packageId?: string) {
+/** Read complete Audio masters and their Walrus blob ids without fetching masters twice. */
+export function getRecordingMasterAttachments(recordingIds: readonly string[], packageId?: string) {
   return Effect.gen(function* () {
-    const [legacy, masters] = yield* Effect.all([
-      getRecordingMasterReferencesByIds(recordingIds, legacyPackageId),
-      packageId ? getRecordingMastersByIds(recordingIds, packageId)
-        : Effect.succeed({} as Partial<Record<string, RecordingMasterView>>),
-    ]);
-    const blobIds = { ...legacy, ...Object.fromEntries(Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)])) };
+    const masters = packageId ? yield* getRecordingMastersByIds(recordingIds, packageId)
+      : ({} as Partial<Record<string, RecordingMasterView>>);
+    const blobIds: Partial<Record<string, string>> = Object.fromEntries(
+      Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)]),
+    );
     return { masters, blobIds };
   });
 }
 
-/** Prefer new Audio fields; fall back to explicit historical reference fields for unmigrated works. */
-export function getRecordingMasterBlobIds(recordingIds: readonly string[], legacyPackageId: string, packageId?: string) {
-  return getRecordingMasterAttachments(recordingIds, legacyPackageId, packageId).pipe(Effect.map(({ blobIds }) => blobIds));
+/** Walrus blob ids of the Recordings' attached Audio masters. */
+export function getRecordingMasterBlobIds(recordingIds: readonly string[], packageId?: string) {
+  return getRecordingMasterAttachments(recordingIds, packageId).pipe(Effect.map(({ blobIds }) => blobIds));
 }
 
 export interface SetRecordingStreamingTranscodeParams extends RecordingExtensionTarget {
@@ -356,7 +332,7 @@ export const getRecordingStreamingTranscode = Effect.fn("getRecordingStreamingTr
 
 /**
  * Read streaming-transcode Quilt ids for many Recordings in one Core request.
- * Missing and malformed fields are omitted, like master references.
+ * Missing and malformed fields are omitted, like Audio masters.
  */
 export function getRecordingStreamingTranscodesByIds(
   recordingIdsInput: readonly string[],
@@ -470,64 +446,3 @@ export function getRecordingEngineSessionsByIds(
   );
 }
 
-// ── Master-reference reads ───────────────────────────────────────────────────
-
-// recording_master_reference stores the ori::data::WalrusBlob value inline in a
-// dynamic field on the Recording. Its empty ExtensionKey serializes to one false
-// byte, so the field object id can be derived without listing the Recording's
-// dynamic fields.
-const MasterReferenceField = bcs.struct("Field", {
-  id: bcs.Address,
-  name: masterReference.ExtensionKey,
-  value: walrusData.WalrusBlob,
-});
-const MASTER_REFERENCE_KEY_BYTES = masterReference.ExtensionKey.serialize([
-  false,
-]).toBytes();
-
-/**
- * Parse an attached master reference's standalone Walrus blob id (decimal
- * `u256`). Encrypted masters are returned as-is: the reference is the same
- * either way, and access control belongs to the caller.
- */
-export function parseRecordingMasterReferenceContent(content: Uint8Array): string {
-  return String(MasterReferenceField.parse(content).value.blob_id);
-}
-
-/** Deterministic dynamic-field id for a Recording's master reference. */
-export function recordingMasterReferenceFieldId(
-  recordingId: string,
-  recordingMasterReferencePackageId: string,
-): string {
-  return deriveDynamicFieldID(
-    recordingId,
-    `${recordingMasterReferencePackageId}::recording_master_reference::ExtensionKey`,
-    MASTER_REFERENCE_KEY_BYTES,
-  );
-}
-
-/** Read one Recording's master-reference blob id, or null when absent. */
-export const getRecordingMasterReference = Effect.fn("getRecordingMasterReference")(function* (
-  recordingId: string,
-  recordingMasterReferencePackageId: string,
-): Effect.fn.Return<string | null, TransportError, Sui> {
-  const found = yield* getRecordingMasterReferencesByIds([recordingId], recordingMasterReferencePackageId);
-  return found[recordingId] ?? null;
-});
-
-/**
- * Read master-reference blob ids for many Recordings in one Core request.
- *
- * Missing fields and malformed individual objects are omitted so one Recording
- * without a playable master cannot make the rest of an album unplayable.
- */
-export function getRecordingMasterReferencesByIds(
-  recordingIdsInput: readonly string[],
-  recordingMasterReferencePackageId: string,
-): Effect.Effect<Partial<Record<string, string>>, TransportError, Sui> {
-  return readSoftFields(
-    recordingIdsInput,
-    (recordingId) => recordingMasterReferenceFieldId(recordingId, recordingMasterReferencePackageId),
-    parseRecordingMasterReferenceContent,
-  );
-}

@@ -30,7 +30,6 @@ function withoutUnsafeCalls<M extends object, K extends readonly (keyof M)[]>(
 import * as rawCompositionCredits from "./contracts/composition_credits/composition_credits.ts";
 import * as rawAudio from "./contracts/audio/audio.ts";
 import * as rawRecordingCredits from "./contracts/recording_credits/recording_credits.ts";
-import * as rawRecordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as rawReleaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as rawReleaseCredits from "./contracts/release_credits/release_credits.ts";
 import * as rawReleaseDescription from "./contracts/release_description/release_description.ts";
@@ -97,7 +96,6 @@ export * as releaseRevenueDistributor from "./contracts/release_revenue_distribu
 export * as recordingAdvisory from "./contracts/recording_advisory/recording_advisory.ts";
 export * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 export * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
-export const recordingMasterReference = withoutUnsafeCalls(rawRecordingMasterReference, ["masterReference"] as const);
 export * as recordingEngineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
 export * as recordingStreamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 
