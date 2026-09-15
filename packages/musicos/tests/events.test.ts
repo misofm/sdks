@@ -9,7 +9,7 @@ import * as wire from "./event-fixtures.ts";
 
 const id = (byte: number) => `0x${byte.toString(16).padStart(2, "0").repeat(32)}`;
 
-test("core raw event decoders preserve publication and legacy recording layouts", () => {
+test("recording publication preserves the composition grant receipt", () => {
   const published = wire.recordingPublishedWire.serialize({
     recording_id: id(0x21),
     composition_id: id(0x22),
@@ -49,21 +49,6 @@ test("core raw event decoders preserve publication and legacy recording layouts"
     share_supply_fixed_after: true,
     composition_funds_sent: true,
     created_admin_cap_id: id(0x2b),
-  });
-
-  const legacy = wire.compositionSharesGrantedWire.serialize({
-    recording_id: id(0x25),
-    composition_id: id(0x26),
-    value: 33n,
-    rate_bps: 125,
-    granted_by: id(0x27),
-  }).toBytes();
-  expect(Effect.runSync(eventParsers.core.compositionSharesGranted(legacy))).toEqual({
-    recording_id: id(0x25),
-    composition_id: id(0x26),
-    value: "33",
-    rate_bps: 125,
-    granted_by: id(0x27),
   });
 });
 

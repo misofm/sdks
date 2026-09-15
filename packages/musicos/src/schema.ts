@@ -246,6 +246,5 @@ export const releaseAdminCapContent = (packageId: string) =>
 
 export const compositionPublishedEventContent = SuiSchema.bcs(composition.CompositionPublishedEvent);
 export const recordingPublishedEventContent = SuiSchema.bcs(recording.RecordingPublishedEvent);
-export const compositionSharesGrantedEventContent = SuiSchema.bcs(recording.CompositionSharesGrantedEvent);
 export const releasePublishedEventContent = SuiSchema.bcs(release.ReleasePublishedEvent);
 export const releaseRegistryCreatedEventContent = SuiSchema.bcs(release.ReleaseRegistryCreatedEvent);

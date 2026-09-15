@@ -39,7 +39,6 @@ export const eventParsers = {
   core: {
     compositionPublished: decoder(schema.compositionPublishedEventContent, "composition::CompositionPublishedEvent"),
     recordingPublished: decoder(schema.recordingPublishedEventContent, "recording::RecordingPublishedEvent"),
-    compositionSharesGranted: decoder(schema.compositionSharesGrantedEventContent, "recording::CompositionSharesGrantedEvent"),
     releasePublished: decoder(schema.releasePublishedEventContent, "release::ReleasePublishedEvent"),
     releaseRegistryCreated: decoder(schema.releaseRegistryCreatedEventContent, "release::ReleaseRegistryCreatedEvent"),
   },

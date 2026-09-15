@@ -46,14 +46,6 @@ export const recordingPublishedWire = bcs.struct("RecordingPublishedEventFixture
   created_admin_cap_id: bcs.Address,
 });
 
-export const compositionSharesGrantedWire = bcs.struct("CompositionSharesGrantedEventFixture", {
-  recording_id: bcs.Address,
-  composition_id: bcs.Address,
-  value: bcs.u64(),
-  rate_bps: bcs.u16(),
-  granted_by: bcs.Address,
-});
-
 export const releasePublishedWire = bcs.struct("ReleasePublishedEventFixture", {
   release_id: bcs.Address,
   release_admin_cap_id: bcs.Address,

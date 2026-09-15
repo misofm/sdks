@@ -98,24 +98,6 @@ test("recordingPublishedEvent preserves its publication payload", () => {
   });
 });
 
-test("legacy compositionSharesGrantedEvent remains lossless and decodable", () => {
-  const bytes = wire.compositionSharesGrantedWire.serialize({
-    recording_id: id(0x61),
-    composition_id: id(0x62),
-    value: "12345678901234567",
-    rate_bps: 1250,
-    granted_by: id(0x63),
-  }).toBytes();
-
-  expect(Effect.runSync(parse.parseCompositionSharesGrantedEvent(bytes))).toEqual({
-    recordingId: id(0x61),
-    compositionId: id(0x62),
-    value: "12345678901234567",
-    rateBps: 1250,
-    grantedBy: id(0x63),
-  });
-});
-
 test("releasePublishedEvent preserves ordered publication payload", () => {
   const bytes = wire.releasePublishedWire.serialize({
     release_id: id(0x81),

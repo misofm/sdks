@@ -13,7 +13,6 @@ import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as schema from "./schema.ts";
 import type {
   CompositionPublishedEvent,
-  CompositionSharesGrantedEvent,
   RecordingPublishedEvent,
   ReleasePublishedEvent,
   ReleaseRegistryCreatedEvent,
@@ -108,19 +107,6 @@ export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent>
     shareSupplyFixedAfter: e.share_supply_fixed_after,
     compositionFundsSent: e.composition_funds_sent,
     createdAdminCapId: e.created_admin_cap_id,
-  }),
-);
-
-/** Decodes the dormant legacy royalty-rate share grant event. */
-export const parseCompositionSharesGrantedEvent: EventDecoder<CompositionSharesGrantedEvent> = eventDecoder(
-  schema.compositionSharesGrantedEventContent,
-  "recording::CompositionSharesGrantedEvent",
-  (e): CompositionSharesGrantedEvent => ({
-    recordingId: e.recording_id,
-    compositionId: e.composition_id,
-    value: e.value,
-    rateBps: e.rate_bps,
-    grantedBy: e.granted_by,
   }),
 );
 

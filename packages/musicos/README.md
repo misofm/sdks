@@ -144,9 +144,8 @@ const same = await Effect.runPromise(parseCompositionPublishedEvent(executed.eve
 Addresses and IDs are strings. `u64` and `u256` values are decimal strings;
 `u8`/`u16` values are numbers, byte vectors are `number[]`, and address and
 `u64` vectors preserve their order. Title and digest bytes remain undecoded.
-`CompositionSharesGrantedEvent` remains available for historical data and is
-dormant in the current recording creation flow. Composition, recording, and
-release creation details now travel in their corresponding `*PublishedEvent`;
+Composition, recording, and release creation details travel in their
+corresponding `*PublishedEvent`;
 the three lifecycle objects publish atomically after initialization. Historical
 creation events require the SDK/schema generation that defined those events.
 The generated raw object codecs retain temporary creation data in the

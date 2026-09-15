@@ -139,21 +139,6 @@ export interface RecordingPublishedEvent {
 }
 
 /**
- * Legacy event emitted by older recording creation flows. It remains decodable
- * for historical data. Current recording creation emits the complete payload
- * on `RecordingPublishedEvent`.
- */
-export interface CompositionSharesGrantedEvent {
-  recordingId: string;
-  compositionId: string;
-  /** Recording-share base units sent to the composition address. */
-  value: string;
-  /** The immutable composition royalty rate applied at recording creation. */
-  rateBps: number;
-  grantedBy: string;
-}
-
-/**
  * Admin cap for a Recording, derived deterministically from the Recording object ID.
  *
  * The share type parameter T is extracted from the on-chain type

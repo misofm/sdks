@@ -126,15 +126,6 @@ export const RecordingPublishedEvent = new MoveStruct({ name: `${$moduleName}::R
         composition_funds_sent: bcs.bool(),
         created_admin_cap_id: bcs.Address
     } });
-export const CompositionSharesGrantedEvent = new MoveStruct({ name: `${$moduleName}::CompositionSharesGrantedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        /** Recording-share base units granted to the composition. */
-        value: bcs.u64(),
-        /** The composition royalty rate applied at creation, in basis points. */
-        rate_bps: bcs.u16(),
-        granted_by: bcs.Address
-    } });
 export interface NewArguments {
     composition: RawTransactionArgument<string>;
     shareCurrency: RawTransactionArgument<string>;
