@@ -141,7 +141,12 @@ export interface PublicationComposition {
   readonly title: string;
   readonly royaltyRateBps: number;
   readonly shareRecipients: ShareRecipient[];
-  /** Defaults to raw address balances for SDK compatibility; the CLI selects `stake`. */
+  /**
+   * Defaults to `"balance"` (raw address balances) for SDK compatibility; the CLI
+   * selects `"stake"`. `"stake"` is required whenever `royaltyPool` is set, so
+   * every recipient's stake is registered in the publication PTB and the pool
+   * never starts without stakers.
+   */
   readonly shareDistribution?: "balance" | "stake";
   readonly custody: PublicationCustody;
   readonly credits?: PublicationCompositionCredit[];
@@ -177,7 +182,12 @@ export type PublicationRecording = PublicationRecordingParent & {
   readonly shareTreasuryCapId: string;
   readonly compositionShareType: string;
   readonly shareRecipients: ShareRecipient[];
-  /** Defaults to raw address balances for SDK compatibility; the CLI selects `stake`. */
+  /**
+   * Defaults to `"balance"` (raw address balances) for SDK compatibility; the CLI
+   * selects `"stake"`. `"stake"` is required whenever `royaltyPool` is set, so
+   * every recipient's stake is registered in the publication PTB and the pool
+   * never starts without stakers.
+   */
   readonly shareDistribution?: "balance" | "stake";
   readonly custody: PublicationCustody;
   readonly credits?: PublicationRecordingCredit[];
@@ -715,6 +725,17 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
       throw new Error(`${node.ref}: routed stake requires parent Composition Vault custody`);
     }
   });
+  // Runs after the routed-stake checks so their more specific messages win for
+  // routed publications; this is the general rule for every pooled work.
+  for (const node of [...p.compositions, ...p.recordings]) {
+    if (node.royaltyPool && node.shareDistribution !== "stake") {
+      throw new Error(
+        `${node.ref}: a royalty pool requires shareDistribution "stake" so every share ` +
+          `recipient is registered at publication; with "balance" the pool starts with no ` +
+          `stakers and the first holder to register later claims all revenue received so far`,
+      );
+    }
+  }
   if (p.release?.revenueDistribution && p.release.custody.kind !== "vault") {
     throw new Error("Release revenue distribution requires Vault custody");
   }
