@@ -362,15 +362,18 @@ them from stale pricing-mode changes as well as amount changes.
 
 ### Vault fund settlement
 
-`settleAndDistributeReleaseRevenue` invokes the fixed release plugin with the
-framework `AccumulatorRoot` (`0xacc`); the plugin redeems the whole settled
-snapshot and exposes no amount argument. `settleCompositionRoyaltyPool` and
-`settleRecordingRoyaltyPool` read `balance::settled_funds_value` and pass that
-command result directly to their exact-value plugin calls. The lower-level raw
-Action `redeemAndDistributeReleaseRevenue` and the plugin helpers
-`redeemAndDepositCompositionRoyaltyPool`, and
-`redeemAndDepositRecordingRoyaltyPool` remain available when an earlier PTB
-command already produced the exact value.
+`settleAndDistributeReleaseRevenue`, `settleCompositionRoyaltyPool`, and
+`settleRecordingRoyaltyPool` each invoke the fixed plugin crank
+(`redeem_all_and_distribute` / `redeem_all_and_deposit`) with the framework
+`AccumulatorRoot` (`0xacc`); the plugin reads the settled snapshot on chain and
+redeems all of it, and exposes no amount argument. A zero snapshot, or a pool
+with no registered stake, is an on-chain no-op, so many of these calls can
+share one PTB without an already-cranked item aborting the batch. The
+object-argument forms `redeemAllAndDistributeReleaseRevenue`,
+`redeemAllAndDepositCompositionRoyaltyPool`, and
+`redeemAllAndDepositRecordingRoyaltyPool` take an already-resolved object
+argument instead of an ID. There is no caller-chosen-amount redemption on
+chain any more; `settledFundsValue` remains available for Party wallets.
 
 Party-wallet monetary builders are similarly composable:
 `receivePartyWalletBalance`, `redeemPartyWalletBalance`, and
@@ -721,9 +724,25 @@ Version 0.17 is a breaking deployment-safety release. Replace flat Vault,
 Action, and plugin package fields with the discriminated `operations` union.
 
 The Release revenue plugin crank is now fixed: call
-`redeemAllAndDistribute(vault, release, accumulatorRoot)` with no amount. The
-explicit-amount `redeemAndDistribute` Action remains available only for raw
-admin-cap composition.
+`redeemAllAndDistribute(vault, release, accumulatorRoot)` with no amount.
+(Since 0.40 the explicit-amount `redeemAndDistribute` Action no longer exists
+on chain either; see "Migrating from 0.39".)
+
+### Migrating from 0.39
+
+0.40 tracks the redeem-all-only revenue Actions and plugins (misofm/audit#1):
+the on-chain `redeem_and_distribute(value)` and `redeem_and_deposit(value)`
+functions are gone, so `redeemAndDistributeReleaseRevenue`,
+`redeemAndDepositCompositionRoyaltyPool`, and
+`redeemAndDepositRecordingRoyaltyPool` are removed along with their generated
+bindings (`Miso.contracts.*.redeemAndDistribute` / `.redeemAndDeposit`).
+`settleCompositionRoyaltyPool` and `settleRecordingRoyaltyPool` keep their
+parameters but now emit one `redeem_all_and_deposit` command (with the
+accumulator root) instead of `settled_funds_value` + `redeem_and_deposit`;
+use `redeemAllAndDepositCompositionRoyaltyPool` /
+`redeemAllAndDepositRecordingRoyaltyPool` when you already hold the object
+argument. Generated bindings gain `redeemAllAndDeposit` on the two pool
+Actions and the two pool plugins.
 
 ### Migrating from 0.27
 

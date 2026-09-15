@@ -190,38 +190,43 @@ export function receiveAndDeposit(options: ReceiveAndDepositOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface RedeemAndDepositArguments {
+export interface RedeemAllAndDepositArguments {
     vault: RawTransactionArgument<string>;
     composition: RawTransactionArgument<string>;
     pool: RawTransactionArgument<string>;
-    value: RawTransactionArgument<number | bigint>;
 }
-export interface RedeemAndDepositOptions {
+export interface RedeemAllAndDepositOptions {
     package?: string;
-    arguments: RedeemAndDepositArguments | [
+    arguments: RedeemAllAndDepositArguments | [
         vault: RawTransactionArgument<string>,
         composition: RawTransactionArgument<string>,
-        pool: RawTransactionArgument<string>,
-        value: RawTransactionArgument<number | bigint>
+        pool: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
         string
     ];
 }
-export function redeemAndDeposit(options: RedeemAndDepositOptions) {
+/**
+ * Permissionless crank: redeem the Composition's full settled accumulator snapshot
+ * into its canonical pool. Takes the framework `AccumulatorRoot` and no amount, so
+ * a caller cannot fragment settlement. A zero snapshot or a pool with no
+ * registered stake is an idempotent no-op that redeems nothing and emits no
+ * deposit event, so one such item never aborts a batched crank.
+ */
+export function redeemAllAndDeposit(options: RedeemAllAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/composition_royalty_pool_plugin';
     const argumentsTypes = [
         null,
         null,
         null,
-        'u64'
+        '0x2::accumulator::AccumulatorRoot'
     ] satisfies (string | null)[];
-    const parameterNames = ["vault", "composition", "pool", "value"];
+    const parameterNames = ["vault", "composition", "pool"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'composition_royalty_pool_plugin',
-        function: 'redeem_and_deposit',
+        function: 'redeem_all_and_deposit',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
