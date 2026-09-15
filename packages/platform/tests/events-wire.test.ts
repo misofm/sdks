@@ -1427,7 +1427,7 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
           ...master,
           data: {
             ...data,
-            confidentiality: { Unencrypted: true, $kind: "Unencrypted" },
+            confidentiality: { Encrypted: { sealed_dek: [201, 202, 203] }, $kind: "Encrypted" },
           },
         },
       };
