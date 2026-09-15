@@ -666,7 +666,7 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
       admin_cap_id: partyCapId,
       name: "Artist",
       kind: 0,
-      member_ids: [],
+      member_count: "0",
       creator: A,
       created_at_ms: "9007199254740993",
       created_epoch: "17",

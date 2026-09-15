@@ -26,7 +26,6 @@ export const ObjectReceivedEvent = new MoveStruct({ name: `${$moduleName}::Objec
     } });
 export const CoinsReceivedEvent = new MoveStruct({ name: `${$moduleName}::CoinsReceivedEvent<phantom Currency>`, fields: {
         party_id: bcs.Address,
-        coin_ids: bcs.vector(bcs.Address),
         amount: bcs.u64(),
         coins: bcs.u64()
     } });

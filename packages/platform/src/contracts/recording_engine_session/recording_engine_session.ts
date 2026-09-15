@@ -63,18 +63,14 @@ export const EngineSessionSetEvent = new MoveStruct({ name: `${$moduleName}::Eng
         previous_session_blob_id: bcs.u256(),
         previous_stem_count: bcs.u64(),
         session_blob_id: bcs.u256(),
-        stem_count: bcs.u64(),
-        stem_digests: bcs.vector(bcs.vector(bcs.u8())),
-        stem_blob_ids: bcs.vector(bcs.u256())
+        stem_count: bcs.u64()
     } });
 export const EngineSessionUnsetEvent = new MoveStruct({ name: `${$moduleName}::EngineSessionUnsetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
         composition_id: bcs.Address,
         admin_cap_id: bcs.Address,
         removed_session_blob_id: bcs.u256(),
-        removed_stem_count: bcs.u64(),
-        removed_stem_digests: bcs.vector(bcs.vector(bcs.u8())),
-        removed_stem_blob_ids: bcs.vector(bcs.u256())
+        removed_stem_count: bcs.u64()
     } });
 export interface NewStemArguments {
     digest: RawTransactionArgument<Array<number>>;

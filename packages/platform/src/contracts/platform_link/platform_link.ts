@@ -44,21 +44,13 @@ export function PlatformLink<Data extends BcsType<any>>(...typeParameters: [
 export const PlatformLinkKey = new MoveTuple({ name: `${$moduleName}::PlatformLinkKey<phantom Data>`, fields: [bcs.bool()] });
 export const PlatformLinkSetEvent = new MoveStruct({ name: `${$moduleName}::PlatformLinkSetEvent<phantom Data>`, fields: {
         parent_id: bcs.Address,
-        data_type: bcs.vector(bcs.u8()),
         existed_before: bcs.bool(),
-        exists_after: bcs.bool(),
-        previous_bcs_length: bcs.u64(),
-        previous_bcs_hash: bcs.vector(bcs.u8()),
-        data_bcs_length: bcs.u64(),
-        data_bcs_hash: bcs.vector(bcs.u8())
+        exists_after: bcs.bool()
     } });
 export const PlatformLinkRemovedEvent = new MoveStruct({ name: `${$moduleName}::PlatformLinkRemovedEvent<phantom Data>`, fields: {
         parent_id: bcs.Address,
-        data_type: bcs.vector(bcs.u8()),
         existed_before: bcs.bool(),
-        exists_after: bcs.bool(),
-        removed_bcs_length: bcs.u64(),
-        removed_bcs_hash: bcs.vector(bcs.u8())
+        exists_after: bcs.bool()
     } });
 export interface MaxIdentifierLengthOptions {
     package?: string;
@@ -191,9 +183,9 @@ export interface SetOptions {
 }
 /**
  * Sets the `PlatformLink<Data>` under `uid`, replacing any existing one. Emits
- * `PlatformLinkSetEvent<Data>` with bounded summaries of the previous and new
- * payloads only when the complete `Data` value changes. Equal replacements still
- * write the new value but do not emit.
+ * `PlatformLinkSetEvent<Data>` with the existence transition only when the
+ * complete `Data` value changes. Equal replacements still write the new value but
+ * do not emit.
  */
 export function set(options: SetOptions) {
     const packageAddress = options.package ?? '@local-pkg/platform_link';

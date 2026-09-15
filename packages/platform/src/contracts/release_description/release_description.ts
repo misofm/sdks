@@ -49,14 +49,11 @@ export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`
 export const ReleaseDescriptionSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDescriptionSetEvent`, fields: {
         release_id: bcs.Address,
         release_admin_cap_id: bcs.Address,
-        description_existed_before: bcs.bool(),
-        description_before: bcs.vector(bcs.u8()),
-        description_after: bcs.vector(bcs.u8())
+        description_existed_before: bcs.bool()
     } });
 export const ReleaseDescriptionClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDescriptionClearedEvent`, fields: {
         release_id: bcs.Address,
-        release_admin_cap_id: bcs.Address,
-        description_before: bcs.vector(bcs.u8())
+        release_admin_cap_id: bcs.Address
     } });
 export interface SetDescriptionArguments {
     self: RawTransactionArgument<string>;

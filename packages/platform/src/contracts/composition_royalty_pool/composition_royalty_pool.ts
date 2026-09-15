@@ -40,7 +40,7 @@ export const CompositionCoinsDepositedEvent = new MoveStruct({ name: `${$moduleN
         carry_after: bcs.u128(),
         cumulative_deposits_before: bcs.u128(),
         cumulative_deposits_after: bcs.u128(),
-        coin_ids: bcs.vector(bcs.Address)
+        coin_count: bcs.u64()
     } });
 export const CompositionFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::CompositionFundsDepositedEvent<phantom CompositionShare, phantom Currency>`, fields: {
         composition_id: bcs.Address,

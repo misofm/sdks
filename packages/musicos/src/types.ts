@@ -231,9 +231,6 @@ export interface ReleasePublishedEvent {
   clockId: string;
   titleBytes: number[];
   publishedAtMs: string;
-  compositionIds: string[];
-  recordingIds: string[];
-  trackSplitBps: string[];
   assignedTrackCount: string;
   sharedAfter: boolean;
   registryId: string;

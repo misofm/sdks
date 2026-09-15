@@ -20,7 +20,7 @@ const $moduleName = '@local-pkg/release_revenue_distributor::release_revenue_dis
 export const ReleaseCoinsReceivedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseCoinsReceivedEvent<phantom Currency>`, fields: {
         release_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        coin_ids: bcs.vector(bcs.Address),
+        coin_count: bcs.u64(),
         amount: bcs.u64()
     } });
 export const ReleaseFundsRedeemedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseFundsRedeemedEvent<phantom Currency>`, fields: {

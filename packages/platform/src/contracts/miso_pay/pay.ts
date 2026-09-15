@@ -9,7 +9,6 @@ import { type BcsType, bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as type_name from './deps/std/type_name.ts';
 const $moduleName = '@local-pkg/miso_pay::pay';
 /** Emitted after a payment has been deposited to the target object's address. */
 export function PaymentSentEvent<Metadata extends BcsType<any>>(...typeParameters: [
@@ -17,10 +16,10 @@ export function PaymentSentEvent<Metadata extends BcsType<any>>(...typeParameter
 ]) {
     return new MoveStruct({ name: `${$moduleName}::PaymentSentEvent<phantom Target, phantom Currency, ${typeParameters[0].name as Metadata['name']}>`, fields: {
             target_id: bcs.Address,
-            target_type: type_name.TypeName,
             payer: bcs.Address,
             value: bcs.u64(),
-            metadata: typeParameters[0],
+            metadata: bcs.option(typeParameters[0]),
+            metadata_digest: bcs.vector(bcs.u8()),
             paid_at_ms: bcs.u64()
         } });
 }
@@ -49,35 +48,6 @@ export function targetId(options: TargetIdOptions) {
         package: packageAddress,
         module: 'pay',
         function: 'target_id',
-        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
-        typeArguments: options.typeArguments
-    });
-}
-export interface TargetTypeArguments {
-    receipt: TransactionArgument;
-}
-export interface TargetTypeOptions {
-    package?: string;
-    arguments: TargetTypeArguments | [
-        receipt: TransactionArgument
-    ];
-    typeArguments: [
-        string,
-        string,
-        string
-    ];
-}
-/** Defining type of the object that received the payment. */
-export function targetType(options: TargetTypeOptions) {
-    const packageAddress = options.package ?? '@local-pkg/miso_pay';
-    const argumentsTypes = [
-        null
-    ] satisfies (string | null)[];
-    const parameterNames = ["receipt"];
-    return (tx: Transaction) => tx.moveCall({
-        package: packageAddress,
-        module: 'pay',
-        function: 'target_type',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
@@ -154,7 +124,10 @@ export interface MetadataOptions {
         string
     ];
 }
-/** Caller-defined typed payment metadata. */
+/**
+ * Small caller-defined typed metadata, present only when its BCS encoding is at
+ * most 256 bytes.
+ */
 export function metadata(options: MetadataOptions) {
     const packageAddress = options.package ?? '@local-pkg/miso_pay';
     const argumentsTypes = [
@@ -165,6 +138,35 @@ export function metadata(options: MetadataOptions) {
         package: packageAddress,
         module: 'pay',
         function: 'metadata',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface MetadataDigestArguments {
+    receipt: TransactionArgument;
+}
+export interface MetadataDigestOptions {
+    package?: string;
+    arguments: MetadataDigestArguments | [
+        receipt: TransactionArgument
+    ];
+    typeArguments: [
+        string,
+        string,
+        string
+    ];
+}
+/** Blake2b-256 commitment to oversized metadata; empty when metadata is inline. */
+export function metadataDigest(options: MetadataDigestOptions) {
+    const packageAddress = options.package ?? '@local-pkg/miso_pay';
+    const argumentsTypes = [
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["receipt"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'pay',
+        function: 'metadata_digest',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

@@ -16,7 +16,7 @@
  * over-max aborts come from `typed_set` with its own error codes. Gated by the
  * `PartyAdminCap`; views are permissionless. Mutation events carry the party and
  * cap addresses, a stable kind/name pair, and before/after counts; a populated
- * clear also carries ordered removed role snapshots.
+ * clear carries counts only.
  */
 
 import { MoveTuple, MoveStruct, MoveEnum, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -44,8 +44,6 @@ export const RoleRemovedEvent = new MoveStruct({ name: `${$moduleName}::RoleRemo
 export const RolesClearedEvent = new MoveStruct({ name: `${$moduleName}::RolesClearedEvent`, fields: {
         party_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        removed_role_kinds: bcs.vector(bcs.u8()),
-        removed_role_names: bcs.vector(bcs.vector(bcs.u8())),
         roles_count_before: bcs.u64(),
         roles_count_after: bcs.u64()
     } });

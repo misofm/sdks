@@ -31,8 +31,6 @@ test("extension event decoders preserve current generated BCS fields", () => {
     release_id: EVENTS_A,
     release_admin_cap_id: EVENTS_B,
     description_existed_before: false,
-    description_before: [],
-    description_after: Array.from(new TextEncoder().encode("Liner notes")),
   };
   const bytes = ReleaseDescriptionSetEvent.serialize(value).toBytes();
 
@@ -44,10 +42,7 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     release_id: EVENTS_A,
     admin_cap_id: EVENTS_B,
     genre_id: EVENTS_B,
-    genre_name: [74, 97, 122, 122],
     genre_index: "0",
-    genres_before: [],
-    genres_after: [EVENTS_B],
     genre_count_before: "0",
     genre_count_after: "1",
     field_existed_before: false,
@@ -63,8 +58,6 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     admin_cap_id: EVENTS_B,
     genre_id: EVENTS_B,
     genre_index: "0",
-    genres_before: [EVENTS_B],
-    genres_after: [],
     genre_count_before: "1",
     genre_count_after: "0",
     field_existed_before: true,
@@ -81,7 +74,6 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     clear_cause: 1,
     trigger_genre_id: EVENTS_B,
     genres_before: [EVENTS_B],
-    genres_after: [],
     genre_count_before: "1",
     genre_count_after: "0",
     field_existed_before: true,
@@ -97,10 +89,7 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     composition_id: EVENTS_B,
     admin_cap_id: EVENTS_B,
     genre_id: EVENTS_B,
-    genre_name: [74, 97, 122, 122],
     genre_index: "0",
-    genres_before: [],
-    genres_after: [EVENTS_B],
     genre_count_before: "0",
     genre_count_after: "1",
     field_existed_before: false,
@@ -117,8 +106,6 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     admin_cap_id: EVENTS_B,
     genre_id: EVENTS_B,
     genre_index: "0",
-    genres_before: [EVENTS_B],
-    genres_after: [],
     genre_count_before: "1",
     genre_count_after: "0",
     field_existed_before: true,
@@ -136,7 +123,6 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     clear_cause: 2,
     trigger_genre_id: EVENTS_B,
     genres_before: [EVENTS_B],
-    genres_after: [],
     genre_count_before: "1",
     genre_count_after: "0",
     field_existed_before: true,
@@ -148,7 +134,7 @@ test("release_genre and recording_genre event decoders round-trip the current AB
     primary_changed: true,
   }).toBytes();
 
-  expect(platformEventParsers.extensions.releaseGenre.genreAdded(releaseAdded).genre_name).toEqual([74, 97, 122, 122]);
+  expect(platformEventParsers.extensions.releaseGenre.genreAdded(releaseAdded).genre_id).toBe(EVENTS_B);
   expect(platformEventParsers.extensions.releaseGenre.genreRemoved(releaseRemoved).field_exists_after).toBeFalse();
   expect(platformEventParsers.extensions.releaseGenre.genresCleared(releaseCleared).clear_cause).toBe(1);
   expect(platformEventParsers.extensions.recordingGenre.genreAdded(recordingAdded).composition_id).toBe(EVENTS_B);
@@ -209,22 +195,16 @@ test("description parser accepts an independently declared wire layout", () => {
     release_id: bcs.Address,
     release_admin_cap_id: bcs.Address,
     description_existed_before: bcs.bool(),
-    description_before: bcs.vector(bcs.u8()),
-    description_after: bcs.vector(bcs.u8()),
   });
   const bytes = independent.serialize({
     release_id: EVENTS_A,
     release_admin_cap_id: EVENTS_B,
     description_existed_before: true,
-    description_before: [1, 2, 3],
-    description_after: [4, 5, 6],
   }).toBytes();
   expect(platformEventParsers.extensions.releaseDescription.descriptionSet(bytes)).toEqual({
     release_id: EVENTS_A,
     release_admin_cap_id: EVENTS_B,
     description_existed_before: true,
-    description_before: [1, 2, 3],
-    description_after: [4, 5, 6],
   });
 });
 

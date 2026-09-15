@@ -43,9 +43,7 @@ export const ReleaseDspLinkSetEvent = new MoveStruct({ name: `${$moduleName}::Re
         field_existed_before: bcs.bool(),
         field_exists_after: bcs.bool(),
         previous_present: bcs.bool(),
-        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
-        current_present: bcs.bool(),
-        current_fields: bcs.vector(bcs.vector(bcs.u8()))
+        current_present: bcs.bool()
     } });
 export const ReleaseDspLinkClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseDspLinkClearedEvent`, fields: {
         release_id: bcs.Address,
@@ -55,9 +53,7 @@ export const ReleaseDspLinkClearedEvent = new MoveStruct({ name: `${$moduleName}
         field_existed_before: bcs.bool(),
         field_exists_after: bcs.bool(),
         previous_present: bcs.bool(),
-        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
-        current_present: bcs.bool(),
-        current_fields: bcs.vector(bcs.vector(bcs.u8()))
+        current_present: bcs.bool()
     } });
 export const ReleaseTrackDspLinkSetEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinkSetEvent`, fields: {
         release_id: bcs.Address,
@@ -70,11 +66,8 @@ export const ReleaseTrackDspLinkSetEvent = new MoveStruct({ name: `${$moduleName
         recording_id: bcs.Address,
         composition_id: bcs.Address,
         previous_present: bcs.bool(),
-        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
         current_present: bcs.bool(),
-        current_fields: bcs.vector(bcs.vector(bcs.u8())),
-        album_present: bcs.bool(),
-        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+        album_present: bcs.bool()
     } });
 export const ReleaseTrackDspLinkClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinkClearedEvent`, fields: {
         release_id: bcs.Address,
@@ -87,11 +80,8 @@ export const ReleaseTrackDspLinkClearedEvent = new MoveStruct({ name: `${$module
         recording_id: bcs.Address,
         composition_id: bcs.Address,
         previous_present: bcs.bool(),
-        previous_fields: bcs.vector(bcs.vector(bcs.u8())),
         current_present: bcs.bool(),
-        current_fields: bcs.vector(bcs.vector(bcs.u8())),
-        album_present: bcs.bool(),
-        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+        album_present: bcs.bool()
     } });
 export const ReleaseTrackDspLinksClearedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseTrackDspLinksClearedEvent`, fields: {
         release_id: bcs.Address,
@@ -101,12 +91,7 @@ export const ReleaseTrackDspLinksClearedEvent = new MoveStruct({ name: `${$modul
         field_existed_before: bcs.bool(),
         field_exists_after: bcs.bool(),
         removed_link_count: bcs.u64(),
-        removed_track_indices: bcs.vector(bcs.u64()),
-        removed_recording_ids: bcs.vector(bcs.Address),
-        removed_composition_ids: bcs.vector(bcs.Address),
-        removed_link_fields: bcs.vector(bcs.vector(bcs.vector(bcs.u8()))),
-        album_present: bcs.bool(),
-        album_fields: bcs.vector(bcs.vector(bcs.u8()))
+        album_present: bcs.bool()
     } });
 /**
  * A link to a release (or one of its tracks) on a single DSP, one variant per

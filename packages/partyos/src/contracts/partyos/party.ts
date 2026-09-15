@@ -61,11 +61,8 @@ export const PartyCreatedEvent = new MoveStruct({ name: `${$moduleName}::PartyCr
         name: bcs.string(),
         /** Kind discriminant: 0 for an individual and 1 for a group. */
         kind: bcs.u8(),
-        /**
-         * Group member IDs in `VecSet` insertion order, or an empty vector for an
-         * individual.
-         */
-        member_ids: bcs.vector(bcs.Address),
+        /** Number of group members, or zero for an individual. */
+        member_count: bcs.u64(),
         creator: bcs.Address,
         created_at_ms: bcs.u64(),
         /** Epoch in which the party was created. */

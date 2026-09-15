@@ -26,7 +26,7 @@ const partyCreatedWire = bcs.struct("PartyCreatedEventFixture", {
   admin_cap_id: bcs.Address,
   name: bcs.string(),
   kind: bcs.u8(),
-  member_ids: bcs.vector(bcs.Address),
+  member_count: bcs.u64(),
   creator: bcs.Address,
   created_at_ms: bcs.u64(),
   created_epoch: bcs.u64(),
@@ -139,7 +139,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: ADMIN_CAP_ID,
     name: "Ada",
     kind: 0,
-    member_ids: [],
+    member_count: "0",
     creator: CREATOR,
     created_at_ms: "9007199254740993",
     created_epoch: "18446744073709551615",
@@ -149,7 +149,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: GROUP_ADMIN_CAP_ID,
     name: "The Group",
     kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
+    member_count: "2",
     creator: CREATOR,
     created_at_ms: "12345678901234567890",
     created_epoch: "42",
@@ -163,7 +163,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: ADMIN_CAP_ID,
     name: "Ada",
     kind: 0,
-    member_ids: [],
+    member_count: "0",
     creator: CREATOR,
     created_at_ms: "9007199254740993",
     created_epoch: "18446744073709551615",
@@ -173,7 +173,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: GROUP_ADMIN_CAP_ID,
     name: "The Group",
     kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
+    member_count: "2",
     creator: CREATOR,
     created_at_ms: "12345678901234567890",
     created_epoch: "42",
@@ -182,11 +182,11 @@ test("decodes individual and group creation fixtures with numeric kind and preci
   const kind: number = individual.kind;
   const createdAt: string = individual.created_at_ms;
   const createdEpoch: string = individual.created_epoch;
-  const memberIds: string[] = group.member_ids;
+  const memberCount: string = group.member_count;
   void kind;
   void createdAt;
   void createdEpoch;
-  void memberIds;
+  void memberCount;
 });
 
 test("decodes name changes without domain remapping", () => {

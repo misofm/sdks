@@ -41,7 +41,7 @@ export const RecordingCoinsDepositedEvent = new MoveStruct({ name: `${$moduleNam
         carry_after: bcs.u128(),
         cumulative_deposits_before: bcs.u128(),
         cumulative_deposits_after: bcs.u128(),
-        coin_ids: bcs.vector(bcs.Address)
+        coin_count: bcs.u64()
     } });
 export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingFundsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
         recording_id: bcs.Address,

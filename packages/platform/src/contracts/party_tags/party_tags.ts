@@ -16,7 +16,7 @@
  * as given (exact dedupe); normalization for search/display is a client concern.
  * Gated by the `PartyAdminCap`; views are permissionless. Mutation events carry
  * the party and cap addresses, the raw tag bytes, and before/after counts; a
- * populated clear also carries the ordered raw tag snapshots.
+ * populated clear carries counts only.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -42,7 +42,6 @@ export const TagRemovedEvent = new MoveStruct({ name: `${$moduleName}::TagRemove
 export const TagsClearedEvent = new MoveStruct({ name: `${$moduleName}::TagsClearedEvent`, fields: {
         party_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        removed_tags: bcs.vector(bcs.vector(bcs.u8())),
         tag_count_before: bcs.u64(),
         tag_count_after: bcs.u64()
     } });

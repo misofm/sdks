@@ -130,7 +130,6 @@ export const RoyaltyPoolFundsSettledEvent = new MoveStruct({ name: `${$moduleNam
     } });
 export const RoyaltyPoolCoinsRecoveredEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolCoinsRecoveredEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
-        coin_ids: bcs.vector(bcs.Address),
         coin_count: bcs.u64(),
         funds_recipient: bcs.Address,
         value: bcs.u64(),
