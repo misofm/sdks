@@ -287,7 +287,6 @@ export const platformEventParsers = {
     pressing: {
       created: decoder(pressing.PressingCreatedEvent),
       purchased: decoder(pressing.RecordPurchasedEvent),
-      shared: decoder(pressing.PressingSharedEvent),
       distributorAuthorized: decoder(pressing.PressingDistributorAuthorizedEvent),
       distributorRevoked: decoder(pressing.PressingDistributorRevokedEvent),
     },

@@ -781,6 +781,12 @@ aliases (`primitives.vault.shared` and `.vaultShared`), and the Miso facade expo
 are removed. Use `primitives.vault.created` for discovery; authorization and
 capability custody changes retain their own events, including before sharing.
 
+Pressings retain `PressingCreatedEvent` with their initial edition, supply limit
+and capability provenance. Sharing is silent: `PressingSharedEvent`, the
+`products.pressing.shared` parser and Miso facade export are removed. Use
+`products.pressing.created` for discovery; distributor changes and purchases
+retain their own events, including changes made before sharing.
+
 Route the events that still exist by their owning purpose:
 
 | Purpose | Parser path |

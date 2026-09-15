@@ -61,7 +61,7 @@ describe("client.$extend(miso()): warm registration", () => {
     expect(typeof client.miso.protocol.getReleaseById).toBe("function");
     expect(typeof client.miso.party.getPartyById).toBe("function");
     expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
-    expect(client.miso.bcs.PressingSharedEvent).toBeDefined();
+    expect(client.miso.bcs.PressingCreatedEvent).toBeDefined();
 
     // A sibling-composed PTB: `client.miso.tx.*` (this package's own fragment)
     // plus `client.miso.party.tx.*` (the party surface's fragment) in one

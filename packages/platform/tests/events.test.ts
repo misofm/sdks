@@ -311,7 +311,6 @@ test("registry exposes every current platform event family", () => {
     ["products", "record", "destroyed"],
     ["products", "pressing", "created"],
     ["products", "pressing", "purchased"],
-    ["products", "pressing", "shared"],
     ["products", "pressing", "distributorAuthorized"],
     ["products", "pressing", "distributorRevoked"],
     ["products", "listing", "created"],
