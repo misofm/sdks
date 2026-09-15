@@ -25,9 +25,9 @@ export const OPTION_SOME = "0x1::option::some";
  * followed by `data::new_blob(blob_id, confidentiality)`. `ori` is an external
  * dependency, so these are raw calls against the deployment's `ori` package.
  *
- * Every platform extension that stores a standalone blob (cover art, master
- * reference, engine session) builds its reference here so the ori ABI is pinned
- * in exactly one place.
+ * Cover-art builders use this helper so the remaining `ori` WalrusBlob ABI is
+ * pinned in exactly one place. Audio masters and engine sessions store bare
+ * blob IDs in v1 and do not call this helper.
  */
 export function unencryptedWalrusBlob(
   tx: Transaction,
