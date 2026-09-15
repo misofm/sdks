@@ -81,7 +81,7 @@ export * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_p
 export * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
 export * as releaseRevenueDistributorPlugin from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 
-// Cover art (the CoverArt value type + the release attachment extension).
+// Audio primitives and cover art (cover attachment stays Ori-backed).
 export const audio = withoutUnsafeCalls(rawAudio, ["format", "pcmDigest"] as const);
 export * as coverArt from "./contracts/cover_art/cover_art.ts";
 export const releaseCoverArt = withoutUnsafeCalls(rawReleaseCoverArt, ["cover"] as const);
