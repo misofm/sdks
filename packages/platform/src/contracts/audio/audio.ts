@@ -20,7 +20,6 @@ import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from 
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as data_1 from './deps/ori/data.ts';
 const $moduleName = '@local-pkg/audio::audio';
 export const Audio = new MoveStruct({ name: `${$moduleName}::Audio`, fields: {
         /**
@@ -44,8 +43,8 @@ export const Audio = new MoveStruct({ name: `${$moduleName}::Audio`, fields: {
          * fingerprint), using the default 32-byte output.
          */
         pcm_digest: bcs.vector(bcs.u8()),
-        /** Standalone Walrus blob reference for the audio. */
-        data: data_1.WalrusBlob
+        /** Standalone Walrus blob ID for the audio. */
+        blob_id: bcs.u256()
     } });
 export interface NewArguments {
     format: RawTransactionArgument<string>;
@@ -54,7 +53,7 @@ export interface NewArguments {
     sampleRateHz: RawTransactionArgument<number>;
     samples: RawTransactionArgument<number | bigint>;
     pcmDigest: RawTransactionArgument<Array<number>>;
-    data: TransactionArgument;
+    blobId: RawTransactionArgument<number | bigint>;
 }
 export interface NewOptions {
     package?: string;
@@ -65,7 +64,7 @@ export interface NewOptions {
         sampleRateHz: RawTransactionArgument<number>,
         samples: RawTransactionArgument<number | bigint>,
         pcmDigest: RawTransactionArgument<Array<number>>,
-        data: TransactionArgument
+        blobId: RawTransactionArgument<number | bigint>
     ];
 }
 /**
@@ -81,9 +80,9 @@ export function _new(options: NewOptions) {
         'u32',
         'u64',
         'vector<u8>',
-        null
+        'u256'
     ] satisfies (string | null)[];
-    const parameterNames = ["format", "channels", "bitDepth", "sampleRateHz", "samples", "pcmDigest", "data"];
+    const parameterNames = ["format", "channels", "bitDepth", "sampleRateHz", "samples", "pcmDigest", "blobId"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'audio',
@@ -183,17 +182,17 @@ export function samples(options: SamplesOptions) {
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface DataArguments {
+export interface BlobIdArguments {
     self: TransactionArgument;
 }
-export interface DataOptions {
+export interface BlobIdOptions {
     package?: string;
-    arguments: DataArguments | [
+    arguments: BlobIdArguments | [
         self: TransactionArgument
     ];
 }
-/** Returns a reference to the standalone Walrus blob. */
-export function data(options: DataOptions) {
+/** Returns the standalone Walrus blob ID. */
+export function blobId(options: BlobIdOptions) {
     const packageAddress = options.package ?? '@local-pkg/audio';
     const argumentsTypes = [
         null
@@ -202,7 +201,7 @@ export function data(options: DataOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'audio',
-        function: 'data',
+        function: 'blob_id',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }

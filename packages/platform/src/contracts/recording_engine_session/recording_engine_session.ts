@@ -9,28 +9,27 @@
  *
  * The Session V1 document references each source by the SHA-256 digest of its
  * canonical PCM (engine `STEM_IDENTITY_V1`) and carries no locator. Walrus serves
- * blobs by blob ID. `EngineSession` therefore records, next to the session blob,
- * one `Stem` per source pairing that digest with the standalone Walrus blob
- * holding its FLAC delivery object. A client reads one value and can resolve every
- * source the session names.
+ * blobs by blob ID. `EngineSession` therefore records, next to the session blob
+ * ID, one `Stem` per source pairing that digest with the blob ID holding its FLAC
+ * delivery object. A client reads one value and can resolve every source the
+ * session names.
  *
  * Session and stems are one value and are replaced together: adding a source
  * changes the document, so a new document and a new stem set land in a single
  * `set_engine_session`. Stems are sorted by digest and unique, so the value has
  * exactly one canonical form for a given session.
  *
- * Every referenced blob is unencrypted; the constructors reject encrypted
- * confidentiality. This extension asserts only which blobs the recording
- * administrator chose. It does not prove storage availability, document validity,
- * that a stem decodes to its digest, or that the digests match the document's
- * sources. Publication tooling must perform those checks before attachment.
+ * Every reference is a bare blob ID. This extension asserts only which blobs the
+ * recording administrator chose. It does not prove storage availability, document
+ * validity, that a stem decodes to its digest, or that the digests match the
+ * document's sources. Publication tooling must perform those checks before
+ * attachment.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-import * as data_1 from './deps/ori/data.ts';
 const $moduleName = '@local-pkg/recording_engine_session::recording_engine_session';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
 export const Stem = new MoveStruct({ name: `${$moduleName}::Stem`, fields: {
@@ -41,17 +40,17 @@ export const Stem = new MoveStruct({ name: `${$moduleName}::Stem`, fields: {
            */
         digest: bcs.vector(bcs.u8()),
         /**
-         * Unencrypted standalone Walrus blob holding the stem's FLAC delivery object,
-         * which decodes to the PCM the digest commits to.
+         * Standalone Walrus blob ID holding the stem's FLAC delivery object, which decodes
+         * to the PCM the digest commits to.
          */
-        data: data_1.WalrusBlob
+        blob_id: bcs.u256()
     } });
 export const EngineSession = new MoveStruct({ name: `${$moduleName}::EngineSession`, fields: {
         /**
-           * Unencrypted standalone Walrus blob holding the canonical Session V1 JSON
-           * document, byte for byte as the engine emitted it.
+           * Standalone Walrus blob ID holding the canonical Session V1 JSON document, byte
+           * for byte as the engine emitted it.
            */
-        data: data_1.WalrusBlob,
+        blob_id: bcs.u256(),
         /** Every stem the document's sources reference, sorted by digest, unique. */
         stems: bcs.vector(Stem)
     } });
@@ -79,23 +78,23 @@ export const EngineSessionUnsetEvent = new MoveStruct({ name: `${$moduleName}::E
     } });
 export interface NewStemArguments {
     digest: RawTransactionArgument<Array<number>>;
-    data: TransactionArgument;
+    blobId: RawTransactionArgument<number | bigint>;
 }
 export interface NewStemOptions {
     package?: string;
     arguments: NewStemArguments | [
         digest: RawTransactionArgument<Array<number>>,
-        data: TransactionArgument
+        blobId: RawTransactionArgument<number | bigint>
     ];
 }
-/** Creates a stem reference from a 32-byte PCM digest and an unencrypted blob. */
+/** Creates a stem reference from a 32-byte PCM digest and a blob ID. */
 export function newStem(options: NewStemOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_engine_session';
     const argumentsTypes = [
         'vector<u8>',
-        null
+        'u256'
     ] satisfies (string | null)[];
-    const parameterNames = ["digest", "data"];
+    const parameterNames = ["digest", "blobId"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_engine_session',
@@ -104,18 +103,18 @@ export function newStem(options: NewStemOptions) {
     });
 }
 export interface NewArguments {
-    data: TransactionArgument;
+    blobId: RawTransactionArgument<number | bigint>;
     stems: TransactionArgument;
 }
 export interface NewOptions {
     package?: string;
     arguments: NewArguments | [
-        data: TransactionArgument,
+        blobId: RawTransactionArgument<number | bigint>,
         stems: TransactionArgument
     ];
 }
 /**
- * Creates an engine session from an unencrypted session blob and its stems.
+ * Creates an engine session from a session blob ID and its stems.
  *
  * `stems` must be in strictly increasing digest order, which also forbids
  * duplicates. An empty vector is valid: a Session V1 document may declare no
@@ -124,10 +123,10 @@ export interface NewOptions {
 export function _new(options: NewOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_engine_session';
     const argumentsTypes = [
-        null,
+        'u256',
         'vector<null>'
     ] satisfies (string | null)[];
-    const parameterNames = ["data", "stems"];
+    const parameterNames = ["blobId", "stems"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_engine_session',
@@ -135,17 +134,17 @@ export function _new(options: NewOptions) {
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface DataArguments {
+export interface BlobIdArguments {
     self: TransactionArgument;
 }
-export interface DataOptions {
+export interface BlobIdOptions {
     package?: string;
-    arguments: DataArguments | [
+    arguments: BlobIdArguments | [
         self: TransactionArgument
     ];
 }
-/** Returns the unencrypted Walrus blob containing the Session V1 document. */
-export function data(options: DataOptions) {
+/** Returns the Walrus blob ID containing the Session V1 document. */
+export function blobId(options: BlobIdOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_engine_session';
     const argumentsTypes = [
         null
@@ -154,7 +153,7 @@ export function data(options: DataOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_engine_session',
-        function: 'data',
+        function: 'blob_id',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
@@ -204,17 +203,17 @@ export function stemDigest(options: StemDigestOptions) {
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
-export interface StemDataArguments {
+export interface StemBlobIdArguments {
     self: TransactionArgument;
 }
-export interface StemDataOptions {
+export interface StemBlobIdOptions {
     package?: string;
-    arguments: StemDataArguments | [
+    arguments: StemBlobIdArguments | [
         self: TransactionArgument
     ];
 }
-/** Returns the unencrypted Walrus blob holding a stem's FLAC delivery object. */
-export function stemData(options: StemDataOptions) {
+/** Returns the Walrus blob ID holding a stem's FLAC delivery object. */
+export function stemBlobId(options: StemBlobIdOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_engine_session';
     const argumentsTypes = [
         null
@@ -223,7 +222,7 @@ export function stemData(options: StemDataOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_engine_session',
-        function: 'stem_data',
+        function: 'stem_blob_id',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }

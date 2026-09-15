@@ -19,7 +19,6 @@
 import { MoveStruct } from '../../../utils/index.ts';
 import { bcs } from '@mysten/sui/bcs';
 import type {} from "@mysten/bcs";
-import * as data from '../ori/data.ts';
 const $moduleName = 'audio::audio';
 export const Audio = new MoveStruct({ name: `${$moduleName}::Audio`, fields: {
         /**
@@ -43,6 +42,6 @@ export const Audio = new MoveStruct({ name: `${$moduleName}::Audio`, fields: {
          * fingerprint), using the default 32-byte output.
          */
         pcm_digest: bcs.vector(bcs.u8()),
-        /** Standalone Walrus blob reference for the audio. */
-        data: data.WalrusBlob
+        /** Standalone Walrus blob ID for the audio. */
+        blob_id: bcs.u256()
     } });
