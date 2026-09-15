@@ -762,6 +762,7 @@ Route the events that still exist by their owning purpose:
 | Vault capability borrowed by a plugin | `primitives.vault.capabilityBorrowedByPlugin` |
 | Vault capability borrowed by an administrator | `primitives.vault.capabilityBorrowedByAdmin` |
 | Composition or Recording royalty deposit | `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| Royalty pool coin recovery | `primitives.royaltyPool.coinsRecovered` |
 | Release revenue receipts | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, and `.revenueDistributed` |
 
 The v1 schema keeps the positive financial Action and extension event codecs.
@@ -772,10 +773,12 @@ alone cannot distinguish historical wrappers from current Action or Vault
 events.
 
 Some successful writes now intentionally produce no event without changing
-the event schemas. Zero royalty settlement, equal metadata replacement, and
+the event schemas. Zero royalty claims, equal metadata replacement, and
 clearing an absent metadata slot are silent. A full metadata value change and
-an initial explicit empty declaration still emit. A release distribution with
-`total_input == 0` is silent. Existing `RoyaltyClaimedEvent` codecs continue
+an initial explicit empty declaration still emit. When a release distribution
+has `total_input == 0`, its per-track distribution rows and completion summary
+are suppressed. `ReleaseCoinsReceivedEvent` still emits when nonempty
+zero-valued coins are consumed. Existing `RoyaltyClaimedEvent` codecs continue
 to decode historical zero-amount claims; this migration does not alter the
 business filtering of royalty history.
 
@@ -784,7 +787,10 @@ Removing the last genre now reports `field_exists_after: false` on its
 same schema; `clear_cause: 1` is historical-only for consumers that need to
 recognize old cascade events.
 
-This is a breaking decoder change for the v1 immutable package generation.
+Adopt this registry only after the redeem-all rollout and immutable republish,
+with deployment IDs updated together; the current old deployed IDs are not
+compatible with this interface. This is a breaking decoder change for the v1
+immutable package generation.
 For historical events, use the SDK and event schemas generated from the
 originating package generation; the v1 registry intentionally does not decode
 retired event types.
