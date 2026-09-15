@@ -225,8 +225,6 @@ export const platformEventParsers = {
       pluginRevoked: decoder(vault.PluginRevokedEvent),
       capabilityWithdrawn: decoder(vault.VaultCapabilityWithdrawnEvent),
       capabilityRestored: decoder(vault.VaultCapabilityRestoredEvent),
-      capabilityBorrowedByPlugin: decoder(vault.VaultCapabilityBorrowedByPluginEvent),
-      capabilityBorrowedByAdmin: decoder(vault.VaultCapabilityBorrowedByAdminEvent),
       vaultRegistryCreated: decoder(vault.VaultRegistryCreatedEvent),
       vaultCreated: decoder(vault.VaultCreatedEvent),
       vaultShared: decoder(vault.VaultSharedEvent),

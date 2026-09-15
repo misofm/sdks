@@ -937,19 +937,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['active', 'bool'],
     ['capability_available', 'bool'],
   ] },
-  { path: 'primitives.vault.capabilityBorrowedByPlugin', name: 'VaultCapabilityBorrowedByPluginEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['active', 'bool'],
-    ['capability_available', 'bool'],
-  ] },
-  { path: 'primitives.vault.capabilityBorrowedByAdmin', name: 'VaultCapabilityBorrowedByAdminEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['admin_cap_id', 'address'],
-    ['active', 'bool'],
-    ['capability_available', 'bool'],
-  ] },
   { path: 'primitives.genre.registryCreated', name: 'GenreRegistryCreatedEvent', fields: [
     ['registry_id', 'address'],
     ['initializer', 'address'],
@@ -1407,9 +1394,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   });
 }
 
-test("wire fixture inventory contains 117 unique existing parser paths, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(117);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(117);
+test("wire fixture inventory contains 115 unique existing parser paths, including generic pay metadata", () => {
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(115);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(115);
   for (const fixture of EVENT_WIRE_FIXTURES) {
     expect(typeof parserAt(fixture.path)).toBe("function");
   }

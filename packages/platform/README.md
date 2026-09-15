@@ -753,11 +753,12 @@ Actions and the two pool plugins.
 ### Migrating event decoders to v1
 
 The v1 package generation makes event purposes explicit. Generated bindings and
-`platformEventParsers` no longer expose `AudioIngestedEvent` or
-`VaultCapabilityReturnedEvent`, and the `plugins` parser group is gone because
-first-party plugins emit no plugin-owned events. Audio values, audio master
-reads, and all audio transaction builders remain available with bare Walrus
-blob IDs. Plugin install,
+`platformEventParsers` no longer expose `AudioIngestedEvent`,
+`VaultCapabilityReturnedEvent`, `VaultCapabilityBorrowedByPluginEvent`, or
+`VaultCapabilityBorrowedByAdminEvent`, and the `plugins` parser group is gone
+because first-party plugins emit no plugin-owned events. Audio values, audio
+master reads, and all audio transaction builders remain available with bare
+Walrus blob IDs. Plugin install,
 uninstall, authorization, borrowing, and Action execution remain available as
 operations; only the retired event codecs are removed.
 
@@ -766,8 +767,6 @@ Route the events that still exist by their owning purpose:
 | Purpose | Parser path |
 |---|---|
 | Vault plugin authorization or revocation | `primitives.vault.pluginAuthorized` / `pluginRevoked` |
-| Vault capability borrowed by a plugin | `primitives.vault.capabilityBorrowedByPlugin` |
-| Vault capability borrowed by an administrator | `primitives.vault.capabilityBorrowedByAdmin` |
 | Composition or Recording royalty deposit | `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
 | Royalty pool coin recovery | `primitives.royaltyPool.coinsRecovered` |
 | Release revenue receipts | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, and `.revenueDistributed` |

@@ -367,8 +367,6 @@ export type MisoBcs = {
   readonly PluginRevokedEvent: typeof vaultContract.PluginRevokedEvent;
   readonly VaultCapabilityWithdrawnEvent: typeof vaultContract.VaultCapabilityWithdrawnEvent;
   readonly VaultCapabilityRestoredEvent: typeof vaultContract.VaultCapabilityRestoredEvent;
-  readonly VaultCapabilityBorrowedByPluginEvent: typeof vaultContract.VaultCapabilityBorrowedByPluginEvent;
-  readonly VaultCapabilityBorrowedByAdminEvent: typeof vaultContract.VaultCapabilityBorrowedByAdminEvent;
   readonly PartyObjectReceivedEvent: typeof partyWalletContract.ObjectReceivedEvent;
   readonly PartyCoinsReceivedEvent: typeof partyWalletContract.CoinsReceivedEvent;
   readonly PartyFundsRedeemedEvent: typeof partyWalletContract.FundsRedeemedEvent;
@@ -618,8 +616,6 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     PluginRevokedEvent: vaultContract.PluginRevokedEvent,
     VaultCapabilityWithdrawnEvent: vaultContract.VaultCapabilityWithdrawnEvent,
     VaultCapabilityRestoredEvent: vaultContract.VaultCapabilityRestoredEvent,
-    VaultCapabilityBorrowedByPluginEvent: vaultContract.VaultCapabilityBorrowedByPluginEvent,
-    VaultCapabilityBorrowedByAdminEvent: vaultContract.VaultCapabilityBorrowedByAdminEvent,
     PartyObjectReceivedEvent: partyWalletContract.ObjectReceivedEvent,
     PartyCoinsReceivedEvent: partyWalletContract.CoinsReceivedEvent,
     PartyFundsRedeemedEvent: partyWalletContract.FundsRedeemedEvent,

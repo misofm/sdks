@@ -329,7 +329,7 @@ test("registry exposes every current platform event family", () => {
   expect("plugins" in platformEventParsers).toBeFalse();
   expect(typeof platformEventParsers.primitives.vault.pluginAuthorized).toBe("function");
   expect(typeof platformEventParsers.primitives.vault.pluginRevoked).toBe("function");
-  expect(typeof platformEventParsers.primitives.vault.capabilityBorrowedByPlugin).toBe("function");
-  expect(typeof platformEventParsers.primitives.vault.capabilityBorrowedByAdmin).toBe("function");
+  expect("capabilityBorrowedByPlugin" in platformEventParsers.primitives.vault).toBeFalse();
+  expect("capabilityBorrowedByAdmin" in platformEventParsers.primitives.vault).toBeFalse();
   expect(typeof platformEventParsers.actions.pay.paymentSent).toBe("function");
 });
