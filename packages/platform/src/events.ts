@@ -20,10 +20,8 @@ import type { BcsParser } from "@misofm/musicos/queries";
 import type { BcsType } from "@mysten/sui/bcs";
 
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
-import * as audio from "./contracts/audio/audio.ts";
 import * as compositionRoutedStake from "./contracts/composition_routed_stake/composition_routed_stake.ts";
 import * as compositionRoyaltyPool from "./contracts/composition_royalty_pool/composition_royalty_pool.ts";
-import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
 import * as genre from "./contracts/genre/genre.ts";
 import * as misoPay from "./contracts/miso_pay/pay.ts";
 import * as partyCta from "./contracts/party_cta/party_cta.ts";
@@ -43,7 +41,6 @@ import * as recordingEngineSession from "./contracts/recording_engine_session/re
 import * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 import * as recordingRoyaltyPool from "./contracts/recording_royalty_pool/recording_royalty_pool.ts";
-import * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
 import * as recordingStreamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as releaseCredits from "./contracts/release_credits/release_credits.ts";
@@ -52,7 +49,6 @@ import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.t
 import * as releaseGenre from "./contracts/release_genre/release_genre.ts";
 import * as releaseKind from "./contracts/release_kind/release_kind.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
-import * as releaseRevenueDistributorPlugin from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import * as royaltyPool from "./contracts/royalty_pool/pool.ts";
 import * as royaltyStake from "./contracts/royalty_pool/stake.ts";
 import * as routedStake from "./contracts/routed_stake/routed_stake.ts";
@@ -200,9 +196,6 @@ export const platformEventParsers = {
     },
   },
   primitives: {
-    audio: {
-      ingested: decoder(audio.AudioIngestedEvent),
-    },
     royaltyPool: {
       poolCreated: decoder(royaltyPool.RoyaltyPoolCreatedEvent),
       poolShared: decoder(royaltyPool.RoyaltyPoolSharedEvent),
@@ -234,7 +227,6 @@ export const platformEventParsers = {
       capabilityRestored: decoder(vault.VaultCapabilityRestoredEvent),
       capabilityBorrowedByPlugin: decoder(vault.VaultCapabilityBorrowedByPluginEvent),
       capabilityBorrowedByAdmin: decoder(vault.VaultCapabilityBorrowedByAdminEvent),
-      capabilityReturned: decoder(vault.VaultCapabilityReturnedEvent),
       vaultRegistryCreated: decoder(vault.VaultRegistryCreatedEvent),
       vaultCreated: decoder(vault.VaultCreatedEvent),
       vaultShared: decoder(vault.VaultSharedEvent),
@@ -292,20 +284,6 @@ export const platformEventParsers = {
       // must be supplied by the caller. Target and Currency remain phantom.
       paymentSent: <Metadata extends BcsType<any>>(metadata: Metadata) =>
         decoder(misoPay.PaymentSentEvent(metadata)),
-    },
-  },
-  plugins: {
-    compositionRoyaltyPool: {
-      installed: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginInstalledEvent),
-      uninstalled: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginUninstalledEvent),
-    },
-    recordingRoyaltyPool: {
-      installed: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginInstalledEvent),
-      uninstalled: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginUninstalledEvent),
-    },
-    releaseRevenueDistributor: {
-      installed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginInstalledEvent),
-      uninstalled: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginUninstalledEvent),
     },
   },
   products: {

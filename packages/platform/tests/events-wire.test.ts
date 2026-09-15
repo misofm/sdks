@@ -18,16 +18,6 @@ type WireField = readonly [name: string, type: WireToken];
 type WireFixture = { readonly path: string; readonly name: string; readonly fields: readonly WireField[] };
 
 const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
-  { path: 'primitives.audio.ingested', name: 'AudioIngestedEvent', fields: [
-    ['blob_id', 'u256'],
-    ['format', 'string'],
-    ['channels', 'u8'],
-    ['bit_depth', 'u8'],
-    ['sample_rate_hz', 'u32'],
-    ['samples', 'u64'],
-    ['duration_ms', 'u64'],
-    ['pcm_digest', 'bytes'],
-  ] },
   { path: 'extensions.compositionCredits.creditAdded', name: 'CompositionCreditAddedEvent', fields: [
     ['composition_id', 'address'],
     ['composition_admin_cap_id', 'address'],
@@ -940,12 +930,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['active', 'bool'],
     ['capability_available', 'bool'],
   ] },
-  { path: 'primitives.vault.capabilityReturned', name: 'VaultCapabilityReturnedEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['active', 'bool'],
-    ['capability_available', 'bool'],
-  ] },
   { path: 'primitives.genre.registryCreated', name: 'GenreRegistryCreatedEvent', fields: [
     ['registry_id', 'address'],
     ['initializer', 'address'],
@@ -1177,58 +1161,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['party_id', 'address'],
     ['amount', 'u64'],
   ] },
-  { path: 'plugins.compositionRoyaltyPool.installed', name: 'CompositionRoyaltyPoolPluginInstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['authorized_plugins_id', 'address'],
-    ['authorized_plugin_count', 'u64'],
-    ['installed', 'bool'],
-  ] },
-  { path: 'plugins.compositionRoyaltyPool.uninstalled', name: 'CompositionRoyaltyPoolPluginUninstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['authorized_plugins_id', 'address'],
-    ['authorized_plugin_count', 'u64'],
-    ['installed', 'bool'],
-  ] },
-  { path: 'plugins.recordingRoyaltyPool.installed', name: 'RecordingRoyaltyPoolPluginInstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['authorized_plugins_id', 'address'],
-    ['authorized_plugin_count', 'u64'],
-    ['installed', 'bool'],
-  ] },
-  { path: 'plugins.recordingRoyaltyPool.uninstalled', name: 'RecordingRoyaltyPoolPluginUninstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['authorized_plugins_id', 'address'],
-    ['authorized_plugin_count', 'u64'],
-    ['installed', 'bool'],
-  ] },
-  { path: 'plugins.releaseRevenueDistributor.installed', name: 'ReleaseRevenueDistributorPluginInstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['release_admin_cap_id', 'address'],
-    ['vault_active', 'bool'],
-    ['authorized_before', 'bool'],
-    ['authorized_after', 'bool'],
-    ['authorized_plugin_count_before', 'u64'],
-    ['authorized_plugin_count_after', 'u64'],
-  ] },
-  { path: 'plugins.releaseRevenueDistributor.uninstalled', name: 'ReleaseRevenueDistributorPluginUninstalledEvent', fields: [
-    ['vault_id', 'address'],
-    ['vault_admin_cap_id', 'address'],
-    ['release_admin_cap_id', 'address'],
-    ['vault_active', 'bool'],
-    ['authorized_before', 'bool'],
-    ['authorized_after', 'bool'],
-    ['authorized_plugin_count_before', 'u64'],
-    ['authorized_plugin_count_after', 'u64'],
-  ] },
   { path: 'products.record.destroyed', name: 'RecordDestroyedEvent', fields: [
     ['record_id', 'address'],
     ['release_id', 'address'],
@@ -1444,6 +1376,6 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
 }
 
 test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(123);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(123);
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(115);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(115);
 });

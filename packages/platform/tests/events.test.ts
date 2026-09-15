@@ -293,7 +293,6 @@ test("registry exposes every current platform event family", () => {
     ["primitives", "routedStake", "registered"],
     ["primitives", "routedStake", "unregistered"],
     ["primitives", "vault", "created"],
-    ["primitives", "vault", "capabilityReturned"],
     ["primitives", "genre", "created"],
     ["primitives", "platformLink", "set"],
     ["primitives", "platformLink", "removed"],
@@ -311,12 +310,6 @@ test("registry exposes every current platform event family", () => {
     ["actions", "partyWallet", "objectReceived"],
     ["actions", "partyWallet", "coinsReceived"],
     ["actions", "partyWallet", "fundsRedeemed"],
-    ["plugins", "compositionRoyaltyPool", "installed"],
-    ["plugins", "compositionRoyaltyPool", "uninstalled"],
-    ["plugins", "recordingRoyaltyPool", "installed"],
-    ["plugins", "recordingRoyaltyPool", "uninstalled"],
-    ["plugins", "releaseRevenueDistributor", "installed"],
-    ["plugins", "releaseRevenueDistributor", "uninstalled"],
     ["products", "record", "destroyed"],
     ["products", "pressing", "created"],
     ["products", "pressing", "purchased"],
@@ -333,10 +326,10 @@ test("registry exposes every current platform event family", () => {
     const value = (platformEventParsers as Record<string, any>)[family]?.[group]?.[operation];
     expect(typeof value).toBe("function");
   }
-  // New-generation plugins emit lifecycle events only. Operation receipts
-  // remain in Actions and Vault, including the deposit codecs checked above.
-  for (const parsers of Object.values(platformEventParsers.plugins)) {
-    expect(Object.keys(parsers).sort()).toEqual(["installed", "uninstalled"]);
-  }
+  expect("plugins" in platformEventParsers).toBeFalse();
+  expect(typeof platformEventParsers.primitives.vault.pluginAuthorized).toBe("function");
+  expect(typeof platformEventParsers.primitives.vault.pluginRevoked).toBe("function");
+  expect(typeof platformEventParsers.primitives.vault.capabilityBorrowedByPlugin).toBe("function");
+  expect(typeof platformEventParsers.primitives.vault.capabilityBorrowedByAdmin).toBe("function");
   expect(typeof platformEventParsers.actions.pay.paymentSent).toBe("function");
 });

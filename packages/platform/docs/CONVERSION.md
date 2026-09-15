@@ -715,8 +715,10 @@ still owes
   the new `configFromDeployment` — see below — through a uniform
   `withEnv` helper that provides both `Sui` and `SuiGraphQL`, since which of
   the two each function actually reads varies and providing an unused
-  service is harmless); `events` (`platformEventParsers`, unchanged); the
-  deprecated `ready: Effect.void` warm-up member the migration map calls for.
+  service is harmless); `events` (`platformEventParsers`, including the v1
+  removal of retired audio, capability-return, and plugin-owned event
+  decoders); and the deprecated `ready: Effect.void` warm-up member the
+  migration map calls for.
   `Miso.layer`/`layerNoDeps`/`layerConfig`/`layerTest` all widen their
   requirement channel from `Sui` to `Sui | SuiGraphQL` now that `read.*` and
   the catalog reads need it. The incoming `deployment` is now recursively

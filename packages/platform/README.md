@@ -744,30 +744,50 @@ use `redeemAllAndDepositCompositionRoyaltyPool` /
 argument. Generated bindings gain `redeemAllAndDeposit` on the two pool
 Actions and the two pool plugins.
 
-### Plugin event decoders after immutable republish
+### Migrating event decoders to v1
 
-The next plugin generation emits install/uninstall events only. Its generated
-bindings and `platformEventParsers.plugins` remove eight operation wrappers:
+The v1 package generation makes event purposes explicit. Generated bindings and
+`platformEventParsers` no longer expose `AudioIngestedEvent` or
+`VaultCapabilityReturnedEvent`, and the `plugins` parser group is gone because
+first-party plugins emit no plugin-owned events. Audio values, audio master
+reads, and all audio transaction builders remain available. Plugin install,
+uninstall, authorization, borrowing, and Action execution remain available as
+operations; only the retired event codecs are removed.
 
-| Plugin parser group | Removed decoders | Operation receipts to use |
-|---|---|---|
-| `compositionRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowedByPlugin`; `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
-| `recordingRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowedByPlugin`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
-| `releaseRevenueDistributor` | `coinsDistributed`, `fundsDistributed` | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, `.revenueDistributed` |
+Route the events that still exist by their owning purpose:
 
-The deposit Actions retain their own `CompositionCoinsDepositedEvent`,
-`CompositionFundsDepositedEvent`, `RecordingCoinsDepositedEvent` and
-`RecordingFundsDepositedEvent` codecs. Filter by the full event type, including
-package and module: matching an event name alone cannot distinguish an old
-plugin wrapper from an Action receipt. Generic Vault events and plugin
-install/uninstall decoders remain available. Transaction entry signatures are
-unchanged from the redeem-all-only generation.
+| Purpose | Parser path |
+|---|---|
+| Vault plugin authorization or revocation | `primitives.vault.pluginAuthorized` / `pluginRevoked` |
+| Vault capability borrowed by a plugin | `primitives.vault.capabilityBorrowedByPlugin` |
+| Vault capability borrowed by an administrator | `primitives.vault.capabilityBorrowedByAdmin` |
+| Composition or Recording royalty deposit | `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| Release revenue receipts | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, and `.revenueDistributed` |
 
-This decoder removal is a breaking API change for the new immutable package
-generation. Adopt it after the redeem-all-only rollout and plugin republish,
-with deployment IDs updated together. For historical events from old plugin
-package IDs, retain the SDK version or event schemas for that generation; the
-new registry does not decode those retired wrappers.
+The v1 schema keeps the positive financial Action and extension event codecs.
+The earlier redeem-all migration also removed eight plugin operation wrappers;
+use the Action and generic Vault paths above for those receipts. Filter by the
+full on-chain event type, including package and module, because an event name
+alone cannot distinguish historical wrappers from current Action or Vault
+events.
+
+Some successful writes now intentionally produce no event without changing
+the event schemas. Zero royalty settlement, equal metadata replacement, and
+clearing an absent metadata slot are silent. A full metadata value change and
+an initial explicit empty declaration still emit. A release distribution with
+`total_input == 0` is silent. Existing `RoyaltyClaimedEvent` codecs continue
+to decode historical zero-amount claims; this migration does not alter the
+business filtering of royalty history.
+
+Removing the last genre now reports `field_exists_after: false` on its
+`GenreRemovedEvent`. Explicit bulk `genresCleared` remains available with the
+same schema; `clear_cause: 1` is historical-only for consumers that need to
+recognize old cascade events.
+
+This is a breaking decoder change for the v1 immutable package generation.
+For historical events, use the SDK and event schemas generated from the
+originating package generation; the v1 registry intentionally does not decode
+retired event types.
 
 ### Migrating from 0.27
 
@@ -892,7 +912,7 @@ src/
   client.ts              miso(): the SuiExtension.fromService registration (client.miso.*); MisoClient/MisoOptions
   deployments.ts         fail-closed deployment schema (MisoPlatformDeployment, PartyExtensionsDeployment) and address injection point
   packages.ts            MisoPlatformPackageBindings: extensions/primitives/party generated calls bound to one deployment
-  events.ts              platformEventParsers: work/Party extensions, Actions, products, plugins, and primitive event decoders
+  events.ts              platformEventParsers: work/Party extensions, Actions, products, and primitive event decoders
   royalty.ts             generic royalty-pool / stake / routed-stake derive helpers and PTB builders
   pressing.ts            standalone: builders, readers, and the id derivations (Sui-based reads; Miso.tx/getPressing etc. bind these)
   queries.ts             shared read plumbing (isNotFound, re-exported from @misofm/musicos)
