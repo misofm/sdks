@@ -15,7 +15,6 @@ import { Audio } from "./contracts/audio/audio.ts";
 import * as recordingMaster from "./contracts/recording_master/recording_master.ts";
 import * as engineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
 import * as streamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
-import { unencryptedWalrusBlob } from "./internal.ts";
 
 export interface RecordingExtensionTarget {
   readonly recordingId: ObjectInput;
@@ -92,7 +91,6 @@ export interface RecordingMasterInput {
 export interface SetRecordingMasterParams extends RecordingExtensionTarget {
   readonly recordingMasterPackageId: string;
   readonly audioPackageId: string;
-  readonly oriPackageId: string;
   readonly master: RecordingMasterInput;
 }
 
@@ -101,11 +99,10 @@ export function setRecordingMaster(p: SetRecordingMasterParams): Recipe {
   if (!/^[0-9a-fA-F]{64}$/.test(p.master.pcmDigest)) throw new Error("Master PCM digest must be 32-byte BLAKE3 hex");
   return (tx) => {
     const m = p.master;
-    const plain = tx.moveCall({ target: `${p.oriPackageId}::confidentiality::new_unencrypted` });
-    const blob = tx.moveCall({ target: `${p.oriPackageId}::data::new_blob`, arguments: [tx.pure.u256(m.blobId), plain] });
     const audio = tx.moveCall({ target: `${p.audioPackageId}::audio::new`, arguments: [
       tx.pure.string(m.format), tx.pure.u8(m.channels), tx.pure.u8(m.bitDepth),
-      tx.pure.u32(m.sampleRateHz), tx.pure.u64(m.samples), tx.pure.vector("u8", Array.from(fromHex(m.pcmDigest))), blob,
+      tx.pure.u32(m.sampleRateHz), tx.pure.u64(m.samples), tx.pure.vector("u8", Array.from(fromHex(m.pcmDigest))),
+      tx.pure.u256(m.blobId),
     ] });
     invokeWithAdminCap(tx, p.authority, {
       target: `${p.recordingMasterPackageId}::recording_master::set_master`,
@@ -138,7 +135,7 @@ export function getRecordingMasterAttachments(recordingIds: readonly string[], p
     const masters = packageId ? yield* getRecordingMastersByIds(recordingIds, packageId)
       : ({} as Partial<Record<string, RecordingMasterView>>);
     const blobIds: Partial<Record<string, string>> = Object.fromEntries(
-      Object.entries(masters).map(([id, audio]) => [id, String(audio!.data.blob_id)]),
+      Object.entries(masters).map(([id, audio]) => [id, String(audio!.blob_id)]),
     );
     return { masters, blobIds };
   });
@@ -194,8 +191,6 @@ export interface RecordingEngineSessionStemInput {
 
 export interface SetRecordingEngineSessionParams extends RecordingExtensionTarget {
   readonly recordingEngineSessionPackageId: string;
-  /** External `ori` package used to construct the plaintext Walrus blob references. */
-  readonly oriPackageId: string;
   /** Unencrypted Walrus blob holding the canonical Session V1 JSON, as its on-chain `u256`. */
   readonly sessionBlobId: bigint | string;
   /** Every stem the document's sources reference. Order does not matter; the builder sorts. */
@@ -236,12 +231,12 @@ export function setRecordingEngineSession(p: SetRecordingEngineSessionParams): R
   }
   return (tx) => {
     const pkg = p.recordingEngineSessionPackageId;
-    const sessionBlob = unencryptedWalrusBlob(tx, p.oriPackageId, p.sessionBlobId);
+    const sessionBlob = tx.pure.u256(p.sessionBlobId);
     const stemValues = stems.map((stem) => tx.add(engineSession.newStem({
       package: pkg,
       arguments: [
         tx.pure.vector("u8", Array.from(stem.digest)),
-        unencryptedWalrusBlob(tx, p.oriPackageId, stem.blobId),
+        tx.pure.u256(stem.blobId),
       ],
     })));
     const stemVector = tx.makeMoveVec({
@@ -263,7 +258,7 @@ export function setRecordingEngineSession(p: SetRecordingEngineSessionParams): R
 
 export type UnsetRecordingEngineSessionParams = Omit<
   SetRecordingEngineSessionParams,
-  "oriPackageId" | "sessionBlobId" | "stems"
+  "sessionBlobId" | "stems"
 >;
 
 /** Removes the Recording's Miso Engine session reference, if present. */
@@ -393,17 +388,9 @@ const ENGINE_SESSION_KEY_BYTES = engineSession.ExtensionKey.serialize([false]).t
 /** Parse an engine-session dynamic field's BCS content. */
 export function parseRecordingEngineSessionContent(content: Uint8Array): RecordingEngineSessionView {
   const { value } = EngineSessionField.parse(content);
-  if (value.data.confidentiality.$kind !== "Unencrypted") {
-    throw new Error("Recording engine session is unexpectedly encrypted");
-  }
   return {
-    sessionBlobId: String(value.data.blob_id),
-    stems: value.stems.map((stem) => {
-      if (stem.data.confidentiality.$kind !== "Unencrypted") {
-        throw new Error("Recording engine session stem is unexpectedly encrypted");
-      }
-      return { digest: toHex(Uint8Array.from(stem.digest)), blobId: String(stem.data.blob_id) };
-    }),
+    sessionBlobId: String(value.blob_id),
+    stems: value.stems.map((stem) => ({ digest: toHex(Uint8Array.from(stem.digest)), blobId: String(stem.blob_id) })),
   };
 }
 
@@ -445,4 +432,3 @@ export function getRecordingEngineSessionsByIds(
     parseRecordingEngineSessionContent,
   );
 }
-

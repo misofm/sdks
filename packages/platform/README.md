@@ -77,18 +77,24 @@ original object, so later caller mutation cannot retarget an existing client.
 ### Engine sessions
 
 A Recording's `recording_engine_session::ExtensionKey` dynamic field holds one
-`EngineSession`: the unencrypted Walrus blob of the canonical Miso Engine
-Session V1 JSON, plus one `Stem` per source pairing the 32-byte SHA-256 of its
-canonical PCM (the document's `content` identity) with the unencrypted Walrus
-blob of its FLAC. The document carries no locators, so this field is where a
-client resolves each source to bytes. Nothing is encrypted; there is no
-wrapper document and no off-chain map.
+`EngineSession`: the bare `u256` ID of the canonical Miso Engine Session V1
+JSON, plus one `Stem` per source pairing the 32-byte SHA-256 of its canonical
+PCM (the document's `content` identity) with the bare `u256` ID of its FLAC
+blob. The document carries no locators, so this field is where a client
+resolves each source to bytes. Nothing is encrypted; there is no wrapper
+document and no off-chain map.
 
 `getRecordingEngineSession` reads the field in one request and returns the
 session blob id and the stems table. `setRecordingEngineSession` and
 `unsetRecordingEngineSession` are the cap-authorized PTB builders; the builder
 sorts stems by digest, as `recording_engine_session::new` requires. Walrus id
 conversions live in `walrus-ids`.
+
+Audio masters use the same v1 shape: `Audio.blob_id`, `EngineSession.blob_id`,
+and each stem's `blob_id` are bare `u256` values. `setRecordingMaster` and
+`setRecordingEngineSession` take those IDs directly and do not require an Ori
+package ID. Ori remains a dependency for cover-art and streaming-transcode
+constructors, which still wrap their own Walrus values.
 
 ## The model
 
@@ -750,7 +756,8 @@ The v1 package generation makes event purposes explicit. Generated bindings and
 `platformEventParsers` no longer expose `AudioIngestedEvent` or
 `VaultCapabilityReturnedEvent`, and the `plugins` parser group is gone because
 first-party plugins emit no plugin-owned events. Audio values, audio master
-reads, and all audio transaction builders remain available. Plugin install,
+reads, and all audio transaction builders remain available with bare Walrus
+blob IDs. Plugin install,
 uninstall, authorization, borrowing, and Action execution remain available as
 operations; only the retired event codecs are removed.
 

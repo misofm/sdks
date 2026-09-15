@@ -22,12 +22,16 @@ test("audio calls use the verified package and hide reference-returning getters"
   const packages = misoPlatformPackages(base);
   const tx = new Transaction();
   tx.add(packages.call.primitives.audio!.channels({ arguments: [tx.object(A)] }));
+  tx.add(packages.call.primitives.audio!.blobId({ arguments: [tx.object(A)] }));
   expect(moveCalls(tx)).toMatchObject([{
     package: base.packages.audio,
     module: "audio",
     function: "channels",
+  }, {
+    package: base.packages.audio,
+    module: "audio",
+    function: "blob_id",
   }]);
-  expect(packages.call.primitives.audio).not.toHaveProperty("data");
   expect(packages.call.primitives.audio).not.toHaveProperty("format");
   expect(packages.call.primitives.audio).not.toHaveProperty("pcmDigest");
   expect(packages.bcs.primitives.audio.Audio).toBeDefined();

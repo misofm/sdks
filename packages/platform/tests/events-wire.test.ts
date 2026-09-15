@@ -18,16 +18,8 @@ type WireField = readonly [name: string, type: WireToken];
 type WireFixture = { readonly path: string; readonly name: string; readonly fields: readonly WireField[] };
 
 // Keep this nested layout independent from the generated recording_master
-// dependency codecs. MasterSetEvent embeds audio::Audio, which embeds
-// ori::data::WalrusBlob and ori::confidentiality::Confidentiality.
-const wireConfidentiality = bcs.enum("Confidentiality", {
-  Unencrypted: null,
-  Encrypted: bcs.struct("Confidentiality.Encrypted", { sealed_dek: bcs.vector(bcs.u8()) }),
-});
-const wireWalrusBlob = bcs.struct("WalrusBlob", {
-  blob_id: bcs.u256(),
-  confidentiality: wireConfidentiality,
-});
+// dependency codecs. MasterSetEvent embeds audio::Audio, whose v1 data field
+// is a bare, unencrypted Walrus blob ID.
 const wireAudio = bcs.struct("Audio", {
   format: bcs.string(),
   channels: bcs.u8(),
@@ -35,7 +27,7 @@ const wireAudio = bcs.struct("Audio", {
   sample_rate_hz: bcs.u32(),
   samples: bcs.u64(),
   pcm_digest: bcs.vector(bcs.u8()),
-  data: wireWalrusBlob,
+  blob_id: bcs.u256(),
 });
 
 const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
@@ -1372,9 +1364,6 @@ function valueFor(type: WireToken, eventIndex: number, fieldIndex: number): unkn
     case "option_bytes": return [n % 250, (n + 1) % 250];
     case "type_name": return { name: `0x${((n % 200) + 1).toString(16).padStart(2, "0")}::wire::Type${n}` };
     case "audio": {
-      const confidentiality = n % 2 === 0
-        ? { Unencrypted: true, $kind: "Unencrypted" }
-        : { Encrypted: { sealed_dek: [n % 250, (n + 1) % 250] }, $kind: "Encrypted" };
       return {
         format: `wire-${eventIndex}-${fieldIndex}`,
         channels: (n % 2) + 1,
@@ -1382,10 +1371,7 @@ function valueFor(type: WireToken, eventIndex: number, fieldIndex: number): unkn
         sample_rate_hz: 44100 + n,
         samples: u64(n + 1),
         pcm_digest: [n % 250, (n + 1) % 250, (n + 2) % 250],
-        data: {
-          blob_id: (1n << 200n | BigInt(n + 1)).toString(),
-          confidentiality,
-        },
+        blob_id: (1n << 200n | BigInt(n + 1)).toString(),
       };
     }
   }
@@ -1418,22 +1404,6 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
       ? platformEventParsers.actions.pay.paymentSent(bcs.vector(bcs.u8()))(bytes)
       : parserAt(fixture.path)(bytes);
     expect(decoded).toEqual(expected);
-    if (fixture.name === "MasterSetEvent") {
-      const master = expected.master as Record<string, any>;
-      const data = master.data as Record<string, any>;
-      const unencrypted = {
-        ...expected,
-        master: {
-          ...master,
-          data: {
-            ...data,
-            confidentiality: { Encrypted: { sealed_dek: [201, 202, 203] }, $kind: "Encrypted" },
-          },
-        },
-      };
-      const unencryptedBytes = schemaFor(fixture.name, fixture.fields).serialize(unencrypted).toBytes();
-      expect(parserAt(fixture.path)(unencryptedBytes)).toEqual(unencrypted);
-    }
   });
 }
 
