@@ -129,8 +129,11 @@ const event = partyEventParsers.core.partyCreated(rawEventBcs);
 ```
 
 `partyEventParsers` targets the v1 PartyOS event ABI and preserves generated
-snake_case fields. Its canonical events are `partyCreated`, `partyShared`,
-`partyNameSet`, `partyGroupInviteCreated`, `partyGroupMembershipAccepted`,
+snake_case fields. `partyCreated` is emitted when `share` makes the newly created
+party public, so its snapshot contains the final state at the atomic share
+transaction's execution epoch, along with the transaction sender as `creator`.
+Its canonical events are `partyCreated`, `partyNameSet`,
+`partyGroupInviteCreated`, `partyGroupMembershipAccepted`,
 `partyGroupInviteDeclined`, `partyGroupInviteRevoked`,
 `partyGroupMembershipLeft`, and `partyGroupMembershipRemoved`. `u64` values
 are decimal strings, and `removed_since_epoch` is `string | null`, preserving

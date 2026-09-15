@@ -397,7 +397,7 @@ describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved throug
               version: 1n,
               content: musicosReleaseContract.Release.serialize({
                 id: RELEASE_ID,
-                state: { Initialized: true },
+                state: { Initialized: { registry_id: A, release_digest: [], nonce: "0" } },
                 title: "Through The Face",
                 tracks: [],
               }).toBytes(),
