@@ -139,7 +139,6 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
       recordingMasterReference: "0x70cda8fe00dd05124e3ec219963ab680e5894f397ee98a12078e534529b14e8f",
       recordingEngineSession: "0xc1bd01a68b39081267b8b089d74e4e6fddb39637b3b165c8186542a2dd826845",
       recordingStreamingTranscode: "0x04c2dd271e782d5d5e43656e378c78a97d6c75c7d7fa2267f1ac388d2e495afe",
-      recordSealPolicy: "0x7e3759ef22d85901af148ecbf972607ee5b92c362c9e2e9092af309d343a2b54",
       ori: "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
       countryCode: "0x69fb214a74d5253971a45b2d07f83f13ae96992dd38198d7bacb21e1f5fb5f81",
       languageCode: "0xac318126565a2fab608984a091b3582ba9cda6c32232f567eef50277c5042c36",
@@ -169,7 +168,7 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
   // `party.countryCode`/`party.languageCode` intentionally repeat
   // `packages.countryCode`/`packages.languageCode` (see
   // assertMisoPlatformDeployment), so this sanity list has duplicates by design.
-  expect(identities).toHaveLength(56);
+  expect(identities).toHaveLength(55);
 });
 
 test("bundled deployment and every nested container are frozen", () => {
