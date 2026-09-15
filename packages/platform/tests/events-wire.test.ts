@@ -1418,10 +1418,26 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
       ? platformEventParsers.actions.pay.paymentSent(bcs.vector(bcs.u8()))(bytes)
       : parserAt(fixture.path)(bytes);
     expect(decoded).toEqual(expected);
+    if (fixture.name === "MasterSetEvent") {
+      const master = expected.master as Record<string, any>;
+      const data = master.data as Record<string, any>;
+      const unencrypted = {
+        ...expected,
+        master: {
+          ...master,
+          data: {
+            ...data,
+            confidentiality: { Unencrypted: true, $kind: "Unencrypted" },
+          },
+        },
+      };
+      const unencryptedBytes = schemaFor(fixture.name, fixture.fields).serialize(unencrypted).toBytes();
+      expect(parserAt(fixture.path)(unencryptedBytes)).toEqual(unencrypted);
+    }
   });
 }
 
-test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
+test("wire fixture inventory contains 117 unique existing parser paths, including generic pay metadata", () => {
   expect(EVENT_WIRE_FIXTURES).toHaveLength(117);
   expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(117);
   for (const fixture of EVENT_WIRE_FIXTURES) {
