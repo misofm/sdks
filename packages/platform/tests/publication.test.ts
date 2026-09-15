@@ -472,15 +472,15 @@ test("engine-session publication fails before PTB construction without its packa
   );
 });
 
-test("SDK callers can explicitly retain legacy balance dispersal", () => {
+test("SDK callers can explicitly retain legacy balance dispersal without royalty pools", () => {
   const input = params();
   const balanced: AtomicPublicationParams = {
     ...input,
     compositions: input.compositions.map(
-      ({ shareDistribution: _, ...node }) => node,
+      ({ shareDistribution: _, royaltyPool: __, ...node }) => node,
     ),
     recordings: input.recordings.map(
-      ({ shareDistribution: _, routedStake: __, ...node }) => node,
+      ({ shareDistribution: _, royaltyPool: __, routedStake: ___, ...node }) => node,
     ),
   };
   const tx = new Transaction();
@@ -492,7 +492,45 @@ test("SDK callers can explicitly retain legacy balance dispersal", () => {
   expect(seq.filter((call) => call === "stake::new")).toHaveLength(0);
   expect(
     seq.filter((call) => call.endsWith("_royalty_pool::new_pool")),
+  ).toHaveLength(0);
+});
+
+test("a royalty pool rejects omitted or balance share distribution before PTB construction", () => {
+  const input = params();
+  const noRoutedStake = input.recordings.map(
+    ({ routedStake: _, ...node }) => node,
+  );
+  for (const shareDistribution of [undefined, "balance" as const]) {
+    expect(() => publishAtomicCatalog({
+      ...input,
+      recordings: noRoutedStake,
+      compositions: input.compositions.map(({ shareDistribution: _, ...node }) =>
+        shareDistribution ? { ...node, shareDistribution } : node,
+      ),
+    })).toThrow(/^c1: a royalty pool requires shareDistribution "stake"/);
+    expect(() => publishAtomicCatalog({
+      ...input,
+      recordings: noRoutedStake.map(({ shareDistribution: _, ...node }) =>
+        shareDistribution ? { ...node, shareDistribution } : node,
+      ),
+    })).toThrow(/^r1: a royalty pool requires shareDistribution "stake"/);
+  }
+});
+
+test("a royalty pool with stake distribution still builds and registers every stake", () => {
+  const input = params();
+  const tx = new Transaction();
+  publishAtomicCatalog({
+    ...input,
+    recordings: input.recordings.map(({ routedStake: _, ...node }) => node),
+  })(tx);
+  const seq = calls(tx);
+  expect(seq.filter((call) => call === "minato::disperse_balance")).toHaveLength(0);
+  expect(seq.filter((call) => call === "stake::new")).toHaveLength(2);
+  expect(
+    seq.filter((call) => call.endsWith("_royalty_pool::new_pool")),
   ).toHaveLength(2);
+  expect(seq.filter((call) => call === "pool::register_stake")).toHaveLength(2);
 });
 
 test("Vault-only publication features reject direct custody", () => {

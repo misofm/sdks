@@ -471,11 +471,15 @@ Share allocation is explicit at the SDK boundary. Omitting
 `shareDistribution` preserves the existing `"balance"` behavior. Setting it to
 `"stake"` converts the minted `Balance<Share>` into one address-owned
 `Stake<Share>` per `shareRecipients` entry. When the work also declares a
-`royaltyPool`, the builder creates the pool unshared, registers each fresh
-stake, shares the pool, and then transfers the registered stakes. The lower
-level `createShareStake`, `createShareStakes`, `registerShareStake`,
-`newCompositionRoyaltyPool`, `newRecordingRoyaltyPool`, and
-`shareRoyaltyPool` builders expose each step separately for custom PTBs.
+`royaltyPool`, `"stake"` is required: the builder creates the pool unshared,
+registers each fresh stake, shares the pool, and then transfers the registered
+stakes, so the pool never starts without stakers. A `royaltyPool` combined
+with `"balance"` (or the default) is rejected before PTB construction, because
+a pool with no registered stakes accumulates revenue that the first holder to
+register later would claim in full. The lower level `createShareStake`,
+`createShareStakes`, `registerShareStake`, `newCompositionRoyaltyPool`,
+`newRecordingRoyaltyPool`, and `shareRoyaltyPool` builders expose each step
+separately for custom PTBs.
 
 For a fresh Recording whose parent Composition owns a protocol royalty cut,
 `recordings[].routedStake` redeems that exact cut into a derived
