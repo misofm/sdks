@@ -26,12 +26,9 @@ export * from "./derive.ts";
 
 // Event decoders: the camelCase convenience wrappers, and the raw registry.
 export {
-  parseCompositionCreatedEvent,
   parseCompositionPublishedEvent,
   parseCompositionSharesGrantedEvent,
-  parseRecordingCreatedEvent,
   parseRecordingPublishedEvent,
-  parseReleaseCreatedEvent,
   parseReleasePublishedEvent,
   parseReleaseRegistryCreatedEvent,
   type EventDecoder,

@@ -19,7 +19,7 @@ import { MusicosDeploymentInvalid, DecodeError as MusicosDecodeError } from "@mi
 import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
 import { MISO_DEPLOYMENTS, type MisoDeployment } from "@misofm/musicos/deployments";
 import type { Composition as MusicosCompositionType } from "@misofm/musicos/types";
-import { parseCompositionCreatedEvent } from "@misofm/musicos/parsers";
+import { parseCompositionPublishedEvent } from "@misofm/musicos/parsers";
 import { eventParsers as musicosEventParsers } from "@misofm/musicos/events";
 import { bindModulePackage } from "@misofm/musicos/packages";
 import { composition as musicosComposition } from "@misofm/musicos/contracts";
@@ -158,7 +158,7 @@ void ([
   MusicosDecodeError,
   createComposition,
   MISO_DEPLOYMENTS,
-  parseCompositionCreatedEvent,
+  parseCompositionPublishedEvent,
   musicosEventParsers,
   bindModulePackage,
   musicosComposition,

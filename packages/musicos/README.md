@@ -120,28 +120,38 @@ because every write to the object model is a fragment a consumer composes.
 
 ### Events
 
-Camel-case decoders (`parsers.ts`) preserve every event field; the raw
-registry (`events.ts`, `eventParsers.core.*`) keeps the generated snake_case
-layout for indexers that need the ABI surface. Both fail with `DecodeError`
-instead of throwing, and both take either raw bytes or a sui-effect `Event`
-(whose `.bcs` is the same bytes, straight from `Executed.events`):
+Camel-case decoders (`parsers.ts`) preserve every published event field; the
+raw registry (`events.ts`, `eventParsers.core.*`) keeps the generated
+snake_case layout for indexers that need the ABI surface. Both fail with
+`DecodeError` instead of throwing, and both take either raw bytes or a
+sui-effect `Event` (whose `.bcs` is the same bytes, straight from
+`Executed.events`):
+
+Core Composition, Recording, and Release creation is atomic with publication,
+so v1 exposes only the corresponding `*PublishedEvent` decoders. Their payloads
+include the creation identity and financial facts needed by indexers.
 
 ```ts
-import { parseCompositionCreatedEvent } from "@misofm/musicos"
+import { parseCompositionPublishedEvent } from "@misofm/musicos"
 
-const created = await Effect.runPromise(parseCompositionCreatedEvent(eventBytes))
-// { compositionId, titleBytes, shareSupplyBefore, ... }
+const published = await Effect.runPromise(parseCompositionPublishedEvent(eventBytes))
+// { compositionId, titleBytes, shareSupplyBefore, createdAdminCapId, ... }
 
 // or, for an event straight off `Executed.events`:
-const same = await Effect.runPromise(parseCompositionCreatedEvent(executed.events[0]))
+const same = await Effect.runPromise(parseCompositionPublishedEvent(executed.events[0]))
 ```
 
 Addresses and IDs are strings. `u64` and `u256` values are decimal strings;
 `u8`/`u16` values are numbers, byte vectors are `number[]`, and address and
 `u64` vectors preserve their order. Title and digest bytes remain undecoded.
 `CompositionSharesGrantedEvent` remains available for historical data and is
-dormant in the current recording creation flow, which emits
-`RecordingCreatedEvent`.
+dormant in the current recording creation flow. Composition, recording, and
+release creation details now travel in their corresponding `*PublishedEvent`;
+the three lifecycle objects publish atomically after initialization. Historical
+creation events require the SDK/schema generation that defined those events.
+The generated raw object codecs retain temporary creation data in the
+`Initialized` enum payload; the domain `state` remains the stable
+`{ type: "Initialized" }` marker and `Published` timestamp shape.
 
 ### GraphQL type discovery
 

@@ -11,13 +11,14 @@ import { Composition } from "../src/contracts/musicos/composition.ts";
 import { Recording } from "../src/contracts/musicos/recording.ts";
 import { Release } from "../src/contracts/musicos/release.ts";
 import { mapComposition, mapBps, mapRecording, mapRelease } from "../src/internal.ts";
+import { initializedCompositionState, initializedRecordingState } from "./object-fixtures.ts";
 
 const ADDR = "0x" + "ab".repeat(32);
 
 test("mapComposition: royaltyRate (BPS), state enum", () => {
   const bytes = Composition.serialize({
     id: ADDR,
-    state: { Initialized: true },
+    state: initializedCompositionState(),
     title: "My Song",
     royalty_rate: [1000],
   }).toBytes();
@@ -49,7 +50,7 @@ test("mapBps unit behavior", () => {
 test("mapRecording: compositionId, state enum", () => {
   const bytes = Recording.serialize({
     id: ADDR,
-    state: { Initialized: true },
+    state: initializedRecordingState(),
     composition_id: ADDR,
   }).toBytes();
 

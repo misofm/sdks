@@ -73,8 +73,8 @@ invariant(hasExport(musicosTransactions, "createComposition"), "@misofm/musicos/
 
 invariant(Object.keys(musicosParsers).length > 0, "@misofm/musicos/parsers export did not load");
 invariant(
-  hasExport(musicosParsers, "parseCompositionCreatedEvent"),
-  "@misofm/musicos/parsers missing parseCompositionCreatedEvent",
+  hasExport(musicosParsers, "parseCompositionPublishedEvent"),
+  "@misofm/musicos/parsers missing parseCompositionPublishedEvent",
 );
 
 invariant(Object.keys(musicosEvents).length > 0, "@misofm/musicos/events export did not load");

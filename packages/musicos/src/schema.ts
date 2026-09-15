@@ -47,11 +47,71 @@ import {
 
 type WorkStateParts = { readonly type: "Initialized" } | { readonly type: "Published"; readonly timestampMs: number };
 
+const ZERO_ADDRESS = `0x${"0".repeat(64)}`;
+
 /** `{ type: "Published", timestampMs }` -> the Move enum's serialize input. */
-function encodeWorkState(state: WorkStateParts) {
+function encodePublishedState(state: Extract<WorkStateParts, { readonly type: "Published" }>) {
+  return { $kind: "Published" as const, Published: String(state.timestampMs) };
+}
+
+/**
+ * The raw Initialized variants retain creation-only data for the atomic
+ * new→publish flow. The public object model intentionally exposes only the
+ * lifecycle tag, so its inverse uses a zero placeholder payload; object reads
+ * always decode the on-chain payload, while the SDK never writes a work object.
+ */
+function encodeCompositionState(state: WorkStateParts) {
   return state.type === "Published"
-    ? ({ $kind: "Published", Published: String(state.timestampMs) } as const)
-    : ({ $kind: "Initialized", Initialized: true } as const);
+    ? encodePublishedState(state)
+    : {
+        $kind: "Initialized" as const,
+        Initialized: {
+          share_currency_id: ZERO_ADDRESS,
+          consumed_treasury_cap_id: ZERO_ADDRESS,
+          created_by: ZERO_ADDRESS,
+          share_supply_before: "0",
+          share_supply_after: "0",
+          shares_returned: "0",
+          share_decimals: 0,
+          share_supply_fixed_after: false,
+          created_admin_cap_id: ZERO_ADDRESS,
+        },
+      };
+}
+
+function encodeRecordingState(state: WorkStateParts) {
+  return state.type === "Published"
+    ? encodePublishedState(state)
+    : {
+        $kind: "Initialized" as const,
+        Initialized: {
+          share_currency_id: ZERO_ADDRESS,
+          consumed_treasury_cap_id: ZERO_ADDRESS,
+          created_by: ZERO_ADDRESS,
+          composition_royalty_rate_bps: 0,
+          share_supply_before: "0",
+          shares_before_grant: "0",
+          composition_shares_granted: "0",
+          shares_returned: "0",
+          share_decimals: 0,
+          share_supply_fixed_after: false,
+          composition_funds_sent: false,
+          created_admin_cap_id: ZERO_ADDRESS,
+        },
+      };
+}
+
+function encodeReleaseState(state: WorkStateParts) {
+  return state.type === "Published"
+    ? encodePublishedState(state)
+    : {
+        $kind: "Initialized" as const,
+        Initialized: {
+          registry_id: ZERO_ADDRESS,
+          release_digest: [],
+          nonce: "0",
+        },
+      };
 }
 
 /** `{ value }` -> the Move tuple's serialize input, `[value]`. */
@@ -67,8 +127,6 @@ function encodeBps(bps: { readonly value: number }): [number] {
  * writes a `Release`); this placeholder keeps the codec's `encode` total
  * rather than partial.
  */
-const ZERO_ADDRESS = `0x${"0".repeat(64)}`;
-
 function encodeTrack(track: {
   readonly state: "Unassigned" | "Assigned";
   readonly compositionId: string;
@@ -99,7 +157,7 @@ export const compositionContent = (packageId: string) =>
         decode: (fields) => mapComposition(fields.id, fields),
         encode: (parts) => ({
           id: parts.id,
-          state: encodeWorkState(parts.state),
+          state: encodeCompositionState(parts.state),
           title: parts.title,
           royalty_rate: encodeBps(parts.royaltyRate),
         }),
@@ -128,7 +186,7 @@ export const recordingContent = (packageId: string) =>
         decode: (fields) => mapRecording(fields.id, fields),
         encode: (parts) => ({
           id: parts.id,
-          state: encodeWorkState(parts.state),
+          state: encodeRecordingState(parts.state),
           composition_id: parts.compositionId,
         }),
       }),
@@ -151,7 +209,7 @@ export const releaseContent = (packageId: string) =>
         decode: (fields) => mapRelease(fields.id, fields),
         encode: (parts) => ({
           id: parts.id,
-          state: encodeWorkState(parts.state),
+          state: encodeReleaseState(parts.state),
           title: parts.title,
           tracks: parts.tracks.map(encodeTrack),
         }),
@@ -186,11 +244,8 @@ export const releaseAdminCapContent = (packageId: string) =>
 // the wrong event's bytes is the re-serialize length check every `BcsType`
 // codec performs, independent of any type tag.
 
-export const compositionCreatedEventContent = SuiSchema.bcs(composition.CompositionCreatedEvent);
 export const compositionPublishedEventContent = SuiSchema.bcs(composition.CompositionPublishedEvent);
-export const recordingCreatedEventContent = SuiSchema.bcs(recording.RecordingCreatedEvent);
 export const recordingPublishedEventContent = SuiSchema.bcs(recording.RecordingPublishedEvent);
 export const compositionSharesGrantedEventContent = SuiSchema.bcs(recording.CompositionSharesGrantedEvent);
-export const releaseCreatedEventContent = SuiSchema.bcs(release.ReleaseCreatedEvent);
 export const releasePublishedEventContent = SuiSchema.bcs(release.ReleasePublishedEvent);
 export const releaseRegistryCreatedEventContent = SuiSchema.bcs(release.ReleaseRegistryCreatedEvent);

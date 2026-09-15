@@ -26,7 +26,7 @@ export function mapBps(d: Parsed): { value: number } {
   return { value: Number(Array.isArray(d) ? d[0] : d) };
 }
 
-/** Lifecycle state enum (`Initialized | Published(u64)`). */
+/** Lifecycle state enum; raw Initialized carries creation details the domain state omits. */
 export function mapState(
   d: Parsed,
 ): { type: "Initialized" } | { type: "Published"; timestampMs: number } {

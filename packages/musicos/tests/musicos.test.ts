@@ -21,6 +21,7 @@ import * as recording from "../src/contracts/musicos/recording.ts";
 import * as release from "../src/contracts/musicos/release.ts";
 import { MusicosTreasuryCapNotFound } from "../src/errors.ts";
 import { Musicos } from "../src/Musicos.ts";
+import { initializedCompositionState, initializedRecordingState, initializedReleaseState } from "./object-fixtures.ts";
 
 const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;
 
@@ -54,7 +55,7 @@ const script = {
       owner,
       content: composition.Composition.serialize({
         id: COMPOSITION_ID,
-        state: { Initialized: true },
+        state: initializedCompositionState(),
         title: "My Song",
         royalty_rate: [1000],
       }).toBytes(),
@@ -66,7 +67,7 @@ const script = {
       owner,
       content: composition.Composition.serialize({
         id: DELETED_ID,
-        state: { Initialized: true },
+        state: initializedCompositionState(),
         title: "Gone",
         royalty_rate: [1000],
       }).toBytes(),
@@ -90,7 +91,7 @@ const script = {
       owner,
       content: composition.Composition.serialize({
         id: PARAMETERLESS_COMPOSITION_ID,
-        state: { Initialized: true },
+        state: initializedCompositionState(),
         title: "No Share Type",
         royalty_rate: [1000],
       }).toBytes(),
@@ -102,7 +103,7 @@ const script = {
       owner,
       content: recording.Recording.serialize({
         id: RECORDING_ID,
-        state: { Initialized: true },
+        state: initializedRecordingState(),
         composition_id: COMPOSITION_ID,
       }).toBytes(),
     },
@@ -120,7 +121,7 @@ const script = {
       owner,
       content: release.Release.serialize({
         id: RELEASE_ID,
-        state: { Initialized: true },
+        state: initializedReleaseState(),
         title: "My Release",
         tracks: [],
       }).toBytes(),

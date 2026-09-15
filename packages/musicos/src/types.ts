@@ -49,22 +49,6 @@ export class Composition extends Schema.Class<Composition>("@misofm/musicos/Comp
   royaltyRate: BPS,
 }) {}
 
-/** Emitted when a composition and its share currency are created. */
-export interface CompositionCreatedEvent {
-  compositionId: string;
-  compositionAdminCapId: string;
-  shareCurrencyId: string;
-  consumedTreasuryCapId: string;
-  createdBy: string;
-  titleBytes: number[];
-  royaltyRateBps: number;
-  shareSupplyBefore: string;
-  shareSupplyAfter: string;
-  sharesReturned: string;
-  shareDecimals: number;
-  shareSupplyFixedAfter: boolean;
-}
-
 /** Emitted once when a composition is published, with its immutable payload. */
 export interface CompositionPublishedEvent {
   compositionId: string;
@@ -74,6 +58,15 @@ export interface CompositionPublishedEvent {
   royaltyRateBps: number;
   publishedAtMs: string;
   sharedAfter: boolean;
+  shareCurrencyId: string;
+  consumedTreasuryCapId: string;
+  createdBy: string;
+  shareSupplyBefore: string;
+  shareSupplyAfter: string;
+  sharesReturned: string;
+  shareDecimals: number;
+  shareSupplyFixedAfter: boolean;
+  createdAdminCapId: string;
 }
 
 /**
@@ -123,11 +116,14 @@ export class Recording extends Schema.Class<Recording>("@misofm/musicos/Recordin
   compositionId: Schema.String,
 }) {}
 
-/** Emitted when a recording and its share currency are created. */
-export interface RecordingCreatedEvent {
+/** Emitted once when a recording is published, with its immutable payload. */
+export interface RecordingPublishedEvent {
   recordingId: string;
   compositionId: string;
   recordingAdminCapId: string;
+  clockId: string;
+  publishedAtMs: string;
+  sharedAfter: boolean;
   shareCurrencyId: string;
   consumedTreasuryCapId: string;
   createdBy: string;
@@ -139,22 +135,13 @@ export interface RecordingCreatedEvent {
   shareDecimals: number;
   shareSupplyFixedAfter: boolean;
   compositionFundsSent: boolean;
-}
-
-/** Emitted once when a recording is published, with its immutable payload. */
-export interface RecordingPublishedEvent {
-  recordingId: string;
-  compositionId: string;
-  recordingAdminCapId: string;
-  clockId: string;
-  publishedAtMs: string;
-  sharedAfter: boolean;
+  createdAdminCapId: string;
 }
 
 /**
  * Legacy event emitted by older recording creation flows. It remains decodable
- * for historical data, but current recording creation emits
- * `RecordingCreatedEvent` instead.
+ * for historical data. Current recording creation emits the complete payload
+ * on `RecordingPublishedEvent`.
  */
 export interface CompositionSharesGrantedEvent {
   recordingId: string;
@@ -237,20 +224,6 @@ export class Release extends Schema.Class<Release>("@misofm/musicos/Release")({
   tracks: Schema.Array(Track),
 }) {}
 
-/** Emitted when a release is created under the canonical registry. */
-export interface ReleaseCreatedEvent {
-  registryId: string;
-  releaseId: string;
-  releaseAdminCapId: string;
-  titleBytes: number[];
-  releaseDigest: number[];
-  nonce: string;
-  compositionIds: string[];
-  recordingIds: string[];
-  trackSplitBps: string[];
-  trackCount: string;
-}
-
 /** Emitted once when a release is published, with its immutable payload. */
 export interface ReleasePublishedEvent {
   releaseId: string;
@@ -263,6 +236,9 @@ export interface ReleasePublishedEvent {
   trackSplitBps: string[];
   assignedTrackCount: string;
   sharedAfter: boolean;
+  registryId: string;
+  releaseDigest: number[];
+  nonce: string;
 }
 
 /** Emitted when package initialization shares the canonical release registry. */
