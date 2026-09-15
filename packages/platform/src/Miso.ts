@@ -362,7 +362,6 @@ export type MisoBcs = {
   readonly VaultAdminCapKey: typeof vaultContract.VaultAdminCapKey;
   readonly VaultCreatedEvent: typeof vaultContract.VaultCreatedEvent;
   readonly VaultRegistryCreatedEvent: typeof vaultContract.VaultRegistryCreatedEvent;
-  readonly VaultSharedEvent: typeof vaultContract.VaultSharedEvent;
   readonly PluginAuthorizedEvent: typeof vaultContract.PluginAuthorizedEvent;
   readonly PluginRevokedEvent: typeof vaultContract.PluginRevokedEvent;
   readonly VaultCapabilityWithdrawnEvent: typeof vaultContract.VaultCapabilityWithdrawnEvent;
@@ -611,7 +610,6 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     VaultAdminCapKey: vaultContract.VaultAdminCapKey,
     VaultCreatedEvent: vaultContract.VaultCreatedEvent,
     VaultRegistryCreatedEvent: vaultContract.VaultRegistryCreatedEvent,
-    VaultSharedEvent: vaultContract.VaultSharedEvent,
     PluginAuthorizedEvent: vaultContract.PluginAuthorizedEvent,
     PluginRevokedEvent: vaultContract.PluginRevokedEvent,
     VaultCapabilityWithdrawnEvent: vaultContract.VaultCapabilityWithdrawnEvent,

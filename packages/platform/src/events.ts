@@ -218,14 +218,12 @@ export const platformEventParsers = {
     vault: {
       registryCreated: decoder(vault.VaultRegistryCreatedEvent),
       created: decoder(vault.VaultCreatedEvent),
-      shared: decoder(vault.VaultSharedEvent),
       pluginAuthorized: decoder(vault.PluginAuthorizedEvent),
       pluginRevoked: decoder(vault.PluginRevokedEvent),
       capabilityWithdrawn: decoder(vault.VaultCapabilityWithdrawnEvent),
       capabilityRestored: decoder(vault.VaultCapabilityRestoredEvent),
       vaultRegistryCreated: decoder(vault.VaultRegistryCreatedEvent),
       vaultCreated: decoder(vault.VaultCreatedEvent),
-      vaultShared: decoder(vault.VaultSharedEvent),
     },
     genre: {
       registryCreated: decoder(genre.GenreRegistryCreatedEvent),

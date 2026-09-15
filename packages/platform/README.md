@@ -775,6 +775,12 @@ removed. Use `primitives.routedStake.created` for discovery and the retained
 registration, unstaking and restaking events for subsequent state changes,
 including changes made before sharing.
 
+Vaults retain `VaultCreatedEvent` with registry, capability and administrator
+identity plus initial state. Sharing is silent: `VaultSharedEvent`, both parser
+aliases (`primitives.vault.shared` and `.vaultShared`), and the Miso facade export
+are removed. Use `primitives.vault.created` for discovery; authorization and
+capability custody changes retain their own events, including before sharing.
+
 Route the events that still exist by their owning purpose:
 
 | Purpose | Parser path |

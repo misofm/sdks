@@ -63,10 +63,6 @@ export const VaultCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultCr
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });
-export const VaultSharedEvent = new MoveStruct({ name: `${$moduleName}::VaultSharedEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address
-    } });
 export const PluginAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PluginAuthorizedEvent<phantom Cap, phantom Witness>`, fields: {
         vault_id: bcs.Address,
         cap_id: bcs.Address,

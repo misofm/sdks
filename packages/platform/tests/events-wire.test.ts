@@ -888,10 +888,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['active', 'bool'],
     ['capability_available', 'bool'],
   ] },
-  { path: 'primitives.vault.shared', name: 'VaultSharedEvent', fields: [
-    ['vault_id', 'address'],
-    ['cap_id', 'address'],
-  ] },
   { path: 'primitives.vault.pluginAuthorized', name: 'PluginAuthorizedEvent', fields: [
     ['vault_id', 'address'],
     ['cap_id', 'address'],
@@ -1379,9 +1375,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   });
 }
 
-test("wire fixture inventory contains 113 unique existing parser paths, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(113);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(113);
+test("wire fixture inventory contains 112 unique existing parser paths, including generic pay metadata", () => {
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(112);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(112);
   for (const fixture of EVENT_WIRE_FIXTURES) {
     expect(typeof parserAt(fixture.path)).toBe("function");
   }
