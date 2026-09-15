@@ -751,8 +751,8 @@ bindings and `platformEventParsers.plugins` remove eight operation wrappers:
 
 | Plugin parser group | Removed decoders | Operation receipts to use |
 |---|---|---|
-| `compositionRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowed`; `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
-| `recordingRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowed`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| `compositionRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowedByPlugin`; `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| `recordingRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowedByPlugin`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
 | `releaseRevenueDistributor` | `coinsDistributed`, `fundsDistributed` | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, `.revenueDistributed` |
 
 The deposit Actions retain their own `CompositionCoinsDepositedEvent`,
