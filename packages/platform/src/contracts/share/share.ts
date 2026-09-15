@@ -71,26 +71,41 @@ export function initialize(options: InitializeOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface AssertValidShareTypeOptions {
+export interface IsShareArguments {
+    currency: RawTransactionArgument<string>;
+}
+export interface IsShareOptions {
     package?: string;
-    arguments?: [
+    arguments: IsShareArguments | [
+        currency: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
     ];
 }
 /**
- * Asserts that the share type name ends with the expected suffix
- * (`<address>::share::Share`). Public so downstream packages that hold or route
- * share types (e.g. cap inventories) can enforce the same gate this package's
- * `initialize` enforces, instead of mirroring it.
+ * Returns whether `currency` is a valid share: its type is
+ * `<address>::share::Share`, its metadata cap is deleted, it is not regulated, it
+ * has 6 decimals, and its supply is permanently fixed at 10,000,000.000000 tokens.
+ * This is the complete property set `initialize` establishes, read back from the
+ * currency, so downstream packages can gate on it. It returns `true` for any
+ * currency with that shape, including one that reached it without `initialize`;
+ * such a currency is economically identical (only the `ShareInitializedEvent` is
+ * missing). The canonical treasury-cap check `initialize` performs needs no
+ * counterpart here: a fixed supply means the treasury cap was consumed, and a
+ * fixed supply cannot burn.
  */
-export function assertValidShareType(options: AssertValidShareTypeOptions) {
+export function isShare(options: IsShareOptions) {
     const packageAddress = options.package ?? '@local-pkg/share';
+    const argumentsTypes = [
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["currency"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'share',
-        function: 'assert_valid_share_type',
+        function: 'is_share',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
 }
