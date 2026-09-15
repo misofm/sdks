@@ -18,8 +18,8 @@ type WireField = readonly [name: string, type: WireToken];
 type WireFixture = { readonly path: string; readonly name: string; readonly fields: readonly WireField[] };
 
 // Keep this nested layout independent from the generated recording_master
-// dependency codecs. MasterSetEvent embeds audio::Audio, whose v1 data field
-// is a bare, unencrypted Walrus blob ID.
+// dependency codecs. MasterSetEvent embeds audio::Audio, whose v1 payload
+// stores a bare, unencrypted Walrus blob ID.
 const wireAudio = bcs.struct("Audio", {
   format: bcs.string(),
   channels: bcs.u8(),
