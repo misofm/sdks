@@ -325,9 +325,6 @@ export const platformEventParsers = {
   products: {
     record: {
       destroyed: decoder(record.RecordDestroyedEvent),
-      legacy: {
-        created: decoder(record.RecordCreatedEvent),
-      },
     },
     pressing: {
       created: decoder(pressing.PressingCreatedEvent),
@@ -335,10 +332,6 @@ export const platformEventParsers = {
       shared: decoder(pressing.PressingSharedEvent),
       distributorAuthorized: decoder(pressing.PressingDistributorAuthorizedEvent),
       distributorRevoked: decoder(pressing.PressingDistributorRevokedEvent),
-      legacy: {
-        distributorAuthorized: decoder(pressing.DistributorAuthorizedEvent),
-        distributorRevoked: decoder(pressing.DistributorRevokedEvent),
-      },
     },
     listing: {
       created: decoder(listing.ListingCreatedEvent),

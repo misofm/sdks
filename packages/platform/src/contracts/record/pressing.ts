@@ -60,18 +60,6 @@ export const PressingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Pres
         /** Defining type names of distributors currently permitted to mint. */
         distributors: bcs.vector(bcs.string())
     } });
-export const DistributorAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::DistributorAuthorizedEvent`, fields: {
-        /** The configured Pressing. */
-        pressing_id: bcs.Address,
-        /** The authorized distributor's defining type. */
-        distributor: type_name.TypeName
-    } });
-export const DistributorRevokedEvent = new MoveStruct({ name: `${$moduleName}::DistributorRevokedEvent`, fields: {
-        /** The configured Pressing. */
-        pressing_id: bcs.Address,
-        /** The revoked distributor's defining type. */
-        distributor: type_name.TypeName
-    } });
 export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::RecordPurchasedEvent<phantom Distributor, phantom Currency>`, fields: {
         /** The purchased Record. */
         record_id: bcs.Address,
