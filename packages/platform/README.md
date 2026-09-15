@@ -787,6 +787,12 @@ and capability provenance. Sharing is silent: `PressingSharedEvent`, the
 `products.pressing.created` for discovery; distributor changes and purchases
 retain their own events, including changes made before sharing.
 
+Listings retain `ListingCreatedEvent` with initial pricing, enabled state and
+capability provenance. Sharing is silent: `ListingSharedEvent`, the
+`products.listing.shared` parser and Miso facade export are removed. Use
+`products.listing.created` for discovery; pricing, availability and purchase
+events report subsequent changes, including changes made before sharing.
+
 Route the events that still exist by their owning purpose:
 
 | Purpose | Parser path |

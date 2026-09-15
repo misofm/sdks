@@ -59,20 +59,6 @@ export const ListingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Listi
         /** Whether the Listing initially accepts purchases. */
         enabled: bcs.bool()
     } });
-export const ListingSharedEvent = new MoveStruct({ name: `${$moduleName}::ListingSharedEvent<phantom Currency>`, fields: {
-        /** The shared Listing. */
-        listing_id: bcs.Address,
-        /** The release that receives Listing payments. */
-        release_id: bcs.Address,
-        /** The Pressing sold by the Listing. */
-        pressing_id: bcs.Address,
-        /** Whether the Listing's payment rule requires exact payment. */
-        pricing_is_fixed: bcs.bool(),
-        /** The Listing's configured amount. */
-        price: bcs.u64(),
-        /** Whether the Listing accepts purchases. */
-        enabled: bcs.bool()
-    } });
 export const ListingPriceChangedEvent = new MoveStruct({ name: `${$moduleName}::ListingPriceChangedEvent<phantom Currency>`, fields: {
         /** The updated Listing. */
         listing_id: bcs.Address,

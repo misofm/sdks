@@ -1213,14 +1213,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['price', 'u64'],
     ['enabled', 'bool'],
   ] },
-  { path: 'products.listing.shared', name: 'ListingSharedEvent', fields: [
-    ['listing_id', 'address'],
-    ['release_id', 'address'],
-    ['pressing_id', 'address'],
-    ['pricing_is_fixed', 'bool'],
-    ['price', 'u64'],
-    ['enabled', 'bool'],
-  ] },
   { path: 'products.listing.priceChanged', name: 'ListingPriceChangedEvent', fields: [
     ['listing_id', 'address'],
     ['release_id', 'address'],
@@ -1367,9 +1359,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   });
 }
 
-test("wire fixture inventory contains 111 unique existing parser paths, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(111);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(111);
+test("wire fixture inventory contains 110 unique existing parser paths, including generic pay metadata", () => {
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(110);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(110);
   for (const fixture of EVENT_WIRE_FIXTURES) {
     expect(typeof parserAt(fixture.path)).toBe("function");
   }

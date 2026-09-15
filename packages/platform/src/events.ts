@@ -292,7 +292,6 @@ export const platformEventParsers = {
     },
     listing: {
       created: decoder(listing.ListingCreatedEvent),
-      shared: decoder(listing.ListingSharedEvent),
       priceChanged: decoder(listing.ListingPriceChangedEvent),
       stateChanged: decoder(listing.ListingStateChangedEvent),
       sold: decoder(listing.RecordSoldEvent),
