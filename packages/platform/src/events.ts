@@ -198,7 +198,6 @@ export const platformEventParsers = {
   primitives: {
     royaltyPool: {
       poolCreated: decoder(royaltyPool.RoyaltyPoolCreatedEvent),
-      poolShared: decoder(royaltyPool.RoyaltyPoolSharedEvent),
       deposited: decoder(royaltyPool.RoyaltyDepositedEvent),
       fundsSettled: decoder(royaltyPool.RoyaltyPoolFundsSettledEvent),
       coinsRecovered: decoder(royaltyPool.RoyaltyPoolCoinsRecoveredEvent),

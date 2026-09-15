@@ -718,14 +718,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['carry_after', 'u128'],
     ['cumulative_deposits_after', 'u128'],
   ] },
-  { path: 'primitives.royaltyPool.poolShared', name: 'RoyaltyPoolSharedEvent', fields: [
-    ['pool_id', 'address'],
-    ['pool_balance_after', 'u64'],
-    ['staked_shares_after', 'u64'],
-    ['cumulative_reward_per_share_after', 'u256'],
-    ['carry_after', 'u128'],
-    ['cumulative_deposits_after', 'u128'],
-  ] },
   { path: 'primitives.royaltyPool.deposited', name: 'RoyaltyDepositedEvent', fields: [
     ['pool_id', 'address'],
     ['value', 'u64'],
@@ -1394,9 +1386,9 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
   });
 }
 
-test("wire fixture inventory contains 115 unique existing parser paths, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(115);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(115);
+test("wire fixture inventory contains 114 unique existing parser paths, including generic pay metadata", () => {
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(114);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(114);
   for (const fixture of EVENT_WIRE_FIXTURES) {
     expect(typeof parserAt(fixture.path)).toBe("function");
   }

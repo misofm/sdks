@@ -106,14 +106,6 @@ export const RoyaltyPoolCreatedEvent = new MoveStruct({ name: `${$moduleName}::R
         carry_after: bcs.u128(),
         cumulative_deposits_after: bcs.u128()
     } });
-export const RoyaltyPoolSharedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyPoolSharedEvent<phantom Share, phantom Currency>`, fields: {
-        pool_id: bcs.Address,
-        pool_balance_after: bcs.u64(),
-        staked_shares_after: bcs.u64(),
-        cumulative_reward_per_share_after: bcs.u256(),
-        carry_after: bcs.u128(),
-        cumulative_deposits_after: bcs.u128()
-    } });
 export const RoyaltyDepositedEvent = new MoveStruct({ name: `${$moduleName}::RoyaltyDepositedEvent<phantom Share, phantom Currency>`, fields: {
         pool_id: bcs.Address,
         value: bcs.u64(),

@@ -762,6 +762,12 @@ Walrus blob IDs. Plugin install,
 uninstall, authorization, borrowing, and Action execution remain available as
 operations; only the retired event codecs are removed.
 
+Royalty pools emit `RoyaltyPoolCreatedEvent` once at construction with parent
+identity and initial accounting state. Sharing is silent: the generated
+`RoyaltyPoolSharedEvent` codec and `primitives.royaltyPool.poolShared` parser
+are removed. Use `primitives.royaltyPool.poolCreated` for pool discovery;
+registration and deposit events report any changes made before sharing.
+
 Route the events that still exist by their owning purpose:
 
 | Purpose | Parser path |

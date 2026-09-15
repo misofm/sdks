@@ -286,7 +286,6 @@ test("registry exposes every current platform event family", () => {
     ["extensions", "partyTags", "added"],
     ["extensions", "partyTags", "removed"],
     ["extensions", "partyTags", "cleared"],
-    ["primitives", "royaltyPool", "poolShared"],
     ["primitives", "royaltyPool", "fundsSettled"],
     ["primitives", "royaltyPool", "coinsRecovered"],
     ["primitives", "routedStake", "shared"],
