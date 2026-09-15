@@ -243,27 +243,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['language_count_before', 'u64'],
     ['was_instrumental', 'bool'],
   ] },
-  { path: 'extensions.recordingMasterReference.masterReferenceSet', name: 'RecordingMasterReferenceSetEvent', fields: [
-    ['recording_id', 'address'],
-    ['composition_id', 'address'],
-    ['had_master_reference', 'bool'],
-    ['previous_blob_id', 'u256'],
-    ['previous_is_encrypted', 'bool'],
-    ['previous_sealed_dek_length', 'u64'],
-    ['previous_sealed_dek_digest', 'bytes'],
-    ['blob_id', 'u256'],
-    ['is_encrypted', 'bool'],
-    ['sealed_dek_length', 'u64'],
-    ['sealed_dek_digest', 'bytes'],
-  ] },
-  { path: 'extensions.recordingMasterReference.masterReferenceUnset', name: 'RecordingMasterReferenceClearedEvent', fields: [
-    ['recording_id', 'address'],
-    ['composition_id', 'address'],
-    ['removed_blob_id', 'u256'],
-    ['removed_is_encrypted', 'bool'],
-    ['removed_sealed_dek_length', 'u64'],
-    ['removed_sealed_dek_digest', 'bytes'],
-  ] },
   { path: 'extensions.recordingStreamingTranscode.set', name: 'RecordingStreamingTranscodeSetEvent', fields: [
     ['recording_id', 'address'],
     ['composition_id', 'address'],
@@ -1570,6 +1549,6 @@ for (const [eventIndex, fixture] of EVENT_WIRE_FIXTURES.entries()) {
 }
 
 test("wire fixture inventory covers all canonical event codecs, including generic pay metadata", () => {
-  expect(EVENT_WIRE_FIXTURES).toHaveLength(133);
-  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(133);
+  expect(EVENT_WIRE_FIXTURES).toHaveLength(131);
+  expect(new Set(EVENT_WIRE_FIXTURES.map((fixture) => fixture.path)).size).toBe(131);
 });

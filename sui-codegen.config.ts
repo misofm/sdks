@@ -116,7 +116,6 @@ const config: MisoCodegenConfig = {
     platform("recording_engine_session", "misofm/musicos-extensions/recording_engine_session"),
     platform("recording_genre", "misofm/musicos-extensions/recording_genre"),
     platform("recording_language", "misofm/musicos-extensions/recording_language"),
-    platform("recording_master_reference", "misofm/musicos-extensions/recording_master_reference"),
     platform("recording_master", "misofm/musicos-extensions/recording_master"),
     platform("recording_streaming_transcode", "misofm/musicos-extensions/recording_streaming_transcode"),
     platform("release_cover_art", "misofm/musicos-extensions/release_cover_art"),

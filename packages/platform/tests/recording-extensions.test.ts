@@ -7,22 +7,20 @@ import { Transaction } from "@mysten/sui/transactions";
 import { Effect } from "effect";
 import type { Sui } from "@unconfirmed/sui-effect";
 import { layerTest, SuiTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
-import * as walrusData from "../src/contracts/cover_art/deps/ori/data.ts";
-import * as masterReference from "../src/contracts/recording_master_reference/recording_master_reference.ts";
+import { Audio } from "../src/contracts/audio/audio.ts";
+import * as recordingMasterContract from "../src/contracts/recording_master/recording_master.ts";
 import * as engineSessionContract from "../src/contracts/recording_engine_session/recording_engine_session.ts";
 import {
   getRecordingEngineSession,
-  getRecordingMasterReference,
-  getRecordingMasterReferencesByIds,
+  getRecordingMaster,
+  getRecordingMasterBlobIds,
   recordingEngineSessionFieldId,
-  recordingMasterReferenceFieldId,
+  recordingMasterFieldId,
   setRecordingEngineSession,
-  setRecordingMasterReference,
   setRecordingStreamingTranscode,
   unsetRecordingEngineSession,
   unsetRecordingStreamingTranscode,
 } from "../src/recording-extensions.ts";
-import { unencryptedWalrusBlob } from "../src/internal.ts";
 
 const RECORDING_ONE = `0x${"11".repeat(32)}`;
 const RECORDING_TWO = `0x${"22".repeat(32)}`;
@@ -37,15 +35,23 @@ const BLOB_ID = 123456789n;
 
 const Field = bcs.struct("Field", {
   id: bcs.Address,
-  name: masterReference.ExtensionKey,
-  value: walrusData.WalrusBlob,
+  name: recordingMasterContract.ExtensionKey,
+  value: Audio,
 });
 
 function masterContent(recordingId: string): Uint8Array {
   return Field.serialize({
-    id: recordingMasterReferenceFieldId(recordingId, PACKAGE),
+    id: recordingMasterFieldId(recordingId, PACKAGE),
     name: [false],
-    value: { blob_id: BLOB_ID, confidentiality: { Unencrypted: true } },
+    value: {
+      format: "flac",
+      channels: 2,
+      bit_depth: 24,
+      sample_rate_hz: 44100,
+      samples: 8500549n,
+      pcm_digest: Array(32).fill(1),
+      data: { blob_id: BLOB_ID, confidentiality: { Unencrypted: true } },
+    },
   }).toBytes();
 }
 
@@ -108,26 +114,6 @@ test("builds a composable streaming-transcode attachment from a complete Quilt I
     RECORDING_SHARE,
     COMPOSITION_SHARE,
   ]);
-});
-
-test("builds a master reference from a plaintext ori::data::WalrusBlob", () => {
-  const tx = new Transaction();
-  setRecordingMasterReference({
-    recordingId: RECORDING_ONE,
-    authority: { kind: "direct", adminCap: CAP },
-    recordingShareType: RECORDING_SHARE,
-    compositionShareType: COMPOSITION_SHARE,
-    recordingMasterReferencePackageId: PACKAGE,
-    reference: unencryptedWalrusBlob(tx, ORI_PACKAGE, BLOB_ID),
-  })(tx);
-
-  const calls = moveCalls(tx);
-  expect(calls.map((call) => `${call.module}::${call.function}`)).toEqual([
-    "confidentiality::new_unencrypted",
-    "data::new_blob",
-    "recording_master_reference::set_master_reference",
-  ]);
-  expect(calls.map((call) => call.package)).toEqual([ORI_PACKAGE, ORI_PACKAGE, PACKAGE]);
 });
 
 test("builds an engine session with stems sorted by digest", () => {
@@ -247,21 +233,21 @@ test("builds an idempotent streaming-transcode removal", () => {
   ]);
 });
 
-test("reads a Recording's master-reference blob id", async () => {
-  const fieldId = recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE);
+test("reads a Recording's Audio master", async () => {
+  const fieldId = recordingMasterFieldId(RECORDING_ONE, PACKAGE);
   const objects: FakeObject[] = [
     { objectId: fieldId, type: "0x2::dynamic_field::Field", version: 1n, content: masterContent(RECORDING_ONE) },
   ];
 
-  await expect(
-    run(getRecordingMasterReference(RECORDING_ONE, PACKAGE), objects),
-  ).resolves.toBe(String(BLOB_ID));
+  const master = await run(getRecordingMaster(RECORDING_ONE, PACKAGE), objects);
+  expect(master?.format).toBe("flac");
+  expect(String(master?.data.blob_id)).toBe(String(BLOB_ID));
 });
 
-test("batches unique master-reference fields and omits absent recordings", async () => {
+test("batches unique master fields into blob ids and omits absent recordings", async () => {
   const objects: FakeObject[] = [
     {
-      objectId: recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE),
+      objectId: recordingMasterFieldId(RECORDING_ONE, PACKAGE),
       type: "0x2::dynamic_field::Field",
       version: 1n,
       content: masterContent(RECORDING_ONE),
@@ -271,14 +257,14 @@ test("batches unique master-reference fields and omits absent recordings", async
   ];
 
   const { result, calls } = await runScripted(
-    getRecordingMasterReferencesByIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
+    getRecordingMasterBlobIds([RECORDING_ONE, RECORDING_TWO, RECORDING_ONE], PACKAGE),
     objects,
   );
   expect(result).toEqual({ [RECORDING_ONE]: String(BLOB_ID) });
   expect(calls).toEqual([
     [
-      recordingMasterReferenceFieldId(RECORDING_ONE, PACKAGE),
-      recordingMasterReferenceFieldId(RECORDING_TWO, PACKAGE),
+      recordingMasterFieldId(RECORDING_ONE, PACKAGE),
+      recordingMasterFieldId(RECORDING_TWO, PACKAGE),
     ],
   ]);
 });

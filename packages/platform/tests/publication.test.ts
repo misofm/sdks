@@ -181,7 +181,15 @@ function params(): AtomicPublicationParams {
         advisory: "Explicit",
         genres: [A],
         languages: { kind: "languages", codes: ["en"] },
-        masterReferenceBlobId: 1n,
+        master: {
+          blobId: 1n,
+          format: "flac",
+          channels: 2,
+          bitDepth: 24,
+          sampleRateHz: 44100,
+          samples: 8500549n,
+          pcmDigest: "cd".repeat(32),
+        },
         streamingTranscodeQuiltId: 2n,
         engineSession: { sessionBlobId: 4n, stems: [{ digest: "ab".repeat(32), blobId: 5n }] },
       },
@@ -246,7 +254,8 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("recording_credits::add_primary_artist")).toBe(1);
   expect(count("recording_advisory::set_rating")).toBe(1);
   expect(count("recording_language::set_languages")).toBe(1);
-  expect(count("recording_master_reference::set_master_reference")).toBe(1);
+  expect(count("audio::new")).toBe(1);
+  expect(count("recording_master::set_master")).toBe(1);
   expect(count("recording_streaming_transcode::set_streaming_transcode")).toBe(1);
   expect(count("recording_engine_session::set_engine_session")).toBe(1);
   expect(count("release_credits::add_credit")).toBe(1);

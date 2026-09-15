@@ -42,7 +42,6 @@ import * as recordingCredits from "./contracts/recording_credits/recording_credi
 import * as recordingEngineSession from "./contracts/recording_engine_session/recording_engine_session.ts";
 import * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
-import * as recordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as recordingRoyaltyPool from "./contracts/recording_royalty_pool/recording_royalty_pool.ts";
 import * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
 import * as recordingStreamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
@@ -102,11 +101,6 @@ export const platformEventParsers = {
       languagesSet: decoder(recordingLanguage.RecordingLanguagesSetEvent),
       languagesUnset: decoder(recordingLanguage.RecordingLanguagesClearedEvent),
       languagesCleared: decoder(recordingLanguage.RecordingLanguagesClearedEvent),
-    },
-    recordingMasterReference: {
-      masterReferenceSet: decoder(recordingMasterReference.RecordingMasterReferenceSetEvent),
-      masterReferenceUnset: decoder(recordingMasterReference.RecordingMasterReferenceClearedEvent),
-      masterReferenceCleared: decoder(recordingMasterReference.RecordingMasterReferenceClearedEvent),
     },
     recordingMaster: {
       set: decoder(recordingMaster.MasterSetEvent),

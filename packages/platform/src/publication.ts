@@ -51,12 +51,10 @@ import {
   setRecordingEngineSession,
   setRecordingInstrumental,
   setRecordingLanguages,
-  setRecordingMasterReference,
   setRecordingMaster,
   type RecordingMasterInput,
   setRecordingStreamingTranscode,
 } from "./recording-extensions.ts";
-import { unencryptedWalrusBlob } from "./internal.ts";
 import {
   setReleaseDescription,
   setReleaseDspLinks,
@@ -198,7 +196,6 @@ export type PublicationRecording = PublicationRecordingParent & {
   /** Ordered genre object ids, primary first (1-6). */
   readonly genres?: string[];
   readonly languages?: PublicationRecordingLanguages;
-  readonly masterReferenceBlobId?: bigint | string;
   readonly master?: RecordingMasterInput;
   /** Complete Walrus Quilt ID containing this Recording's streaming transcodes. */
   readonly streamingTranscodeQuiltId?: bigint | string;
@@ -359,10 +356,6 @@ function languageVector(tx: Transaction, p: AtomicPublicationParams, codes: stri
     type: `${p.deployment.packages.languageCode}::language_code::LanguageCode`,
     elements: values,
   });
-}
-
-function walrusBlob(tx: Transaction, p: AtomicPublicationParams, blobId: bigint | string) {
-  return unencryptedWalrusBlob(tx, p.deployment.packages.ori, blobId);
 }
 
 function listingPrice(tx: Transaction, p: AtomicPublicationParams, price: ListingPrice) {
@@ -916,7 +909,6 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
       })(tx);
       if (node.master !== undefined) {
         if (!p.deployment.packages.recordingMaster || !p.deployment.packages.recordingMasterAudio) throw new Error("Recording master deployment unavailable");
-        if (node.masterReferenceBlobId !== undefined) throw new Error("Specify master or legacy masterReferenceBlobId, not both");
         setRecordingMaster({
           recordingId: parts.work, authority, recordingShareType: node.shareType,
           compositionShareType: node.compositionShareType,
@@ -925,13 +917,6 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
           oriPackageId: p.deployment.packages.ori, master: node.master,
         })(tx);
       }
-      if (node.masterReferenceBlobId !== undefined) setRecordingMasterReference({
-        recordingId: parts.work, authority,
-        recordingShareType: node.shareType,
-        compositionShareType: node.compositionShareType,
-        recordingMasterReferencePackageId: p.deployment.packages.recordingMasterReference,
-        reference: walrusBlob(tx, p, node.masterReferenceBlobId),
-      })(tx);
       if (node.streamingTranscodeQuiltId !== undefined) setRecordingStreamingTranscode({
         recordingId: parts.work, authority,
         recordingShareType: node.shareType,

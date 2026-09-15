@@ -40,7 +40,6 @@ const FULL_DEPLOYMENT: MisoPlatformDeployment = {
     ...base.packages,
     compositionCredits: id(1),
     recordingCredits: id(2),
-    recordingMasterReference: id(3),
     releaseCoverArt: id(4),
     releaseCredits: id(5),
     releaseDescription: id(6),

@@ -32,7 +32,6 @@ import * as recordingAdvisory from "./contracts/recording_advisory/recording_adv
 import * as recordingCredits from "./contracts/recording_credits/recording_credits.ts";
 import * as recordingPartyRole from "./contracts/recording_credits/recording_party_role.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
-import * as recordingMasterReference from "./contracts/recording_master_reference/recording_master_reference.ts";
 import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as releaseCredits from "./contracts/release_credits/release_credits.ts";
 import * as releasePartyRole from "./contracts/release_credits/release_party_role.ts";
@@ -78,7 +77,6 @@ export const REF_RETURNING_CALLS = {
   audio: ["data", "format", "pcmDigest"],
   compositionCredits: ["credits"],
   recordingCredits: ["credits", "primaryArtistIds", "featuredArtistIds"],
-  recordingMasterReference: ["masterReference"],
   releaseCoverArt: ["cover"],
   releaseCredits: ["credits"],
   releaseDescription: ["description"],
@@ -137,11 +135,6 @@ export class MisoPlatformPackageBindings {
           ),
         },
         recordingLanguage: bindModulePackage(recordingLanguage, p.recordingLanguage),
-        recordingMasterReference: bindModulePackage(
-          recordingMasterReference,
-          p.recordingMasterReference,
-          REF_RETURNING_CALLS.recordingMasterReference,
-        ),
         releaseCoverArt: bindModulePackage(
           releaseCoverArt,
           p.releaseCoverArt,
@@ -206,7 +199,6 @@ export class MisoPlatformPackageBindings {
           recordingPartyRole: codecsOnly(recordingPartyRole),
         },
         recordingLanguage: codecsOnly(recordingLanguage),
-        recordingMasterReference: codecsOnly(recordingMasterReference),
         releaseCoverArt: codecsOnly(releaseCoverArt),
         releaseCredits: {
           releaseCredits: codecsOnly(releaseCredits),
