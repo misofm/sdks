@@ -744,6 +744,31 @@ use `redeemAllAndDepositCompositionRoyaltyPool` /
 argument. Generated bindings gain `redeemAllAndDeposit` on the two pool
 Actions and the two pool plugins.
 
+### Plugin event decoders after immutable republish
+
+The next plugin generation emits install/uninstall events only. Its generated
+bindings and `platformEventParsers.plugins` remove eight operation wrappers:
+
+| Plugin parser group | Removed decoders | Operation receipts to use |
+|---|---|---|
+| `compositionRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowed`; `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| `recordingRoyaltyPool` | `capabilityBorrowed`, `coinsDeposited`, `fundsDeposited` | `primitives.vault.capabilityBorrowed`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| `releaseRevenueDistributor` | `coinsDistributed`, `fundsDistributed` | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, `.revenueDistributed` |
+
+The deposit Actions retain their own `CompositionCoinsDepositedEvent`,
+`CompositionFundsDepositedEvent`, `RecordingCoinsDepositedEvent` and
+`RecordingFundsDepositedEvent` codecs. Filter by the full event type, including
+package and module: matching an event name alone cannot distinguish an old
+plugin wrapper from an Action receipt. Generic Vault events and plugin
+install/uninstall decoders remain available. Transaction entry signatures are
+unchanged from the redeem-all-only generation.
+
+This decoder removal is a breaking API change for the new immutable package
+generation. Adopt it after the redeem-all-only rollout and plugin republish,
+with deployment IDs updated together. For historical events from old plugin
+package IDs, retain the SDK version or event schemas for that generation; the
+new registry does not decode those retired wrappers.
+
 ### Migrating from 0.27
 
 0.28 replaces the hand-written `MisoPlatformClient` class and its

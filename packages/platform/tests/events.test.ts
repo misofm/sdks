@@ -333,5 +333,10 @@ test("registry exposes every current platform event family", () => {
     const value = (platformEventParsers as Record<string, any>)[family]?.[group]?.[operation];
     expect(typeof value).toBe("function");
   }
+  // New-generation plugins emit lifecycle events only. Operation receipts
+  // remain in Actions and Vault, including the deposit codecs checked above.
+  for (const parsers of Object.values(platformEventParsers.plugins)) {
+    expect(Object.keys(parsers).sort()).toEqual(["installed", "uninstalled"]);
+  }
   expect(typeof platformEventParsers.actions.pay.paymentSent).toBe("function");
 });

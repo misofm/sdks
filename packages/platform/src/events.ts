@@ -298,22 +298,14 @@ export const platformEventParsers = {
     compositionRoyaltyPool: {
       installed: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginInstalledEvent),
       uninstalled: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginUninstalledEvent),
-      capabilityBorrowed: decoder(compositionRoyaltyPoolPlugin.CompositionVaultCapabilityBorrowedEvent),
-      coinsDeposited: decoder(compositionRoyaltyPoolPlugin.CompositionCoinsDepositedEvent),
-      fundsDeposited: decoder(compositionRoyaltyPoolPlugin.CompositionFundsDepositedEvent),
     },
     recordingRoyaltyPool: {
       installed: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginInstalledEvent),
       uninstalled: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginUninstalledEvent),
-      capabilityBorrowed: decoder(recordingRoyaltyPoolPlugin.RecordingVaultCapabilityBorrowedEvent),
-      coinsDeposited: decoder(recordingRoyaltyPoolPlugin.RecordingCoinsDepositedEvent),
-      fundsDeposited: decoder(recordingRoyaltyPoolPlugin.RecordingFundsDepositedEvent),
     },
     releaseRevenueDistributor: {
       installed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginInstalledEvent),
       uninstalled: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginUninstalledEvent),
-      coinsDistributed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueCoinsDistributedEvent),
-      fundsDistributed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueFundsDistributedEvent),
     },
   },
   products: {
