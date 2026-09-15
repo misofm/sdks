@@ -15,10 +15,11 @@
  * The chain is deliberately role-agnostic: which patch is the avatar vs the header
  * is a client convention (quilt patch _identifiers_, e.g. "avatar" / "header"),
  * derived off-chain — never stored here. Updating any image means re-storing the
- * quilt and calling `set_media` with the new id. Every successful set emits the
- * prior/resulting quilt ids and the authorizing cap address; a clear emits the
- * removed id only when a field existed. All writes are cap-gated through
- * `party::uid_mut`, and views are permissionless.
+ * quilt and calling `set_media` with the new id. Each changed set emits the
+ * prior/resulting quilt ids and the authorizing cap address; equal replacements
+ * still write but do not emit. A clear emits the removed id only when a field
+ * existed. All writes are cap-gated through `party::uid_mut`, and views are
+ * permissionless.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -62,8 +63,9 @@ export interface SetMediaOptions {
 }
 /**
  * Sets (or replaces) the party's media quilt. Aborts on a zero id before
- * authorization. Every successful call, including an identical replacement, emits
- * exactly one event with the complete prior/resulting quilt snapshot.
+ * authorization. Every successful call performs the requested insert or
+ * replacement. An event is emitted only when the quilt id changes; an initial
+ * nonzero attachment always emits.
  */
 export function setMedia(options: SetMediaOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_media';

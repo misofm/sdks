@@ -56,7 +56,7 @@ test("release retains the complete master Audio alongside the legacy blob ID", a
   const id = recordingMasterFieldId(recordingId, config.protocol.recordingMaster!);
   const master = { format: "flac", channels: 2, bit_depth: 24, sample_rate_hz: 44100,
     samples: "8500549", pcm_digest: Array(32).fill(3),
-    data: { blob_id: "42", confidentiality: { Encrypted: { sealed_dek: [1, 2, 3] } } } };
+    blob_id: "42" };
   const content = bcs.struct("Field", { id: bcs.Address, name: ExtensionKey, value: Audio })
     .serialize({ id, name: [false], value: master }).toBytes();
   const result = await Effect.runPromise(Effect.provide(getReleaseDetail(releaseId, config),

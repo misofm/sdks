@@ -84,10 +84,7 @@ export const RecordingGenreAddedEvent = new MoveStruct({ name: `${$moduleName}::
         composition_id: bcs.Address,
         admin_cap_id: bcs.Address,
         genre_id: bcs.Address,
-        genre_name: bcs.vector(bcs.u8()),
         genre_index: bcs.u64(),
-        genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -104,8 +101,6 @@ export const RecordingGenreRemovedEvent = new MoveStruct({ name: `${$moduleName}
         admin_cap_id: bcs.Address,
         genre_id: bcs.Address,
         genre_index: bcs.u64(),
-        genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -123,7 +118,6 @@ export const RecordingGenresClearedEvent = new MoveStruct({ name: `${$moduleName
         clear_cause: bcs.u8(),
         trigger_genre_id: bcs.Address,
         genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -192,9 +186,9 @@ export interface RemoveGenreOptions {
 }
 /**
  * Removes a genre by id. If it was the primary, the next genre in the list becomes
- * primary. Removing the last remaining genre drops the field entirely and
- * additionally emits `RecordingGenresClearedEvent`. Aborts `EGenreNotPresent` if
- * the genre is not assigned — including when nothing is attached at all.
+ * primary. Removing the last remaining genre drops the field entirely before
+ * emitting its final-state `RecordingGenreRemovedEvent`. Aborts `EGenreNotPresent`
+ * if the genre is not assigned — including when nothing is attached at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_genre';

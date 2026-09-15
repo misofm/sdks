@@ -48,8 +48,8 @@ export interface SetLinkOptions {
 }
 /**
  * Sets (or replaces) a platform's link on the party. The primitive emits one
- * `PlatformLinkSetEvent<Data>` for every successful call, including an equal
- * replacement.
+ * `PlatformLinkSetEvent<Data>` for an insertion or changed replacement; an equal
+ * replacement still writes silently.
  */
 export function setLink(options: SetLinkOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_platform_link';

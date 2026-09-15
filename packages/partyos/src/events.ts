@@ -30,7 +30,6 @@ function decoder<T>(codec: BcsParser<T>) {
 export const partyEventParsers = {
   core: {
     partyCreated: decoder(party.PartyCreatedEvent),
-    partyShared: decoder(party.PartySharedEvent),
     partyNameSet: decoder(party.PartyNameSetEvent),
     partyGroupInviteCreated: decoder(party.PartyGroupInviteCreatedEvent),
     partyGroupMembershipAccepted: decoder(party.PartyGroupMembershipAcceptedEvent),

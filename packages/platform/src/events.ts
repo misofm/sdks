@@ -20,10 +20,8 @@ import type { BcsParser } from "@misofm/musicos/queries";
 import type { BcsType } from "@mysten/sui/bcs";
 
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";
-import * as audio from "./contracts/audio/audio.ts";
 import * as compositionRoutedStake from "./contracts/composition_routed_stake/composition_routed_stake.ts";
 import * as compositionRoyaltyPool from "./contracts/composition_royalty_pool/composition_royalty_pool.ts";
-import * as compositionRoyaltyPoolPlugin from "./contracts/composition_royalty_pool_plugin/composition_royalty_pool_plugin.ts";
 import * as genre from "./contracts/genre/genre.ts";
 import * as misoPay from "./contracts/miso_pay/pay.ts";
 import * as partyCta from "./contracts/party_cta/party_cta.ts";
@@ -43,7 +41,6 @@ import * as recordingEngineSession from "./contracts/recording_engine_session/re
 import * as recordingGenre from "./contracts/recording_genre/recording_genre.ts";
 import * as recordingLanguage from "./contracts/recording_language/recording_language.ts";
 import * as recordingRoyaltyPool from "./contracts/recording_royalty_pool/recording_royalty_pool.ts";
-import * as recordingRoyaltyPoolPlugin from "./contracts/recording_royalty_pool_plugin/recording_royalty_pool_plugin.ts";
 import * as recordingStreamingTranscode from "./contracts/recording_streaming_transcode/recording_streaming_transcode.ts";
 import * as releaseCoverArt from "./contracts/release_cover_art/release_cover_art.ts";
 import * as releaseCredits from "./contracts/release_credits/release_credits.ts";
@@ -52,7 +49,6 @@ import * as releaseDspLink from "./contracts/release_dsp_link/release_dsp_link.t
 import * as releaseGenre from "./contracts/release_genre/release_genre.ts";
 import * as releaseKind from "./contracts/release_kind/release_kind.ts";
 import * as releaseRevenueDistributor from "./contracts/release_revenue_distributor/release_revenue_distributor.ts";
-import * as releaseRevenueDistributorPlugin from "./contracts/release_revenue_distributor_plugin/release_revenue_distributor_plugin.ts";
 import * as royaltyPool from "./contracts/royalty_pool/pool.ts";
 import * as royaltyStake from "./contracts/royalty_pool/stake.ts";
 import * as routedStake from "./contracts/routed_stake/routed_stake.ts";
@@ -200,12 +196,8 @@ export const platformEventParsers = {
     },
   },
   primitives: {
-    audio: {
-      ingested: decoder(audio.AudioIngestedEvent),
-    },
     royaltyPool: {
       poolCreated: decoder(royaltyPool.RoyaltyPoolCreatedEvent),
-      poolShared: decoder(royaltyPool.RoyaltyPoolSharedEvent),
       deposited: decoder(royaltyPool.RoyaltyDepositedEvent),
       fundsSettled: decoder(royaltyPool.RoyaltyPoolFundsSettledEvent),
       coinsRecovered: decoder(royaltyPool.RoyaltyPoolCoinsRecoveredEvent),
@@ -217,7 +209,6 @@ export const platformEventParsers = {
     },
     routedStake: {
       created: decoder(routedStake.RoutedStakeCreatedEvent),
-      shared: decoder(routedStake.RoutedStakeSharedEvent),
       registered: decoder(routedStake.RoutedStakeRegisteredEvent),
       unregistered: decoder(routedStake.RoutedStakeUnregisteredEvent),
       swept: decoder(routedStake.RoutedStakeSweptEvent),
@@ -227,17 +218,12 @@ export const platformEventParsers = {
     vault: {
       registryCreated: decoder(vault.VaultRegistryCreatedEvent),
       created: decoder(vault.VaultCreatedEvent),
-      shared: decoder(vault.VaultSharedEvent),
       pluginAuthorized: decoder(vault.PluginAuthorizedEvent),
       pluginRevoked: decoder(vault.PluginRevokedEvent),
       capabilityWithdrawn: decoder(vault.VaultCapabilityWithdrawnEvent),
       capabilityRestored: decoder(vault.VaultCapabilityRestoredEvent),
-      capabilityBorrowedByPlugin: decoder(vault.VaultCapabilityBorrowedByPluginEvent),
-      capabilityBorrowedByAdmin: decoder(vault.VaultCapabilityBorrowedByAdminEvent),
-      capabilityReturned: decoder(vault.VaultCapabilityReturnedEvent),
       vaultRegistryCreated: decoder(vault.VaultRegistryCreatedEvent),
       vaultCreated: decoder(vault.VaultCreatedEvent),
-      vaultShared: decoder(vault.VaultSharedEvent),
     },
     genre: {
       registryCreated: decoder(genre.GenreRegistryCreatedEvent),
@@ -294,28 +280,6 @@ export const platformEventParsers = {
         decoder(misoPay.PaymentSentEvent(metadata)),
     },
   },
-  plugins: {
-    compositionRoyaltyPool: {
-      installed: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginInstalledEvent),
-      uninstalled: decoder(compositionRoyaltyPoolPlugin.CompositionRoyaltyPoolPluginUninstalledEvent),
-      capabilityBorrowed: decoder(compositionRoyaltyPoolPlugin.CompositionVaultCapabilityBorrowedEvent),
-      coinsDeposited: decoder(compositionRoyaltyPoolPlugin.CompositionCoinsDepositedEvent),
-      fundsDeposited: decoder(compositionRoyaltyPoolPlugin.CompositionFundsDepositedEvent),
-    },
-    recordingRoyaltyPool: {
-      installed: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginInstalledEvent),
-      uninstalled: decoder(recordingRoyaltyPoolPlugin.RecordingRoyaltyPoolPluginUninstalledEvent),
-      capabilityBorrowed: decoder(recordingRoyaltyPoolPlugin.RecordingVaultCapabilityBorrowedEvent),
-      coinsDeposited: decoder(recordingRoyaltyPoolPlugin.RecordingCoinsDepositedEvent),
-      fundsDeposited: decoder(recordingRoyaltyPoolPlugin.RecordingFundsDepositedEvent),
-    },
-    releaseRevenueDistributor: {
-      installed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginInstalledEvent),
-      uninstalled: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueDistributorPluginUninstalledEvent),
-      coinsDistributed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueCoinsDistributedEvent),
-      fundsDistributed: decoder(releaseRevenueDistributorPlugin.ReleaseRevenueFundsDistributedEvent),
-    },
-  },
   products: {
     record: {
       destroyed: decoder(record.RecordDestroyedEvent),
@@ -323,13 +287,11 @@ export const platformEventParsers = {
     pressing: {
       created: decoder(pressing.PressingCreatedEvent),
       purchased: decoder(pressing.RecordPurchasedEvent),
-      shared: decoder(pressing.PressingSharedEvent),
       distributorAuthorized: decoder(pressing.PressingDistributorAuthorizedEvent),
       distributorRevoked: decoder(pressing.PressingDistributorRevokedEvent),
     },
     listing: {
       created: decoder(listing.ListingCreatedEvent),
-      shared: decoder(listing.ListingSharedEvent),
       priceChanged: decoder(listing.ListingPriceChangedEvent),
       stateChanged: decoder(listing.ListingStateChangedEvent),
       sold: decoder(listing.RecordSoldEvent),

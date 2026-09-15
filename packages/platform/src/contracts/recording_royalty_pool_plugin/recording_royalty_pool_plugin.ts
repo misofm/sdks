@@ -5,74 +5,8 @@
 
 /** Vault adapter for Recording royalty-pool Actions. */
 
-import { MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
-import { bcs } from '@mysten/sui/bcs';
-import type {} from "@mysten/bcs";
 import { type Transaction, type TransactionArgument } from '@mysten/sui/transactions';
-const $moduleName = '@local-pkg/recording_royalty_pool_plugin::recording_royalty_pool_plugin';
-export const RecordingRoyaltyPoolPluginInstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginInstalledEvent<phantom RecordingShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
-export const RecordingRoyaltyPoolPluginUninstalledEvent = new MoveStruct({ name: `${$moduleName}::RecordingRoyaltyPoolPluginUninstalledEvent<phantom RecordingShare>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        vault_admin_cap_id: bcs.Address,
-        authorized_plugins_id: bcs.Address,
-        authorized_plugin_count: bcs.u64(),
-        installed: bcs.bool()
-    } });
-export const RecordingVaultCapabilityBorrowedEvent = new MoveStruct({ name: `${$moduleName}::RecordingVaultCapabilityBorrowedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        pool_id: bcs.Address,
-        active: bcs.bool(),
-        capability_available: bcs.bool()
-    } });
-export const RecordingCoinsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingCoinsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        pool_id: bcs.Address,
-        pool_balance_before: bcs.u64(),
-        pool_balance_after: bcs.u64(),
-        staked_shares: bcs.u64(),
-        reward_per_share_before: bcs.u256(),
-        reward_per_share_after: bcs.u256(),
-        carry_before: bcs.u128(),
-        carry_after: bcs.u128(),
-        cumulative_deposits_before: bcs.u128(),
-        cumulative_deposits_after: bcs.u128(),
-        active: bcs.bool(),
-        capability_available: bcs.bool(),
-        coin_ids: bcs.vector(bcs.Address)
-    } });
-export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingFundsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        pool_id: bcs.Address,
-        pool_balance_before: bcs.u64(),
-        pool_balance_after: bcs.u64(),
-        staked_shares: bcs.u64(),
-        reward_per_share_before: bcs.u256(),
-        reward_per_share_after: bcs.u256(),
-        carry_before: bcs.u128(),
-        carry_after: bcs.u128(),
-        cumulative_deposits_before: bcs.u128(),
-        cumulative_deposits_after: bcs.u128(),
-        active: bcs.bool(),
-        capability_available: bcs.bool(),
-        amount: bcs.u64()
-    } });
+import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
     vaultAdminCap: RawTransactionArgument<string>;
@@ -216,8 +150,15 @@ export interface RedeemAllAndDepositOptions {
  * Permissionless crank: redeem the Recording's full settled accumulator snapshot
  * into its canonical pool. Takes the framework `AccumulatorRoot` and no amount, so
  * a caller cannot fragment settlement. A zero snapshot or a pool with no
- * registered stake is an idempotent no-op that redeems nothing and emits no
- * deposit event, so one such item never aborts a batched crank.
+ * registered stake is a no-op that redeems nothing and emits no deposit event, so
+ * an item cranked in an earlier consensus commit, or an unstaked one, passes
+ * through a batched crank untouched.
+ *
+ * The snapshot is constant within a commit (only settlement writes it), so
+ * cranking the same Recording twice in one PTB, or from two transactions in the
+ * same commit, withdraws it twice and the network fails that whole transaction
+ * with `InsufficientFundsForWithdraw` (not a Move abort). Include each object at
+ * most once per PTB and retry that status next commit.
  */
 export function redeemAllAndDeposit(options: RedeemAllAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool_plugin';

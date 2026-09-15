@@ -26,20 +26,10 @@ const partyCreatedWire = bcs.struct("PartyCreatedEventFixture", {
   admin_cap_id: bcs.Address,
   name: bcs.string(),
   kind: bcs.u8(),
-  member_ids: bcs.vector(bcs.Address),
+  member_count: bcs.u64(),
   creator: bcs.Address,
   created_at_ms: bcs.u64(),
   created_epoch: bcs.u64(),
-});
-
-const partySharedWire = bcs.struct("PartySharedEventFixture", {
-  party_id: bcs.Address,
-  admin_cap_id: bcs.Address,
-  name: bcs.string(),
-  kind: bcs.u8(),
-  member_ids: bcs.vector(bcs.Address),
-  created_at_ms: bcs.u64(),
-  is_shared: bcs.bool(),
 });
 
 const partyNameSetWire = bcs.struct("PartyNameSetEventFixture", {
@@ -110,7 +100,6 @@ const partyGroupMembershipRemovedWire = bcs.struct("PartyGroupMembershipRemovedE
 test("registers exactly the current PartyOS event names and codecs", () => {
   expect(Object.keys(partyEventParsers.core)).toEqual([
     "partyCreated",
-    "partyShared",
     "partyNameSet",
     "partyGroupInviteCreated",
     "partyGroupMembershipAccepted",
@@ -122,7 +111,6 @@ test("registers exactly the current PartyOS event names and codecs", () => {
 
   for (const codec of [
     "PartyCreatedEvent",
-    "PartySharedEvent",
     "PartyNameSetEvent",
     "PartyGroupInviteCreatedEvent",
     "PartyGroupMembershipAcceptedEvent",
@@ -151,7 +139,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: ADMIN_CAP_ID,
     name: "Ada",
     kind: 0,
-    member_ids: [],
+    member_count: "0",
     creator: CREATOR,
     created_at_ms: "9007199254740993",
     created_epoch: "18446744073709551615",
@@ -161,7 +149,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: GROUP_ADMIN_CAP_ID,
     name: "The Group",
     kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
+    member_count: "2",
     creator: CREATOR,
     created_at_ms: "12345678901234567890",
     created_epoch: "42",
@@ -175,7 +163,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: ADMIN_CAP_ID,
     name: "Ada",
     kind: 0,
-    member_ids: [],
+    member_count: "0",
     creator: CREATOR,
     created_at_ms: "9007199254740993",
     created_epoch: "18446744073709551615",
@@ -185,7 +173,7 @@ test("decodes individual and group creation fixtures with numeric kind and preci
     admin_cap_id: GROUP_ADMIN_CAP_ID,
     name: "The Group",
     kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
+    member_count: "2",
     creator: CREATOR,
     created_at_ms: "12345678901234567890",
     created_epoch: "42",
@@ -194,23 +182,14 @@ test("decodes individual and group creation fixtures with numeric kind and preci
   const kind: number = individual.kind;
   const createdAt: string = individual.created_at_ms;
   const createdEpoch: string = individual.created_epoch;
-  const memberIds: string[] = group.member_ids;
+  const memberCount: string = group.member_count;
   void kind;
   void createdAt;
   void createdEpoch;
-  void memberIds;
+  void memberCount;
 });
 
-test("decodes sharing and name changes without domain remapping", () => {
-  const sharedBytes = partySharedWire.serialize({
-    party_id: GROUP_ID,
-    admin_cap_id: GROUP_ADMIN_CAP_ID,
-    name: "The Group",
-    kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
-    created_at_ms: "12345678901234567890",
-    is_shared: true,
-  }).toBytes();
+test("decodes name changes without domain remapping", () => {
   const nameBytes = partyNameSetWire.serialize({
     party_id: PARTY_ID,
     admin_cap_id: ADMIN_CAP_ID,
@@ -218,15 +197,6 @@ test("decodes sharing and name changes without domain remapping", () => {
     name: "新しい名前",
   }).toBytes();
 
-  expect(partyEventParsers.core.partyShared(sharedBytes)).toEqual({
-    party_id: GROUP_ID,
-    admin_cap_id: GROUP_ADMIN_CAP_ID,
-    name: "The Group",
-    kind: 1,
-    member_ids: [MEMBER_A, MEMBER_B],
-    created_at_ms: "12345678901234567890",
-    is_shared: true,
-  });
   expect(partyEventParsers.core.partyNameSet(nameBytes)).toEqual({
     party_id: PARTY_ID,
     admin_cap_id: ADMIN_CAP_ID,
@@ -234,10 +204,6 @@ test("decodes sharing and name changes without domain remapping", () => {
     name: "新しい名前",
   });
 
-  const shared: ReturnType<typeof partyEventParsers.core.partyShared> =
-    partyEventParsers.core.partyShared(sharedBytes);
-  const sharedState: boolean = shared.is_shared;
-  void sharedState;
 });
 
 test("decodes invitation lifecycle events with their distinct capability fields", () => {

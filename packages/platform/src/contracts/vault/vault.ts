@@ -63,10 +63,6 @@ export const VaultCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultCr
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });
-export const VaultSharedEvent = new MoveStruct({ name: `${$moduleName}::VaultSharedEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address
-    } });
 export const PluginAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PluginAuthorizedEvent<phantom Cap, phantom Witness>`, fields: {
         vault_id: bcs.Address,
         cap_id: bcs.Address,
@@ -94,25 +90,6 @@ export const VaultCapabilityRestoredEvent = new MoveStruct({ name: `${$moduleNam
         vault_id: bcs.Address,
         cap_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        active: bcs.bool(),
-        capability_available: bcs.bool()
-    } });
-export const VaultCapabilityBorrowedByPluginEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityBorrowedByPluginEvent<phantom Cap, phantom Witness>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        active: bcs.bool(),
-        capability_available: bcs.bool()
-    } });
-export const VaultCapabilityBorrowedByAdminEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityBorrowedByAdminEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
-        active: bcs.bool(),
-        capability_available: bcs.bool()
-    } });
-export const VaultCapabilityReturnedEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityReturnedEvent<phantom Cap>`, fields: {
-        vault_id: bcs.Address,
-        cap_id: bcs.Address,
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });

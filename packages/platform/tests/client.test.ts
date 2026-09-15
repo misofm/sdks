@@ -61,7 +61,7 @@ describe("client.$extend(miso()): warm registration", () => {
     expect(typeof client.miso.protocol.getReleaseById).toBe("function");
     expect(typeof client.miso.party.getPartyById).toBe("function");
     expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
-    expect(client.miso.bcs.PressingSharedEvent).toBeDefined();
+    expect(client.miso.bcs.PressingCreatedEvent).toBeDefined();
 
     // A sibling-composed PTB: `client.miso.tx.*` (this package's own fragment)
     // plus `client.miso.party.tx.*` (the party surface's fragment) in one
@@ -397,7 +397,7 @@ describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved throug
               version: 1n,
               content: musicosReleaseContract.Release.serialize({
                 id: RELEASE_ID,
-                state: { Initialized: true },
+                state: { Initialized: { registry_id: A, release_digest: [], nonce: "0" } },
                 title: "Through The Face",
                 tracks: [],
               }).toBytes(),

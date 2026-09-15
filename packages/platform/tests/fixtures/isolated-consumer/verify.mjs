@@ -73,8 +73,8 @@ invariant(hasExport(musicosTransactions, "createComposition"), "@misofm/musicos/
 
 invariant(Object.keys(musicosParsers).length > 0, "@misofm/musicos/parsers export did not load");
 invariant(
-  hasExport(musicosParsers, "parseCompositionCreatedEvent"),
-  "@misofm/musicos/parsers missing parseCompositionCreatedEvent",
+  hasExport(musicosParsers, "parseCompositionPublishedEvent"),
+  "@misofm/musicos/parsers missing parseCompositionPublishedEvent",
 );
 
 invariant(Object.keys(musicosEvents).length > 0, "@misofm/musicos/events export did not load");
@@ -141,11 +141,10 @@ const descriptionBytes = platformContracts.releaseDescription.ReleaseDescription
   release_id: eventId,
   release_admin_cap_id: eventId,
   description_existed_before: false,
-  description_before: [],
-  description_after: [76, 105, 110, 101, 114],
 }).toBytes();
 const description = platformEvents.platformEventParsers.extensions.releaseDescription.descriptionSet(descriptionBytes);
-invariant(Array.isArray(description.description_after), "description byte vector did not survive public decode");
+invariant(description.description_existed_before === false, "description presence did not survive public decode");
+invariant(!("description_after" in description), "description content leaked into bounded receipt");
 const claimBytes = platformContracts.royaltyPool.RoyaltyClaimedEvent.serialize({
   pool_id: eventId,
   stake_id: eventId,

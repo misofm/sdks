@@ -77,18 +77,24 @@ original object, so later caller mutation cannot retarget an existing client.
 ### Engine sessions
 
 A Recording's `recording_engine_session::ExtensionKey` dynamic field holds one
-`EngineSession`: the unencrypted Walrus blob of the canonical Miso Engine
-Session V1 JSON, plus one `Stem` per source pairing the 32-byte SHA-256 of its
-canonical PCM (the document's `content` identity) with the unencrypted Walrus
-blob of its FLAC. The document carries no locators, so this field is where a
-client resolves each source to bytes. Nothing is encrypted; there is no
-wrapper document and no off-chain map.
+`EngineSession`: the bare `u256` ID of the canonical Miso Engine Session V1
+JSON, plus one `Stem` per source pairing the 32-byte SHA-256 of its canonical
+PCM (the document's `content` identity) with the bare `u256` ID of its FLAC
+blob. The document carries no locators, so this field is where a client
+resolves each source to bytes. Nothing is encrypted; there is no wrapper
+document and no off-chain map.
 
 `getRecordingEngineSession` reads the field in one request and returns the
 session blob id and the stems table. `setRecordingEngineSession` and
 `unsetRecordingEngineSession` are the cap-authorized PTB builders; the builder
 sorts stems by digest, as `recording_engine_session::new` requires. Walrus id
 conversions live in `walrus-ids`.
+
+Audio masters use the same v1 shape: `Audio.blob_id`, `EngineSession.blob_id`,
+and each stem's `blob_id` are bare `u256` values. `setRecordingMaster` and
+`setRecordingEngineSession` take those IDs directly and do not require an Ori
+package ID. Ori remains a dependency for cover-art and streaming-transcode
+constructors, which still wrap their own Walrus values.
 
 ## The model
 
@@ -744,6 +750,88 @@ use `redeemAllAndDepositCompositionRoyaltyPool` /
 argument. Generated bindings gain `redeemAllAndDeposit` on the two pool
 Actions and the two pool plugins.
 
+### Migrating event decoders to v1
+
+The v1 package generation makes event purposes explicit. Generated bindings and
+`platformEventParsers` no longer expose `AudioIngestedEvent`,
+`VaultCapabilityReturnedEvent`, `VaultCapabilityBorrowedByPluginEvent`, or
+`VaultCapabilityBorrowedByAdminEvent`, and the `plugins` parser group is gone
+because first-party plugins emit no plugin-owned events. Audio values, audio
+master reads, and all audio transaction builders remain available with bare
+Walrus blob IDs. Plugin install,
+uninstall, authorization, borrowing, and Action execution remain available as
+operations; only the retired event codecs are removed.
+
+Royalty pools emit `RoyaltyPoolCreatedEvent` once at construction with parent
+identity and initial accounting state. Sharing is silent: the generated
+`RoyaltyPoolSharedEvent` codec and `primitives.royaltyPool.poolShared` parser
+are removed. Use `primitives.royaltyPool.poolCreated` for pool discovery;
+registration and deposit events report any changes made before sharing.
+
+Routed stakes likewise retain `RoutedStakeCreatedEvent` at construction with
+parent identity and initial stake value. Sharing is silent; the generated
+`RoutedStakeSharedEvent` codec and `primitives.routedStake.shared` parser are
+removed. Use `primitives.routedStake.created` for discovery and the retained
+registration, unstaking and restaking events for subsequent state changes,
+including changes made before sharing.
+
+Vaults retain `VaultCreatedEvent` with registry, capability and administrator
+identity plus initial state. Sharing is silent: `VaultSharedEvent`, both parser
+aliases (`primitives.vault.shared` and `.vaultShared`), and the Miso facade export
+are removed. Use `primitives.vault.created` for discovery; authorization and
+capability custody changes retain their own events, including before sharing.
+
+Pressings retain `PressingCreatedEvent` with their initial edition, supply limit
+and capability provenance. Sharing is silent: `PressingSharedEvent`, the
+`products.pressing.shared` parser and Miso facade export are removed. Use
+`products.pressing.created` for discovery; distributor changes and purchases
+retain their own events, including changes made before sharing.
+
+Listings retain `ListingCreatedEvent` with initial pricing, enabled state and
+capability provenance. Sharing is silent: `ListingSharedEvent`, the
+`products.listing.shared` parser and Miso facade export are removed. Use
+`products.listing.created` for discovery; pricing, availability and purchase
+events report subsequent changes, including changes made before sharing.
+
+Route the events that still exist by their owning purpose:
+
+| Purpose | Parser path |
+|---|---|
+| Vault plugin authorization or revocation | `primitives.vault.pluginAuthorized` / `pluginRevoked` |
+| Composition or Recording royalty deposit | `actions.compositionRoyaltyPool.coinsDeposited` / `.fundsDeposited`; `actions.recordingRoyaltyPool.coinsDeposited` / `.fundsDeposited` |
+| Royalty pool coin recovery | `primitives.royaltyPool.coinsRecovered` |
+| Release revenue receipts | `actions.releaseRevenueDistributor.coinsReceived`, `.fundsRedeemed`, `.trackRevenueDistributed`, and `.revenueDistributed` |
+
+The v1 schema keeps the positive financial Action and extension event codecs.
+The earlier redeem-all migration also removed eight plugin operation wrappers;
+use the Action and generic Vault paths above for those receipts. Filter by the
+full on-chain event type, including package and module, because an event name
+alone cannot distinguish historical wrappers from current Action or Vault
+events.
+
+Some successful writes now intentionally produce no event without changing
+the event schemas. Zero royalty claims, equal metadata replacement, and
+clearing an absent metadata slot are silent. A full metadata value change and
+an initial explicit empty declaration still emit. When a release distribution
+has `total_input == 0`, its per-track distribution rows and completion summary
+are suppressed. `ReleaseCoinsReceivedEvent` still emits when nonempty
+zero-valued coins are consumed. Existing `RoyaltyClaimedEvent` codecs continue
+to decode historical zero-amount claims; this migration does not alter the
+business filtering of royalty history.
+
+Removing the last genre now reports `field_exists_after: false` on its
+`GenreRemovedEvent`. Explicit bulk `genresCleared` remains available with the
+same schema; `clear_cause: 1` is historical-only for consumers that need to
+recognize old cascade events.
+
+Adopt this registry only after the redeem-all rollout and immutable republish,
+with deployment IDs updated together; the current old deployed IDs are not
+compatible with this interface. This is a breaking decoder change for the v1
+immutable package generation.
+For historical events, use the SDK and event schemas generated from the
+originating package generation; the v1 registry intentionally does not decode
+retired event types.
+
 ### Migrating from 0.27
 
 0.28 replaces the hand-written `MisoPlatformClient` class and its
@@ -867,7 +955,7 @@ src/
   client.ts              miso(): the SuiExtension.fromService registration (client.miso.*); MisoClient/MisoOptions
   deployments.ts         fail-closed deployment schema (MisoPlatformDeployment, PartyExtensionsDeployment) and address injection point
   packages.ts            MisoPlatformPackageBindings: extensions/primitives/party generated calls bound to one deployment
-  events.ts              platformEventParsers: work/Party extensions, Actions, products, plugins, and primitive event decoders
+  events.ts              platformEventParsers: work/Party extensions, Actions, products, and primitive event decoders
   royalty.ts             generic royalty-pool / stake / routed-stake derive helpers and PTB builders
   pressing.ts            standalone: builders, readers, and the id derivations (Sui-based reads; Miso.tx/getPressing etc. bind these)
   queries.ts             shared read plumbing (isNotFound, re-exported from @misofm/musicos)

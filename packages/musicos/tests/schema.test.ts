@@ -15,6 +15,7 @@ import * as recordingContract from "../src/contracts/musicos/recording.ts";
 import * as releaseContract from "../src/contracts/musicos/release.ts";
 import * as schema from "../src/schema.ts";
 import { Composition, Recording, Release, ReleaseAdminCap, ReleaseRegistry } from "../src/types.ts";
+import { initializedCompositionState, initializedReleaseState } from "./object-fixtures.ts";
 
 const PKG = `0x${"cd".repeat(32)}`;
 const ADDR = `0x${"ab".repeat(32)}`;
@@ -23,7 +24,7 @@ describe("object codecs", () => {
   test("compositionContent decodes into a Composition instance, tag-matching every share type", () => {
     const bytes = compositionContract.Composition.serialize({
       id: ADDR,
-      state: { Initialized: true },
+      state: initializedCompositionState(),
       title: "Song",
       royalty_rate: [1000],
     }).toBytes();
@@ -39,7 +40,7 @@ describe("object codecs", () => {
   test("compositionContent rejects a mismatched instantiation of a DIFFERENT generic (not a bare match)", () => {
     const bytes = compositionContract.Composition.serialize({
       id: ADDR,
-      state: { Initialized: true },
+      state: initializedCompositionState(),
       title: "Song",
       royalty_rate: [1000],
     }).toBytes();
@@ -70,7 +71,7 @@ describe("object codecs", () => {
   test("releaseContent decodes a release with its ordered tracklist", () => {
     const bytes = releaseContract.Release.serialize({
       id: ADDR,
-      state: { Initialized: true },
+      state: initializedReleaseState(),
       title: "Release",
       tracks: [{ state: { Assigned: true }, composition_id: ADDR, recording_id: ADDR, split_bps: [5000] }],
     }).toBytes();
@@ -118,13 +119,13 @@ describe("the re-serialize length check rejects a trailing byte", () => {
   test("the same envelope rejects a Release, a Composition and a ReleaseAdminCap the same way", () => {
     const releaseBytes = releaseContract.Release.serialize({
       id: ADDR,
-      state: { Initialized: true },
+      state: initializedReleaseState(),
       title: "R",
       tracks: [],
     }).toBytes();
     const compositionBytes = compositionContract.Composition.serialize({
       id: ADDR,
-      state: { Initialized: true },
+      state: initializedCompositionState(),
       title: "C",
       royalty_rate: [1],
     }).toBytes();
@@ -144,24 +145,29 @@ describe("the re-serialize length check rejects a trailing byte", () => {
 });
 
 describe("event codecs", () => {
-  test("compositionCreatedEventContent decodes the raw snake_case shape", () => {
-    const bytes = compositionContract.CompositionCreatedEvent.serialize({
+  test("compositionPublishedEventContent decodes the complete raw snake_case shape", () => {
+    const bytes = compositionContract.CompositionPublishedEvent.serialize({
       composition_id: ADDR,
       composition_admin_cap_id: ADDR,
+      clock_id: ADDR,
+      title_bytes: [1, 2, 3],
+      royalty_rate_bps: 500,
+      published_at_ms: 7n,
+      shared_after: true,
       share_currency_id: ADDR,
       consumed_treasury_cap_id: ADDR,
       created_by: ADDR,
-      title_bytes: [1, 2, 3],
-      royalty_rate_bps: 500,
       share_supply_before: 1n,
       share_supply_after: 2n,
       shares_returned: 0n,
       share_decimals: 6,
       share_supply_fixed_after: true,
+      created_admin_cap_id: ADDR,
     }).toBytes();
-    const decoded = Effect.runSync(SuiSchema.decode(schema.compositionCreatedEventContent, bytes));
+    const decoded = Effect.runSync(SuiSchema.decode(schema.compositionPublishedEventContent, bytes));
     expect(decoded.composition_id).toBe(ADDR);
     expect(decoded.royalty_rate_bps).toBe(500);
+    expect(decoded.share_supply_after).toBe("2");
   });
 });
 

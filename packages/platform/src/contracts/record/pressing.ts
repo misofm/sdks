@@ -86,14 +86,6 @@ export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::Reco
         /** The immutable supply ceiling, if one exists. */
         max_supply: bcs.option(bcs.u32())
     } });
-export const PressingSharedEvent = new MoveStruct({ name: `${$moduleName}::PressingSharedEvent`, fields: {
-        pressing_id: bcs.Address,
-        release_id: bcs.Address,
-        edition: bcs.u16(),
-        supply: bcs.u32(),
-        max_supply: bcs.option(bcs.u32()),
-        distributors: bcs.vector(bcs.string())
-    } });
 export const PressingDistributorAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PressingDistributorAuthorizedEvent<phantom Distributor>`, fields: {
         pressing_id: bcs.Address,
         release_id: bcs.Address,

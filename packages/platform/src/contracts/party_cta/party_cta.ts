@@ -15,9 +15,10 @@
  * The CTAs are an ordered list: **position is priority**. The whole list is
  * written at once (`set_ctas`) — the natural fit for a drag-to-reorder editor that
  * saves on submit — so there are no per-entry ids to track. Gated by the
- * `PartyAdminCap`; views are permissionless. Each successful write emits one
- * self-contained event with the authorizing cap address and complete ordered
- * prior/resulting label and URL bytes; an absent clear is silent.
+ * `PartyAdminCap`; views are permissionless. Each changed write emits one compact
+ * event with the authorizing cap address and prior/resulting counts; an absent
+ * clear is silent. Equal replacements still perform the write but do not emit a
+ * change event.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -35,18 +36,12 @@ export const CtasSetEvent = new MoveStruct({ name: `${$moduleName}::CtasSetEvent
         admin_cap_id: bcs.Address,
         existed_before: bcs.bool(),
         previous_count: bcs.u64(),
-        count: bcs.u64(),
-        previous_labels: bcs.vector(bcs.vector(bcs.u8())),
-        previous_urls: bcs.vector(bcs.vector(bcs.u8())),
-        labels: bcs.vector(bcs.vector(bcs.u8())),
-        urls: bcs.vector(bcs.vector(bcs.u8()))
+        count: bcs.u64()
     } });
 export const CtasClearedEvent = new MoveStruct({ name: `${$moduleName}::CtasClearedEvent`, fields: {
         party_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        previous_count: bcs.u64(),
-        previous_labels: bcs.vector(bcs.vector(bcs.u8())),
-        previous_urls: bcs.vector(bcs.vector(bcs.u8()))
+        previous_count: bcs.u64()
     } });
 export interface NewCtaArguments {
     label: RawTransactionArgument<string>;
@@ -138,9 +133,9 @@ export interface SetCtasOptions {
 }
 /**
  * Sets (or replaces) the party's ordered CTA list. Position is priority. Length is
- * checked before authorization. Every successful call, including an empty or
- * identical replacement, emits exactly one event with complete prior and resulting
- * label and URL byte vectors.
+ * checked before authorization. Every successful call performs the requested
+ * insert or replacement. An event is emitted only when the complete ordered CTA
+ * value changes; an empty first attachment remains a meaningful insert and emits.
  */
 export function setCtas(options: SetCtasOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_cta';
@@ -171,7 +166,7 @@ export interface ClearCtasOptions {
 /**
  * Removes the party's CTA list. Authorization happens before checking existence;
  * an absent list is a silent no-op, while an existing list emits exactly one event
- * containing the complete removed payload.
+ * containing the removed count.
  */
 export function clearCtas(options: ClearCtasOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_cta';

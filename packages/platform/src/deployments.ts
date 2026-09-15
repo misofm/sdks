@@ -261,7 +261,7 @@ export interface MisoPlatformDeployment {
   /** Fail-closed, structurally complete Vault/Action/plugin identity set. */
   readonly operations: OperationsDeployment;
   readonly packages: {
-    /** Self-attested audio metadata and Walrus blob primitive, when published. */
+    /** Self-attested audio metadata and bare Walrus blob ID, when published. */
     readonly audio?: string;
     readonly minato: string;
     readonly credit: string;
@@ -293,11 +293,11 @@ export interface MisoPlatformDeployment {
     readonly recordingStreamingTranscode?: string;
     /**
      * Miso Engine session: the Session V1 blob plus each stem's PCM digest and
-     * blob. Optional so a deployment without the stems generation fails closed
-     * before signing rather than calling a retired single-blob package.
+     * blob IDs. Optional so a deployment without the stems generation fails
+     * closed before signing.
      */
     readonly recordingEngineSession?: string;
-    /** External `ori` package (`data::WalrusBlob`, `data::WalrusQuilt`) used by Walrus-backed extensions. */
+    /** External `ori` package used by cover-art and streaming-transcode Walrus values. */
     readonly ori: string;
     /** `country_code` — dependency of `party_profile`. */
     readonly countryCode: string;
@@ -507,7 +507,7 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
         "0xa42ff0bc709c7ee69847ba6ee6a2f9084b8763f271f53bf63f100abc6dfd1300",
       recordingMasterAudio:
         "0x5b5fd443fc953bae224d995fcfefdd8c15aeff866323dbe49e43df8243c8e074",
-      // Stems generation (Session V1 blob + Stem { digest, data } vector).
+      // Stems generation (Session V1 blob ID + Stem { digest, blob_id } vector).
       // 0x2fcb9ab9… was the retired single-blob generation.
       recordingEngineSession:
         "0xc1bd01a68b39081267b8b089d74e4e6fddb39637b3b165c8186542a2dd826845",

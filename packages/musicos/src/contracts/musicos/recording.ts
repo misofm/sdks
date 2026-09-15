@@ -70,7 +70,20 @@ const $moduleName = '@local-pkg/musicos::recording';
 /** Lifecycle state of a recording. */
 export const RecordingState = new MoveEnum({ name: `${$moduleName}::RecordingState`, fields: {
         /** Recording is being set up and can be modified. */
-        Initialized: null,
+        Initialized: new MoveStruct({ name: `RecordingState.Initialized`, fields: {
+                share_currency_id: bcs.Address,
+                consumed_treasury_cap_id: bcs.Address,
+                created_by: bcs.Address,
+                composition_royalty_rate_bps: bcs.u16(),
+                share_supply_before: bcs.u64(),
+                shares_before_grant: bcs.u64(),
+                composition_shares_granted: bcs.u64(),
+                shares_returned: bcs.u64(),
+                share_decimals: bcs.u8(),
+                share_supply_fixed_after: bcs.bool(),
+                composition_funds_sent: bcs.bool(),
+                created_admin_cap_id: bcs.Address
+            } }),
         /** Recording is published and immutable. Includes publication timestamp. */
         Published: bcs.u64()
     } });
@@ -93,10 +106,13 @@ export const RecordingAdminCap = new MoveStruct({ name: `${$moduleName}::Recordi
         id: bcs.Address
     } });
 export const RecordingAdminCapKey = new MoveTuple({ name: `${$moduleName}::RecordingAdminCapKey`, fields: [bcs.bool()] });
-export const RecordingCreatedEvent = new MoveStruct({ name: `${$moduleName}::RecordingCreatedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
+export const RecordingPublishedEvent = new MoveStruct({ name: `${$moduleName}::RecordingPublishedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
         composition_id: bcs.Address,
         recording_admin_cap_id: bcs.Address,
+        clock_id: bcs.Address,
+        published_at_ms: bcs.u64(),
+        shared_after: bcs.bool(),
         share_currency_id: bcs.Address,
         consumed_treasury_cap_id: bcs.Address,
         created_by: bcs.Address,
@@ -107,24 +123,8 @@ export const RecordingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Rec
         shares_returned: bcs.u64(),
         share_decimals: bcs.u8(),
         share_supply_fixed_after: bcs.bool(),
-        composition_funds_sent: bcs.bool()
-    } });
-export const RecordingPublishedEvent = new MoveStruct({ name: `${$moduleName}::RecordingPublishedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        recording_admin_cap_id: bcs.Address,
-        clock_id: bcs.Address,
-        published_at_ms: bcs.u64(),
-        shared_after: bcs.bool()
-    } });
-export const CompositionSharesGrantedEvent = new MoveStruct({ name: `${$moduleName}::CompositionSharesGrantedEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
-        recording_id: bcs.Address,
-        composition_id: bcs.Address,
-        /** Recording-share base units granted to the composition. */
-        value: bcs.u64(),
-        /** The composition royalty rate applied at creation, in basis points. */
-        rate_bps: bcs.u16(),
-        granted_by: bcs.Address
+        composition_funds_sent: bcs.bool(),
+        created_admin_cap_id: bcs.Address
     } });
 export interface NewArguments {
     composition: RawTransactionArgument<string>;

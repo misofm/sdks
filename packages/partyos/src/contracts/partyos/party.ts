@@ -61,24 +61,12 @@ export const PartyCreatedEvent = new MoveStruct({ name: `${$moduleName}::PartyCr
         name: bcs.string(),
         /** Kind discriminant: 0 for an individual and 1 for a group. */
         kind: bcs.u8(),
-        /**
-         * Group member IDs in `VecSet` insertion order, or an empty vector for an
-         * individual.
-         */
-        member_ids: bcs.vector(bcs.Address),
+        /** Number of group members, or zero for an individual. */
+        member_count: bcs.u64(),
         creator: bcs.Address,
         created_at_ms: bcs.u64(),
         /** Epoch in which the party was created. */
         created_epoch: bcs.u64()
-    } });
-export const PartySharedEvent = new MoveStruct({ name: `${$moduleName}::PartySharedEvent`, fields: {
-        party_id: bcs.Address,
-        admin_cap_id: bcs.Address,
-        name: bcs.string(),
-        kind: bcs.u8(),
-        member_ids: bcs.vector(bcs.Address),
-        created_at_ms: bcs.u64(),
-        is_shared: bcs.bool()
     } });
 export const PartyNameSetEvent = new MoveStruct({ name: `${$moduleName}::PartyNameSetEvent`, fields: {
         party_id: bcs.Address,
@@ -151,8 +139,8 @@ export interface NewOptions {
 }
 /**
  * Creates a new party with the specified kind and name. Returns the admin
- * capability for managing the party. The party is shared and starts in the Created
- * state.
+ * capability for managing the party. The returned key-only party must be shared
+ * before the transaction completes.
  */
 export function _new(options: NewOptions) {
     const packageAddress = options.package ?? '@local-pkg/partyos';
@@ -182,7 +170,9 @@ export interface ShareOptions {
 }
 /**
  * Shares the party object, making it publicly accessible. Requires the admin
- * capability.
+ * capability. The creation snapshot is emitted from the final pre-share state.
+ * Creation and sharing must finish in one transaction, so `ctx` retains the
+ * original creator and creation epoch.
  */
 export function share(options: ShareOptions) {
     const packageAddress = options.package ?? '@local-pkg/partyos';
@@ -211,7 +201,11 @@ export interface SetNameOptions {
         name: RawTransactionArgument<string>
     ];
 }
-/** Sets the human-readable name of the party. Requires the admin capability. */
+/**
+ * Sets the human-readable name of the party. Requires the admin capability.
+ * Equal-value writes retain their validation, authorization, and state assignment
+ * but do not emit a change event.
+ */
 export function setName(options: SetNameOptions) {
     const packageAddress = options.package ?? '@local-pkg/partyos';
     const argumentsTypes = [

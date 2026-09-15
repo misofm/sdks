@@ -11,6 +11,7 @@ import { ExtensionNotReady, ObjectId, SuiAddress } from "@unconfirmed/sui-effect
 import { FakeOutcome, SuiCoreFake } from "@unconfirmed/sui-effect/testing";
 import * as release from "../src/contracts/musicos/release.ts";
 import { musicos } from "../src/extension.ts";
+import { initializedReleaseState } from "./object-fixtures.ts";
 
 const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;
 
@@ -29,7 +30,7 @@ const script = {
       version: 1n,
       content: release.Release.serialize({
         id: RELEASE_ID,
-        state: { Initialized: true },
+        state: initializedReleaseState(),
         title: "The Extension Face",
         tracks: [],
       }).toBytes(),

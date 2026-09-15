@@ -46,7 +46,17 @@ const $moduleName = '@local-pkg/musicos::composition';
 /** Lifecycle state of a composition. */
 export const CompositionState = new MoveEnum({ name: `${$moduleName}::CompositionState`, fields: {
         /** Composition is initialized but not published. */
-        Initialized: null,
+        Initialized: new MoveStruct({ name: `CompositionState.Initialized`, fields: {
+                share_currency_id: bcs.Address,
+                consumed_treasury_cap_id: bcs.Address,
+                created_by: bcs.Address,
+                share_supply_before: bcs.u64(),
+                share_supply_after: bcs.u64(),
+                shares_returned: bcs.u64(),
+                share_decimals: bcs.u8(),
+                share_supply_fixed_after: bcs.bool(),
+                created_admin_cap_id: bcs.Address
+            } }),
         /** Composition is published and immutable. Includes publication timestamp. */
         Published: bcs.u64()
     } });
@@ -65,20 +75,6 @@ export const CompositionAdminCap = new MoveStruct({ name: `${$moduleName}::Compo
         id: bcs.Address
     } });
 export const CompositionAdminCapKey = new MoveTuple({ name: `${$moduleName}::CompositionAdminCapKey`, fields: [bcs.bool()] });
-export const CompositionCreatedEvent = new MoveStruct({ name: `${$moduleName}::CompositionCreatedEvent<phantom CompositionShare>`, fields: {
-        composition_id: bcs.Address,
-        composition_admin_cap_id: bcs.Address,
-        share_currency_id: bcs.Address,
-        consumed_treasury_cap_id: bcs.Address,
-        created_by: bcs.Address,
-        title_bytes: bcs.vector(bcs.u8()),
-        royalty_rate_bps: bcs.u16(),
-        share_supply_before: bcs.u64(),
-        share_supply_after: bcs.u64(),
-        shares_returned: bcs.u64(),
-        share_decimals: bcs.u8(),
-        share_supply_fixed_after: bcs.bool()
-    } });
 export const CompositionPublishedEvent = new MoveStruct({ name: `${$moduleName}::CompositionPublishedEvent<phantom CompositionShare>`, fields: {
         composition_id: bcs.Address,
         composition_admin_cap_id: bcs.Address,
@@ -86,7 +82,16 @@ export const CompositionPublishedEvent = new MoveStruct({ name: `${$moduleName}:
         title_bytes: bcs.vector(bcs.u8()),
         royalty_rate_bps: bcs.u16(),
         published_at_ms: bcs.u64(),
-        shared_after: bcs.bool()
+        shared_after: bcs.bool(),
+        share_currency_id: bcs.Address,
+        consumed_treasury_cap_id: bcs.Address,
+        created_by: bcs.Address,
+        share_supply_before: bcs.u64(),
+        share_supply_after: bcs.u64(),
+        shares_returned: bcs.u64(),
+        share_decimals: bcs.u8(),
+        share_supply_fixed_after: bcs.bool(),
+        created_admin_cap_id: bcs.Address
     } });
 export interface NewArguments {
     title: RawTransactionArgument<string>;

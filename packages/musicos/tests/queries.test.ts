@@ -15,6 +15,7 @@ import * as composition from "../src/contracts/musicos/composition.ts";
 import * as recording from "../src/contracts/musicos/recording.ts";
 import { MusicosWorkNotFound } from "../src/errors.ts";
 import { getCompositionByShareType, getRecordingByShareType, getWorkAddressesByShareTypes } from "../src/queries.ts";
+import { initializedCompositionState, initializedRecordingState } from "./object-fixtures.ts";
 
 const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}`;
 const PACKAGE_ID = padded("7");
@@ -43,7 +44,7 @@ const script = {
       version: 1n,
       content: composition.Composition.serialize({
         id: COMPOSITION_ID,
-        state: { Initialized: true },
+        state: initializedCompositionState(),
         title: "Found By Share Type",
         royalty_rate: [1000],
       }).toBytes(),
@@ -54,7 +55,7 @@ const script = {
       version: 1n,
       content: recording.Recording.serialize({
         id: RECORDING_ID,
-        state: { Initialized: true },
+        state: initializedRecordingState(),
         composition_id: COMPOSITION_ID,
       }).toBytes(),
     },

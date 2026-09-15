@@ -41,7 +41,7 @@ export const RecordingCoinsDepositedEvent = new MoveStruct({ name: `${$moduleNam
         carry_after: bcs.u128(),
         cumulative_deposits_before: bcs.u128(),
         cumulative_deposits_after: bcs.u128(),
-        coin_ids: bcs.vector(bcs.Address)
+        coin_count: bcs.u64()
     } });
 export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleName}::RecordingFundsDepositedEvent<phantom RecordingShare, phantom CompositionShare, phantom Currency>`, fields: {
         recording_id: bcs.Address,
@@ -160,14 +160,22 @@ export interface RedeemAllAndDepositOptions {
  * Recording.
  *
  * This is the only accumulator redemption path: callers cannot select an amount,
- * so a permissionless crank cannot fragment revenue. The call is an authorized,
- * idempotent no-op that emits no event when the settled snapshot is zero or when
- * the pool has no registered stake. With no stakers nothing is redeemed: the funds
- * stay in the Recording's accumulator until a stake registers, rather than being
- * folded into a pool nobody can claim from. Either no-op lets one already-cranked
- * or unstaked item pass through a batched crank without aborting it. The framework
- * snapshot is capped at `u64::MAX`; excess and newly sent funds settle for a later
- * call. Emits `RecordingFundsDepositedEvent` after a successful deposit.
+ * so a permissionless crank cannot fragment revenue. The call is an authorized
+ * no-op that emits no event when the settled snapshot is zero or when the pool has
+ * no registered stake. With no stakers nothing is redeemed: the funds stay in the
+ * Recording's accumulator until a stake registers, rather than being folded into a
+ * pool nobody can claim from. Either no-op lets an item cranked in an earlier
+ * consensus commit, or an unstaked item, pass through a batched crank untouched.
+ * The framework snapshot is capped at `u64::MAX`; excess and newly sent funds
+ * settle for a later call.
+ *
+ * The snapshot is written only by consensus settlement, so within one commit it is
+ * constant: redeeming the same Recording twice in one PTB, or from two
+ * transactions in the same commit, withdraws the snapshot twice and the network
+ * fails that whole transaction with `InsufficientFundsForWithdraw` (a
+ * transaction-level failure, not a Move abort). Crankers must include each object
+ * at most once per PTB and treat that status as retry next commit. Emits
+ * `RecordingFundsDepositedEvent` after a successful deposit.
  */
 export function redeemAllAndDeposit(options: RedeemAllAndDepositOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool';

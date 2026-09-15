@@ -12,12 +12,8 @@ import { DecodeError, type Event } from "@unconfirmed/sui-effect";
 import { SuiSchema } from "@unconfirmed/sui-effect";
 import * as schema from "./schema.ts";
 import type {
-  CompositionCreatedEvent,
   CompositionPublishedEvent,
-  CompositionSharesGrantedEvent,
-  RecordingCreatedEvent,
   RecordingPublishedEvent,
-  ReleaseCreatedEvent,
   ReleasePublishedEvent,
   ReleaseRegistryCreatedEvent,
 } from "./types.ts";
@@ -64,25 +60,6 @@ function eventDecoder<Raw, T>(codec: Schema.Codec<Raw, Uint8Array>, suffix: stri
 
 // === Composition ===
 
-export const parseCompositionCreatedEvent: EventDecoder<CompositionCreatedEvent> = eventDecoder(
-  schema.compositionCreatedEventContent,
-  "composition::CompositionCreatedEvent",
-  (e): CompositionCreatedEvent => ({
-    compositionId: e.composition_id,
-    compositionAdminCapId: e.composition_admin_cap_id,
-    shareCurrencyId: e.share_currency_id,
-    consumedTreasuryCapId: e.consumed_treasury_cap_id,
-    createdBy: e.created_by,
-    titleBytes: e.title_bytes,
-    royaltyRateBps: e.royalty_rate_bps,
-    shareSupplyBefore: e.share_supply_before,
-    shareSupplyAfter: e.share_supply_after,
-    sharesReturned: e.shares_returned,
-    shareDecimals: e.share_decimals,
-    shareSupplyFixedAfter: e.share_supply_fixed_after,
-  }),
-);
-
 export const parseCompositionPublishedEvent: EventDecoder<CompositionPublishedEvent> = eventDecoder(
   schema.compositionPublishedEventContent,
   "composition::CompositionPublishedEvent",
@@ -94,31 +71,19 @@ export const parseCompositionPublishedEvent: EventDecoder<CompositionPublishedEv
     royaltyRateBps: e.royalty_rate_bps,
     publishedAtMs: e.published_at_ms,
     sharedAfter: e.shared_after,
+    shareCurrencyId: e.share_currency_id,
+    consumedTreasuryCapId: e.consumed_treasury_cap_id,
+    createdBy: e.created_by,
+    shareSupplyBefore: e.share_supply_before,
+    shareSupplyAfter: e.share_supply_after,
+    sharesReturned: e.shares_returned,
+    shareDecimals: e.share_decimals,
+    shareSupplyFixedAfter: e.share_supply_fixed_after,
+    createdAdminCapId: e.created_admin_cap_id,
   }),
 );
 
 // === Recording ===
-
-export const parseRecordingCreatedEvent: EventDecoder<RecordingCreatedEvent> = eventDecoder(
-  schema.recordingCreatedEventContent,
-  "recording::RecordingCreatedEvent",
-  (e): RecordingCreatedEvent => ({
-    recordingId: e.recording_id,
-    compositionId: e.composition_id,
-    recordingAdminCapId: e.recording_admin_cap_id,
-    shareCurrencyId: e.share_currency_id,
-    consumedTreasuryCapId: e.consumed_treasury_cap_id,
-    createdBy: e.created_by,
-    compositionRoyaltyRateBps: e.composition_royalty_rate_bps,
-    shareSupplyBefore: e.share_supply_before,
-    sharesBeforeGrant: e.shares_before_grant,
-    compositionSharesGranted: e.composition_shares_granted,
-    sharesReturned: e.shares_returned,
-    shareDecimals: e.share_decimals,
-    shareSupplyFixedAfter: e.share_supply_fixed_after,
-    compositionFundsSent: e.composition_funds_sent,
-  }),
-);
 
 export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent> = eventDecoder(
   schema.recordingPublishedEventContent,
@@ -130,40 +95,22 @@ export const parseRecordingPublishedEvent: EventDecoder<RecordingPublishedEvent>
     clockId: e.clock_id,
     publishedAtMs: e.published_at_ms,
     sharedAfter: e.shared_after,
-  }),
-);
-
-/** Decodes the dormant legacy royalty-rate share grant event. */
-export const parseCompositionSharesGrantedEvent: EventDecoder<CompositionSharesGrantedEvent> = eventDecoder(
-  schema.compositionSharesGrantedEventContent,
-  "recording::CompositionSharesGrantedEvent",
-  (e): CompositionSharesGrantedEvent => ({
-    recordingId: e.recording_id,
-    compositionId: e.composition_id,
-    value: e.value,
-    rateBps: e.rate_bps,
-    grantedBy: e.granted_by,
+    shareCurrencyId: e.share_currency_id,
+    consumedTreasuryCapId: e.consumed_treasury_cap_id,
+    createdBy: e.created_by,
+    compositionRoyaltyRateBps: e.composition_royalty_rate_bps,
+    shareSupplyBefore: e.share_supply_before,
+    sharesBeforeGrant: e.shares_before_grant,
+    compositionSharesGranted: e.composition_shares_granted,
+    sharesReturned: e.shares_returned,
+    shareDecimals: e.share_decimals,
+    shareSupplyFixedAfter: e.share_supply_fixed_after,
+    compositionFundsSent: e.composition_funds_sent,
+    createdAdminCapId: e.created_admin_cap_id,
   }),
 );
 
 // === Release ===
-
-export const parseReleaseCreatedEvent: EventDecoder<ReleaseCreatedEvent> = eventDecoder(
-  schema.releaseCreatedEventContent,
-  "release::ReleaseCreatedEvent",
-  (e): ReleaseCreatedEvent => ({
-    registryId: e.registry_id,
-    releaseId: e.release_id,
-    releaseAdminCapId: e.release_admin_cap_id,
-    titleBytes: e.title_bytes,
-    releaseDigest: e.release_digest,
-    nonce: e.nonce,
-    compositionIds: e.composition_ids,
-    recordingIds: e.recording_ids,
-    trackSplitBps: e.track_split_bps,
-    trackCount: e.track_count,
-  }),
-);
 
 export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = eventDecoder(
   schema.releasePublishedEventContent,
@@ -174,11 +121,11 @@ export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = e
     clockId: e.clock_id,
     titleBytes: e.title_bytes,
     publishedAtMs: e.published_at_ms,
-    compositionIds: e.composition_ids,
-    recordingIds: e.recording_ids,
-    trackSplitBps: e.track_split_bps,
     assignedTrackCount: e.assigned_track_count,
     sharedAfter: e.shared_after,
+    registryId: e.registry_id,
+    releaseDigest: e.release_digest,
+    nonce: e.nonce,
   }),
 );
 

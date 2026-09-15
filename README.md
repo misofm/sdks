@@ -58,3 +58,20 @@ bun run build       # across all packages
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
+
+## V1 event payload policy
+
+Events retain IDs, capability provenance, amounts, financial snapshots, flags, counts,
+and short bounded labels. Full lyrics, descriptions, bios, CTA/DSP content, and large
+lists stay in source objects rather than being copied into receipts. Fetch object
+state or transaction inputs/effects when those details are needed.
+
+This coordinated V1 schema update changes wire layouts: Release publication uses
+`assigned_track_count` instead of track relationship/split arrays; Party creation uses
+`member_count`; coin receipt actions use counts; extension decoders omit bulky content.
+The three distinct Recording credit-removal events remain available.
+
+Pay carries the target type through event generics (no `target_type` field). Its
+`metadata` is optional: up to 256 BCS bytes remain inline; larger values yield
+`metadata: null` and a 32-byte `metadata_digest` (Blake2b-256 of the original BCS).
+These bindings require the matching V1 source rollout; bundled deployment IDs are unchanged.

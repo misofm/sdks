@@ -28,11 +28,7 @@ export const ShareInitializedEvent = new MoveStruct({ name: `${$moduleName}::Sha
         supply: bcs.u64(),
         fixed_supply: bcs.bool(),
         metadata_cap_deleted: bcs.bool(),
-        regulated: bcs.bool(),
-        name: bcs.vector(bcs.u8()),
-        symbol: bcs.vector(bcs.u8()),
-        description: bcs.vector(bcs.u8()),
-        icon_url: bcs.vector(bcs.u8())
+        regulated: bcs.bool()
     } });
 export interface InitializeArguments {
     currency: RawTransactionArgument<string>;

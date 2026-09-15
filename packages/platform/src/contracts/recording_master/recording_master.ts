@@ -41,7 +41,10 @@ export interface SetMasterOptions {
         string
     ];
 }
-/** Sets or replaces the entire master, including audio and encryption metadata. */
+/**
+ * Sets or replaces the entire master, including all audio metadata and its blob
+ * ID.
+ */
 export function setMaster(options: SetMasterOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_master';
     const argumentsTypes = [

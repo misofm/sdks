@@ -91,7 +91,7 @@ export interface TrackView {
   splitBps: number;
   /** 1-based disc this track sits on. */
   disc: number;
-  /** Base64url Walrus blob id of the archival master, when attached on-chain. */
+  /** Complete Audio metadata, including its bare on-chain `u256` blob_id. */
   master?: RecordingMasterView;
   masterBlobId?: string;
   /**

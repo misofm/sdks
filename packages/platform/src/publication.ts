@@ -914,7 +914,7 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
           compositionShareType: node.compositionShareType,
           recordingMasterPackageId: p.deployment.packages.recordingMaster,
           audioPackageId: p.deployment.packages.recordingMasterAudio,
-          oriPackageId: p.deployment.packages.ori, master: node.master,
+          master: node.master,
         })(tx);
       }
       if (node.streamingTranscodeQuiltId !== undefined) setRecordingStreamingTranscode({
@@ -931,7 +931,6 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
         recordingShareType: node.shareType,
         compositionShareType: node.compositionShareType,
         recordingEngineSessionPackageId: p.deployment.packages.recordingEngineSession!,
-        oriPackageId: p.deployment.packages.ori,
         sessionBlobId: node.engineSession.sessionBlobId,
         stems: node.engineSession.stems,
       })(tx);

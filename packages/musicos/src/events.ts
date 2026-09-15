@@ -37,12 +37,8 @@ function decoder<T>(codec: Schema.Codec<T, Uint8Array>, suffix: string): EventDe
  */
 export const eventParsers = {
   core: {
-    compositionCreated: decoder(schema.compositionCreatedEventContent, "composition::CompositionCreatedEvent"),
     compositionPublished: decoder(schema.compositionPublishedEventContent, "composition::CompositionPublishedEvent"),
-    recordingCreated: decoder(schema.recordingCreatedEventContent, "recording::RecordingCreatedEvent"),
     recordingPublished: decoder(schema.recordingPublishedEventContent, "recording::RecordingPublishedEvent"),
-    compositionSharesGranted: decoder(schema.compositionSharesGrantedEventContent, "recording::CompositionSharesGrantedEvent"),
-    releaseCreated: decoder(schema.releaseCreatedEventContent, "release::ReleaseCreatedEvent"),
     releasePublished: decoder(schema.releasePublishedEventContent, "release::ReleasePublishedEvent"),
     releaseRegistryCreated: decoder(schema.releaseRegistryCreatedEventContent, "release::ReleaseRegistryCreatedEvent"),
   },

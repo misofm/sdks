@@ -70,10 +70,7 @@ export const ReleaseGenreAddedEvent = new MoveStruct({ name: `${$moduleName}::Re
         release_id: bcs.Address,
         admin_cap_id: bcs.Address,
         genre_id: bcs.Address,
-        genre_name: bcs.vector(bcs.u8()),
         genre_index: bcs.u64(),
-        genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -89,8 +86,6 @@ export const ReleaseGenreRemovedEvent = new MoveStruct({ name: `${$moduleName}::
         admin_cap_id: bcs.Address,
         genre_id: bcs.Address,
         genre_index: bcs.u64(),
-        genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -107,7 +102,6 @@ export const ReleaseGenresClearedEvent = new MoveStruct({ name: `${$moduleName}:
         clear_cause: bcs.u8(),
         trigger_genre_id: bcs.Address,
         genres_before: bcs.vector(bcs.Address),
-        genres_after: bcs.vector(bcs.Address),
         genre_count_before: bcs.u64(),
         genre_count_after: bcs.u64(),
         field_existed_before: bcs.bool(),
@@ -168,8 +162,8 @@ export interface RemoveGenreOptions {
 /**
  * Removes a genre from the release by id. If it was the primary, the next entry
  * (if any) becomes primary by virtue of now sitting at index 0. Removing the last
- * genre drops the field entirely and additionally emits
- * `ReleaseGenresClearedEvent`. Aborts `EGenreNotPresent` if the genre is not
+ * genre drops the field entirely before emitting its final-state
+ * `ReleaseGenreRemovedEvent`. Aborts `EGenreNotPresent` if the genre is not
  * currently assigned, including when the release has no genres at all.
  */
 export function removeGenre(options: RemoveGenreOptions) {

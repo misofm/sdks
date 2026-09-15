@@ -51,7 +51,7 @@ export interface ProtocolIds {
   recordingMaster?: string;
   /** `recording_streaming_transcode` — the `miso-hls/v1` Quilt a track streams from, or null when the generation lacks it. */
   recordingStreamingTranscode: string | null;
-  /** `recording_engine_session` — the Session V1 blob and stems a track mixes from, or null when the generation lacks it. */
+  /** `recording_engine_session` — the Session V1 blob ID and stems a track mixes from, or null when the generation lacks it. */
   recordingEngineSession: string | null;
   /** `composition_credits` / `recording_credits` / `release_credits` extensions. */
   compositionCredits: string;

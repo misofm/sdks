@@ -74,7 +74,7 @@ function codecsOnly<M extends object>(mod: M): CodecModule<M> {
  * Keep them out of `call`; use object/dynamic-field BCS queries instead.
  */
 export const REF_RETURNING_CALLS = {
-  audio: ["data", "format", "pcmDigest"],
+  audio: ["format", "pcmDigest"],
   compositionCredits: ["credits"],
   recordingCredits: ["credits", "primaryArtistIds", "featuredArtistIds"],
   releaseCoverArt: ["cover"],

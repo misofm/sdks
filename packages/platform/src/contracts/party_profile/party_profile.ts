@@ -14,10 +14,11 @@
  * validated code primitives (`country_code`, `language_code`), so a stored value
  * is always a real code. The party's `name` is NOT duplicated here — it lives on
  * the core `Party` (`party::set_name`) — and the join date comes from the party's
- * creation event (the indexer has it for free). Every successful set emits a
- * complete before/after byte snapshot and the authorizing cap address; a clear
- * emits the complete removed snapshot only when a profile exists. All writes are
- * cap-gated through `party::uid_mut`, and views are permissionless.
+ * creation event (the indexer has it for free). Each changed set emits a compact
+ * country/language context and the authorizing cap address; equal replacements
+ * still write but do not emit. A clear emits only when a profile exists. Bios
+ * remain in storage and are read on demand. All writes are cap-gated through
+ * `party::uid_mut`, and views are permissionless.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -38,20 +39,14 @@ export const PartyProfileSetEvent = new MoveStruct({ name: `${$moduleName}::Part
         party_id: bcs.Address,
         admin_cap_id: bcs.Address,
         had_profile: bcs.bool(),
-        previous_bio_short: bcs.vector(bcs.u8()),
-        previous_bio_long: bcs.option(bcs.vector(bcs.u8())),
         previous_country: bcs.option(bcs.vector(bcs.u8())),
         previous_languages: bcs.vector(bcs.vector(bcs.u8())),
-        bio_short: bcs.vector(bcs.u8()),
-        bio_long: bcs.option(bcs.vector(bcs.u8())),
         country: bcs.option(bcs.vector(bcs.u8())),
         languages: bcs.vector(bcs.vector(bcs.u8()))
     } });
 export const PartyProfileClearedEvent = new MoveStruct({ name: `${$moduleName}::PartyProfileClearedEvent`, fields: {
         party_id: bcs.Address,
         admin_cap_id: bcs.Address,
-        previous_bio_short: bcs.vector(bcs.u8()),
-        previous_bio_long: bcs.option(bcs.vector(bcs.u8())),
         previous_country: bcs.option(bcs.vector(bcs.u8())),
         previous_languages: bcs.vector(bcs.vector(bcs.u8()))
     } });
@@ -78,8 +73,9 @@ export interface SetProfileOptions {
  * Sets (creates or replaces) the party's whole profile. Validation and profile
  * construction happen before authorization, preserving validation precedence;
  * authorization happens before any dynamic-field snapshot or mutation. Every
- * successful call, including an identical replacement, emits exactly one event
- * containing complete prior and resulting raw-byte snapshots.
+ * successful call performs the requested insert or replacement. An event is
+ * emitted only when the complete profile value changes; an initial profile,
+ * including one with explicit empty optional fields, always emits.
  */
 export function setProfile(options: SetProfileOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_profile';
@@ -113,7 +109,7 @@ export interface ClearProfileOptions {
 /**
  * Removes the party's profile. Authorization happens before checking existence; an
  * absent field is a silent no-op, while an existing field is removed and emits
- * exactly one complete snapshot event.
+ * exactly one compact change event.
  */
 export function clearProfile(options: ClearProfileOptions) {
     const packageAddress = options.package ?? '@local-pkg/party_profile';

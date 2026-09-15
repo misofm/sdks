@@ -348,11 +348,9 @@ export type MisoBcs = {
   readonly RecordDestroyedEvent: typeof recordContract.RecordDestroyedEvent;
   readonly PressingCreatedEvent: typeof pressingContract.PressingCreatedEvent;
   readonly RecordPurchasedEvent: typeof pressingContract.RecordPurchasedEvent;
-  readonly PressingSharedEvent: typeof pressingContract.PressingSharedEvent;
   readonly PressingDistributorAuthorizedEvent: typeof pressingContract.PressingDistributorAuthorizedEvent;
   readonly PressingDistributorRevokedEvent: typeof pressingContract.PressingDistributorRevokedEvent;
   readonly ListingCreatedEvent: typeof listingContract.ListingCreatedEvent;
-  readonly ListingSharedEvent: typeof listingContract.ListingSharedEvent;
   readonly ListingPriceChangedEvent: typeof listingContract.ListingPriceChangedEvent;
   readonly ListingStateChangedEvent: typeof listingContract.ListingStateChangedEvent;
   readonly RecordSoldEvent: typeof listingContract.RecordSoldEvent;
@@ -362,14 +360,10 @@ export type MisoBcs = {
   readonly VaultAdminCapKey: typeof vaultContract.VaultAdminCapKey;
   readonly VaultCreatedEvent: typeof vaultContract.VaultCreatedEvent;
   readonly VaultRegistryCreatedEvent: typeof vaultContract.VaultRegistryCreatedEvent;
-  readonly VaultSharedEvent: typeof vaultContract.VaultSharedEvent;
   readonly PluginAuthorizedEvent: typeof vaultContract.PluginAuthorizedEvent;
   readonly PluginRevokedEvent: typeof vaultContract.PluginRevokedEvent;
   readonly VaultCapabilityWithdrawnEvent: typeof vaultContract.VaultCapabilityWithdrawnEvent;
   readonly VaultCapabilityRestoredEvent: typeof vaultContract.VaultCapabilityRestoredEvent;
-  readonly VaultCapabilityBorrowedByPluginEvent: typeof vaultContract.VaultCapabilityBorrowedByPluginEvent;
-  readonly VaultCapabilityBorrowedByAdminEvent: typeof vaultContract.VaultCapabilityBorrowedByAdminEvent;
-  readonly VaultCapabilityReturnedEvent: typeof vaultContract.VaultCapabilityReturnedEvent;
   readonly PartyObjectReceivedEvent: typeof partyWalletContract.ObjectReceivedEvent;
   readonly PartyCoinsReceivedEvent: typeof partyWalletContract.CoinsReceivedEvent;
   readonly PartyFundsRedeemedEvent: typeof partyWalletContract.FundsRedeemedEvent;
@@ -600,11 +594,9 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     RecordDestroyedEvent: recordContract.RecordDestroyedEvent,
     PressingCreatedEvent: pressingContract.PressingCreatedEvent,
     RecordPurchasedEvent: pressingContract.RecordPurchasedEvent,
-    PressingSharedEvent: pressingContract.PressingSharedEvent,
     PressingDistributorAuthorizedEvent: pressingContract.PressingDistributorAuthorizedEvent,
     PressingDistributorRevokedEvent: pressingContract.PressingDistributorRevokedEvent,
     ListingCreatedEvent: listingContract.ListingCreatedEvent,
-    ListingSharedEvent: listingContract.ListingSharedEvent,
     ListingPriceChangedEvent: listingContract.ListingPriceChangedEvent,
     ListingStateChangedEvent: listingContract.ListingStateChangedEvent,
     RecordSoldEvent: listingContract.RecordSoldEvent,
@@ -614,14 +606,10 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     VaultAdminCapKey: vaultContract.VaultAdminCapKey,
     VaultCreatedEvent: vaultContract.VaultCreatedEvent,
     VaultRegistryCreatedEvent: vaultContract.VaultRegistryCreatedEvent,
-    VaultSharedEvent: vaultContract.VaultSharedEvent,
     PluginAuthorizedEvent: vaultContract.PluginAuthorizedEvent,
     PluginRevokedEvent: vaultContract.PluginRevokedEvent,
     VaultCapabilityWithdrawnEvent: vaultContract.VaultCapabilityWithdrawnEvent,
     VaultCapabilityRestoredEvent: vaultContract.VaultCapabilityRestoredEvent,
-    VaultCapabilityBorrowedByPluginEvent: vaultContract.VaultCapabilityBorrowedByPluginEvent,
-    VaultCapabilityBorrowedByAdminEvent: vaultContract.VaultCapabilityBorrowedByAdminEvent,
-    VaultCapabilityReturnedEvent: vaultContract.VaultCapabilityReturnedEvent,
     PartyObjectReceivedEvent: partyWalletContract.ObjectReceivedEvent,
     PartyCoinsReceivedEvent: partyWalletContract.CoinsReceivedEvent,
     PartyFundsRedeemedEvent: partyWalletContract.FundsRedeemedEvent,

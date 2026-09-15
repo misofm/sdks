@@ -50,7 +50,7 @@ function masterContent(recordingId: string): Uint8Array {
       sample_rate_hz: 44100,
       samples: 8500549n,
       pcm_digest: Array(32).fill(1),
-      data: { blob_id: BLOB_ID, confidentiality: { Unencrypted: true } },
+      blob_id: BLOB_ID,
     },
   }).toBytes();
 }
@@ -124,7 +124,6 @@ test("builds an engine session with stems sorted by digest", () => {
     recordingShareType: RECORDING_SHARE,
     compositionShareType: COMPOSITION_SHARE,
     recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
-    oriPackageId: ORI_PACKAGE,
     sessionBlobId: BLOB_ID,
     stems: [
       { digest: "ff".repeat(32), blobId: 2n },
@@ -134,24 +133,20 @@ test("builds an engine session with stems sorted by digest", () => {
 
   const calls = moveCalls(tx);
   expect(calls.map((call) => `${call.module}::${call.function}`)).toEqual([
-    "confidentiality::new_unencrypted",
-    "data::new_blob",
-    "confidentiality::new_unencrypted",
-    "data::new_blob",
     "recording_engine_session::new_stem",
-    "confidentiality::new_unencrypted",
-    "data::new_blob",
     "recording_engine_session::new_stem",
     "recording_engine_session::new",
     "recording_engine_session::set_engine_session",
   ]);
-  expect(calls[9]!.package).toBe(ENGINE_SESSION_PACKAGE);
-  expect(calls[9]!.typeArguments).toEqual([RECORDING_SHARE, COMPOSITION_SHARE]);
+  expect(calls[3]!.package).toBe(ENGINE_SESSION_PACKAGE);
+  expect(calls[3]!.typeArguments).toEqual([RECORDING_SHARE, COMPOSITION_SHARE]);
   // The zero digest sorts first: its stem's blob (1n) is built before 2n.
   const inputs = tx.getData().inputs.map((input) =>
     input.$kind === "Pure" ? Buffer.from(input.Pure.bytes, "base64").toString("hex") : null,
   );
   const blobOrder = inputs.filter((hex) => hex !== null && hex.length === 64);
+  expect(blobOrder).toHaveLength(3);
+  expect(blobOrder[0]!.startsWith("15cd5b07")).toBe(true);
   expect(blobOrder[1]!.startsWith("01")).toBe(true);
   expect(blobOrder[2]!.startsWith("02")).toBe(true);
   expect(tx.getData().commands.some((command) => command.$kind === "MakeMoveVec")).toBe(true);
@@ -162,7 +157,6 @@ test("builds an engine session with stems sorted by digest", () => {
     recordingShareType: RECORDING_SHARE,
     compositionShareType: COMPOSITION_SHARE,
     recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
-    oriPackageId: ORI_PACKAGE,
     sessionBlobId: BLOB_ID,
     stems: [{ digest: "aa".repeat(32), blobId: 1n }, { digest: "aa".repeat(32), blobId: 2n }],
   })).toThrow(/duplicate stem digest/);
@@ -172,7 +166,6 @@ test("builds an engine session with stems sorted by digest", () => {
     recordingShareType: RECORDING_SHARE,
     compositionShareType: COMPOSITION_SHARE,
     recordingEngineSessionPackageId: ENGINE_SESSION_PACKAGE,
-    oriPackageId: ORI_PACKAGE,
     sessionBlobId: BLOB_ID,
     stems: [{ digest: "aa", blobId: 1n }],
   })).toThrow(/32 bytes/);
@@ -201,10 +194,10 @@ test("reads an engine session's session blob and stems table", async () => {
     id: fieldId,
     name: [false],
     value: {
-      data: { blob_id: 7n, confidentiality: { Unencrypted: true } },
+      blob_id: 7n,
       stems: [
-        { digest: Array.from(new Uint8Array(32)), data: { blob_id: 1n, confidentiality: { Unencrypted: true } } },
-        { digest: Array.from(new Uint8Array(32).fill(0xff)), data: { blob_id: 2n, confidentiality: { Unencrypted: true } } },
+        { digest: Array.from(new Uint8Array(32)), blob_id: 1n },
+        { digest: Array.from(new Uint8Array(32).fill(0xff)), blob_id: 2n },
       ],
     },
   }).toBytes();
@@ -241,7 +234,7 @@ test("reads a Recording's Audio master", async () => {
 
   const master = await run(getRecordingMaster(RECORDING_ONE, PACKAGE), objects);
   expect(master?.format).toBe("flac");
-  expect(String(master?.data.blob_id)).toBe(String(BLOB_ID));
+  expect(String(master?.blob_id)).toBe(String(BLOB_ID));
 });
 
 test("batches unique master fields into blob ids and omits absent recordings", async () => {
@@ -306,11 +299,11 @@ function sessionContent(recordingId: string): Uint8Array {
     id: recordingEngineSessionFieldId(recordingId, PACKAGE),
     name: [false],
     value: {
-      data: { blob_id: BLOB_ID, confidentiality: { Unencrypted: true } },
+      blob_id: BLOB_ID,
       stems: [
         {
           digest: Array.from(STEM_DIGEST),
-          data: { blob_id: QUILT_ID, confidentiality: { Unencrypted: true } },
+          blob_id: QUILT_ID,
         },
       ],
     },
