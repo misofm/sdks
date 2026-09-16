@@ -110,6 +110,10 @@ test("releasePublishedEvent preserves ordered publication payload", () => {
     registry_id: id(0x88),
     release_digest: [0x01, 0xff, 0x20],
     nonce: 2n ** 200n + 123n,
+    track_allocations: [
+      { composition_id: id(0x89), recording_id: id(0x90), split_bps: 0 },
+      { composition_id: id(0x89), recording_id: id(0x90), split_bps: 10000 },
+    ],
   }).toBytes();
 
   expect(Effect.runSync(parse.parseReleasePublishedEvent(bytes))).toEqual({
@@ -123,6 +127,10 @@ test("releasePublishedEvent preserves ordered publication payload", () => {
     registryId: id(0x88),
     releaseDigest: [0x01, 0xff, 0x20],
     nonce: "1606938044258990275541962092341162602522202993782792835301499",
+    trackAllocations: [
+      { compositionId: id(0x89), recordingId: id(0x90), splitBps: 0 },
+      { compositionId: id(0x89), recordingId: id(0x90), splitBps: 10000 },
+    ],
   });
 });
 

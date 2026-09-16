@@ -115,6 +115,11 @@ export const ReleaseAdminCap = new MoveStruct({ name: `${$moduleName}::ReleaseAd
         release_id: bcs.Address
     } });
 export const ReleaseAdminCapKey = new MoveTuple({ name: `${$moduleName}::ReleaseAdminCapKey`, fields: [bcs.bool()] });
+export const TrackAllocation = new MoveStruct({ name: `${$moduleName}::TrackAllocation`, fields: {
+        composition_id: bcs.Address,
+        recording_id: bcs.Address,
+        split_bps: bcs.u16()
+    } });
 export const ReleasePublishedEvent = new MoveStruct({ name: `${$moduleName}::ReleasePublishedEvent`, fields: {
         release_id: bcs.Address,
         release_admin_cap_id: bcs.Address,
@@ -125,7 +130,9 @@ export const ReleasePublishedEvent = new MoveStruct({ name: `${$moduleName}::Rel
         shared_after: bcs.bool(),
         registry_id: bcs.Address,
         release_digest: bcs.vector(bcs.u8()),
-        nonce: bcs.u256()
+        nonce: bcs.u256(),
+        /** Complete ordered allocation, including duplicates and zero splits. */
+        track_allocations: bcs.vector(TrackAllocation)
     } });
 export const ReleaseRegistryCreatedEvent = new MoveStruct({ name: `${$moduleName}::ReleaseRegistryCreatedEvent`, fields: {
         registry_id: bcs.Address,

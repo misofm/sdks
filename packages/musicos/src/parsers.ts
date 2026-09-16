@@ -126,6 +126,11 @@ export const parseReleasePublishedEvent: EventDecoder<ReleasePublishedEvent> = e
     registryId: e.registry_id,
     releaseDigest: e.release_digest,
     nonce: e.nonce,
+    trackAllocations: e.track_allocations.map((allocation) => ({
+      compositionId: allocation.composition_id,
+      recordingId: allocation.recording_id,
+      splitBps: allocation.split_bps,
+    })),
   }),
 );
 

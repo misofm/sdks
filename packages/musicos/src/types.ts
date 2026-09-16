@@ -221,6 +221,7 @@ export interface ReleasePublishedEvent {
   registryId: string;
   releaseDigest: number[];
   nonce: string;
+  trackAllocations: { compositionId: string; recordingId: string; splitBps: number }[];
 }
 
 /** Emitted when package initialization shares the canonical release registry. */

@@ -57,6 +57,11 @@ export const releasePublishedWire = bcs.struct("ReleasePublishedEventFixture", {
   registry_id: bcs.Address,
   release_digest: bcs.vector(bcs.u8()),
   nonce: bcs.u256(),
+  track_allocations: bcs.vector(bcs.struct("TrackAllocationFixture", {
+    composition_id: bcs.Address,
+    recording_id: bcs.Address,
+    split_bps: bcs.u16(),
+  })),
 });
 
 export const releaseRegistryCreatedWire = bcs.struct("ReleaseRegistryCreatedEventFixture", {
