@@ -10,6 +10,7 @@ import {
   authenticatedFetch,
   buildApiAuthorizationPayload,
   createAuthorizationHeaders,
+  isValidAuthorizationTarget,
   type AuthorizationChallenge,
 } from "../src/auth.ts";
 
@@ -31,6 +32,32 @@ function challenge(
 }
 
 describe("auth contract", () => {
+  test("accepts only supported canonical mutations and their exact legacy spellings", () => {
+    for (const [method, path] of [
+      ["PUT", "/v1/usernames/alice"],
+      ["POST", "/v1/media/party-bundles"],
+      ["PUT", `/v1/parties/${ADDRESS}/avatar`],
+      ["PUT", "/v1/me/avatar"],
+      ["PUT", "/platform/usernames/alice"],
+      ["POST", "/platform/media/party"],
+      ["PUT", "/platform/media/avatar/user"],
+      ["PUT", `/platform/media/avatar/${ADDRESS}`],
+    ] as const) {
+      expect(isValidAuthorizationTarget(method, path)).toBe(true);
+    }
+
+    for (const [method, path] of [
+      ["POST", "/v1/unknown"],
+      ["PATCH", "/v1/usernames/alice"],
+      ["PUT", "/v1/usernames/not valid"],
+      ["PUT", "/v1/parties/not-an-address/avatar"],
+      ["PUT", "/v1/me/avatar?admin=true"],
+      ["DELETE", "/platform/anything"],
+    ] as const) {
+      expect(isValidAuthorizationTarget(method, path)).toBe(false);
+    }
+  });
+
   test("builds the byte-exact personal message", () => {
     expect(challenge().payload).toBe([
       "miso.fm API authorization v1",
@@ -60,7 +87,7 @@ describe("auth contract", () => {
         },
       },
       fetch: (async (input, init) => {
-        expect(String(input)).toBe("https://api.testnet.miso.fm/platform/auth/challenge");
+        expect(String(input)).toBe("https://api.testnet.miso.fm/v1/auth/challenges");
         expect(init?.method).toBe("POST");
         expect(new Headers(init?.headers).get("authorization")).toBe("Bearer oidc-token");
         return Response.json(challenge());
@@ -120,7 +147,7 @@ describe("auth contract", () => {
         },
         fetch: (async (input, init) => {
           const url = String(input);
-          if (url.endsWith("/platform/auth/challenge")) {
+          if (url.endsWith("/v1/auth/challenges")) {
             calls.push("challenge");
             return Response.json(challenge("PUT", "/platform/usernames/alice", nowMs));
           }

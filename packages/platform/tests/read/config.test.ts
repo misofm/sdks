@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { getMisoPlatformDeployment } from "../../src/deployments.ts";
 import { configFromDeployment, misoConfig } from "../../src/read/config.ts";
+import { partyAvatarUrl } from "../../src/read/artist.ts";
 
 describe("misoConfig", () => {
   test("derives Testnet read ids from the bundled platform deployment", () => {
@@ -12,6 +13,7 @@ describe("misoConfig", () => {
 
     expect(config.deployment).toBe(deployment.protocol);
     expect(config.recordSales).toBe(deployment.recordSales);
+    expect(config.apiBaseUrl).toBe("https://api.testnet.miso.fm/v1");
     expect(config.protocol).toEqual({
       vault: null,
       releaseCoverArt: deployment.packages.releaseCoverArt,
@@ -28,6 +30,11 @@ describe("misoConfig", () => {
       releaseCredits: deployment.packages.releaseCredits,
       credit: deployment.packages.credit,
     });
+  });
+
+  test("builds canonical versioned party avatar URLs and confines the id to one segment", () => {
+    expect(partyAvatarUrl("https://api.testnet.miso.fm/v1/", "0xabc/../../health?x=1"))
+      .toBe("https://api.testnet.miso.fm/v1/parties/0xabc%2F..%2F..%2Fhealth%3Fx%3D1/avatar");
   });
 
   test("allows endpoint and shelf overrides without erasing defaults", () => {

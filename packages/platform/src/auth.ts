@@ -36,6 +36,26 @@ export const MISO_AUTH_HEADERS = {
   issuedAt: "X-Sui-Issued-At",
 } as const;
 
+/**
+ * The small set of platform mutations that use the account challenge. Keep
+ * this list explicit: accepting every mutation under `/v1` would let a caller
+ * reuse this signer for an unrelated endpoint with the same bearer token.
+ *
+ * The `/platform` spellings are temporary migration targets. Their path is
+ * passed through byte-for-byte to the challenge and signature verifier so a
+ * legacy client keeps signing the path it actually sends.
+ */
+const SUPPORTED_AUTHORIZATION_TARGETS: ReadonlyArray<readonly [string, RegExp]> = [
+  ["PUT", /^\/v1\/usernames\/[a-z0-9-]{3,32}$/],
+  ["POST", /^\/v1\/media\/party-bundles$/],
+  ["PUT", /^\/v1\/parties\/0x[0-9a-fA-F]{1,64}\/avatar$/],
+  ["PUT", /^\/v1\/me\/avatar$/],
+  ["PUT", /^\/platform\/usernames\/[a-z0-9-]{3,32}$/],
+  ["POST", /^\/platform\/media\/party$/],
+  ["PUT", /^\/platform\/media\/avatar\/user$/],
+  ["PUT", /^\/platform\/media\/avatar\/0x[0-9a-fA-F]{1,64}$/],
+];
+
 /** The byte-exact Sui personal message required for an authenticated API mutation. */
 export function buildApiAuthorizationPayload(fields: ApiAuthorizationFields): string {
   return [
@@ -50,11 +70,13 @@ export function buildApiAuthorizationPayload(fields: ApiAuthorizationFields): st
 }
 
 export function isValidAuthorizationTarget(method: string, path: string): boolean {
+  const normalizedMethod = method.toUpperCase();
   return (
-    ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase()) &&
-    path.startsWith("/platform/") &&
     path.length <= 2_048 &&
-    !/[\r\n?#]/.test(path)
+    !/[\r\n?#]/.test(path) &&
+    SUPPORTED_AUTHORIZATION_TARGETS.some(([targetMethod, target]) =>
+      targetMethod === normalizedMethod && target.test(path),
+    )
   );
 }
 
@@ -91,7 +113,7 @@ const target = Effect.fn("target")(function* (
   if (!isValidAuthorizationTarget(normalized.method, normalized.path)) {
     return yield* new MisoAuthError({
       code: "invalid_target",
-      reason: "Authenticated requests require a mutation under /platform/.",
+      reason: "That method and path is not a supported authenticated platform mutation.",
     });
   }
   return normalized;
@@ -201,7 +223,7 @@ export const requestAuthorizationChallenge = Effect.fn("requestAuthorizationChal
   }
   const apiUrl = new URL(options.apiUrl);
   const challengeUrl = options.challengeUrl === undefined
-    ? new URL("/platform/auth/challenge", apiUrl.origin)
+    ? new URL("/v1/auth/challenges", apiUrl.origin)
     : new URL(options.challengeUrl, apiUrl);
   const fetcher = options.fetch ?? globalThis.fetch;
   const response = yield* Effect.tryPromise({
