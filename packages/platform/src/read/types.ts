@@ -22,6 +22,7 @@
 
 /** Lifecycle state shared by compositions, recordings, and releases. */
 import type { RecordingMasterView } from "../recording-extensions.ts";
+import type { Role } from "../party/extensions/roles.ts";
 
 export type WorkState =
   { type: "Initialized" } | { type: "Published"; timestampMs: number };
@@ -300,6 +301,8 @@ export interface ArtistProfile {
   members: PartyMember[];
   /** Present only when requested via `include` — the owner-editor fields. */
   roles?: string[];
+  /** Exact role identities for editing; present alongside `roles` when requested. */
+  roleValues?: Role[];
   tags?: string[];
   /** Public avatar URL (miso-api R2 lane; may 404 when unset). */
   avatarUrl: string;

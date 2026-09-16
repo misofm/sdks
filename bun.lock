@@ -74,7 +74,7 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.41.0",
+      "version": "0.42.0",
       "dependencies": {
         "@misofm/musicos": "0.6.0",
         "@misofm/partyos": "0.6.0",

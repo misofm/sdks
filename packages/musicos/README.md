@@ -130,6 +130,11 @@ sui-effect `Event` (whose `.bcs` is the same bytes, straight from
 Core Composition, Recording, and Release creation is atomic with publication,
 so v1 exposes only the corresponding `*PublishedEvent` decoders. Their payloads
 include the creation identity and financial facts needed by indexers.
+Release publication includes `trackAllocations`: ordered `{ compositionId,
+recordingId, splitBps }` entries, preserving duplicates and zero splits. Raw
+codecs expose the equivalent `track_allocations` fields. This layout targets
+the new immutable deployment; historical count/digest-only publication events
+must use their original schema. No deployment ID is changed by this schema update.
 
 ```ts
 import { parseCompositionPublishedEvent } from "@misofm/musicos"

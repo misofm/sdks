@@ -45,7 +45,7 @@ export interface InitializeOptions {
     ];
 }
 /**
- * Initializes a fixed-supply share token with 10,000,000.000000 supply. Validates
+ * Initializes a fixed-supply share token with 100,000,000.000000 supply. Validates
  * the currency configuration, mints the fixed supply, and makes the supply
  * immutable. Returns the full token balance.
  *
@@ -82,14 +82,14 @@ export interface IsShareOptions {
 /**
  * Returns whether `currency` is a valid share: its type is
  * `<address>::share::Share`, its metadata cap is deleted, it is not regulated, it
- * has 6 decimals, and its supply is permanently fixed at 10,000,000.000000 tokens.
- * This is the complete property set `initialize` establishes, read back from the
- * currency, so downstream packages can gate on it. It returns `true` for any
- * currency with that shape, including one that reached it without `initialize`;
- * such a currency is economically identical (only the `ShareInitializedEvent` is
- * missing). The canonical treasury-cap check `initialize` performs needs no
- * counterpart here: a fixed supply means the treasury cap was consumed, and a
- * fixed supply cannot burn.
+ * has 6 decimals, and its supply is permanently fixed at 100,000,000.000000
+ * tokens. This is the complete property set `initialize` establishes, read back
+ * from the currency, so downstream packages can gate on it. It returns `true` for
+ * any currency with that shape, including one that reached it without
+ * `initialize`; such a currency is economically identical (only the
+ * `ShareInitializedEvent` is missing). The canonical treasury-cap check
+ * `initialize` performs needs no counterpart here: a fixed supply means the
+ * treasury cap was consumed, and a fixed supply cannot burn.
  */
 export function isShare(options: IsShareOptions) {
     const packageAddress = options.package ?? '@local-pkg/share';

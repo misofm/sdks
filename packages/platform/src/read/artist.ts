@@ -13,7 +13,9 @@
 import { Effect, Option, Result } from "effect";
 import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
 import { Partyos, type PartyosDeploymentError, type PartyReadError } from "@misofm/partyos";
-import { getCtas, getGenres, getLinks, getProfile, getRoles, getTags } from "../party/queries.ts";
+import { getCtas, getGenres, getLinks, getProfile, getRoleValues, getTags } from "../party/queries.ts";
+import { roleDisplayName } from "../party/internal.ts";
+import type { Role } from "../party/extensions/roles.ts";
 import { resolveGenreNames } from "./genres.ts";
 import type { MisoConfig } from "./config.ts";
 import type {
@@ -64,13 +66,13 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
   const include = new Set(options.include ?? []);
   const party = config.party;
 
-  const [profileOpt, ctas, genreIds, links, roles, tags, entity] = yield* Effect.all([
+  const [profileOpt, ctas, genreIds, links, roleValues, tags, entity] = yield* Effect.all([
     getProfile(partyId, party.partyProfile).pipe(Effect.catch(() => Effect.succeed(Option.none()))),
     getCtas(partyId, party.partyCta).pipe(Effect.catch(() => Effect.succeed([] as { label: string; url: string }[]))),
     getGenres(partyId, party.partyGenre).pipe(Effect.catch(() => Effect.succeed([] as string[]))),
     getLinks(partyId).pipe(Effect.catch(() => Effect.succeed([] as { platform: string; value: string; url: string }[]))),
     include.has("roles")
-      ? getRoles(partyId, party.partyRoles).pipe(Effect.catch(() => Effect.succeed([] as string[])))
+      ? getRoleValues(partyId, party.partyRoles).pipe(Effect.catch(() => Effect.succeed([] as Role[])))
       : Effect.succeed(undefined),
     include.has("tags")
       ? getTags(partyId, party.partyTags).pipe(Effect.catch(() => Effect.succeed([] as string[])))
@@ -101,7 +103,7 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
     })) as ArtistProfile["links"],
     ctas: ctas.map((c) => ({ label: c.label, url: c.url })),
     members,
-    ...(roles !== undefined ? { roles } : {}),
+    ...(roleValues !== undefined ? { roles: roleValues.map(roleDisplayName), roleValues } : {}),
     ...(tags !== undefined ? { tags } : {}),
     avatarUrl: partyAvatarUrl(config.apiBaseUrl, entity.id),
   };

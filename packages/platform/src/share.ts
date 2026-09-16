@@ -4,7 +4,7 @@
 // Share-currency provisioning.
 //
 // Every composition and every recording is backed by its own fixed-supply
-// (10M @ 6dp) share currency — an independently published `share` package whose
+// (100M @ 6dp) share currency — an independently published `share` package whose
 // `INITIALIZER` constant is patched to an authorized address before publish.
 // Creating one is two transactions that CANNOT share a PTB: a `moveCall` target
 // must name a concrete package id, but a package published in the same PTB has no

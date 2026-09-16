@@ -101,6 +101,10 @@ test("core raw event decoders preserve every publication and registry field", ()
     registry_id: id(0x5c),
     release_digest: [9, 8, 7],
     nonce: 123n,
+    track_allocations: [
+      { composition_id: id(0x71), recording_id: id(0x72), split_bps: 4000 },
+      { composition_id: id(0x73), recording_id: id(0x74), split_bps: 6000 },
+    ],
   }).toBytes();
   expect(Effect.runSync(eventParsers.core.releasePublished(release))).toEqual({
     release_id: id(0x54),
@@ -113,6 +117,10 @@ test("core raw event decoders preserve every publication and registry field", ()
     registry_id: id(0x5c),
     release_digest: [9, 8, 7],
     nonce: "123",
+    track_allocations: [
+      { composition_id: id(0x71), recording_id: id(0x72), split_bps: 4000 },
+      { composition_id: id(0x73), recording_id: id(0x74), split_bps: 6000 },
+    ],
   });
 
   const registry = wire.releaseRegistryCreatedWire.serialize({
@@ -186,6 +194,7 @@ test("core event decoders fail with DecodeError, not a thrown Error, on truncate
         registry_id: id(0x70),
         release_digest: [1],
         nonce: 0n,
+        track_allocations: [],
       }).toBytes(),
     ],
   ] as const;

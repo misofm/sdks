@@ -60,12 +60,14 @@ export const CompositionFundsDepositedEvent = new MoveStruct({ name: `${$moduleN
 export interface NewPoolArguments {
     composition: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;
+    shareCurrency: RawTransactionArgument<string>;
 }
 export interface NewPoolOptions {
     package?: string;
     arguments: NewPoolArguments | [
         composition: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>
+        adminCap: RawTransactionArgument<string>,
+        shareCurrency: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -80,9 +82,10 @@ export function newPool(options: NewPoolOptions) {
     const packageAddress = options.package ?? '@local-pkg/composition_royalty_pool';
     const argumentsTypes = [
         null,
+        null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["composition", "adminCap"];
+    const parameterNames = ["composition", "adminCap", "shareCurrency"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'composition_royalty_pool',

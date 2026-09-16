@@ -417,7 +417,7 @@ const recipe = client.miso.tx.publishComposition({
   shareType: "0x...::share::Share",
   shareCurrencyId: "0x...",
   shareTreasuryCapId: "0x...",
-  shareRecipients: [{ address: ownerAddress, value: 10_000_000_000_000 }],
+  shareRecipients: [{ address: ownerAddress, value: 100_000_000_000_000 }],
   adminAddress: ownerAddress,
 });
 ```
@@ -718,6 +718,13 @@ const cover = await getReleaseCover(
 Vault shell; withdrawal requires every plugin to have been removed. Plugin
 installers construct their witnesses inside their Move package; callers supply no
 witness.
+
+Version 0.42 targets verified share currencies with 100,000,000 whole shares
+and six decimals (`100_000_000_000_000` base units). Composition and Recording
+royalty-pool constructors now require `shareCurrency`, the matching coin-registry
+`Currency<Share>` object. Atomic catalog publication passes each work’s
+`shareCurrencyId` automatically. These constructors require the corresponding
+new contract generation; publishing this SDK does not activate a deployment.
 
 It also builds Composition/Recording royalty-pool initialization and cranks,
 fixed Release settlement plus raw-admin amount composition, Party wallet

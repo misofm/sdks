@@ -144,7 +144,7 @@ function params(): AtomicPublicationParams {
         shareTreasuryCapId: A,
         title: "Composition",
         royaltyRateBps: 1_000,
-        shareRecipients: [{ address: A, value: 10_000_000_000_000n }],
+        shareRecipients: [{ address: A, value: 100_000_000_000_000n }],
         shareDistribution: "stake",
         custody: { kind: "vault", owner: A },
         credits: [
@@ -344,7 +344,7 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
     { NestedResult: [recordingIndex, 0], $kind: "NestedResult" },
   ]);
   const valueInput = tx.getData().inputs[routed.arguments[3].Input] as any;
-  expect(bcs.u64().parse(fromBase64(valueInput.Pure.bytes))).toBe("1000000000000");
+  expect(bcs.u64().parse(fromBase64(valueInput.Pure.bytes))).toBe("10000000000000");
   const recordingPoolIndex = commands.findIndex((command) =>
     command.$kind === "MoveCall" && command.MoveCall.module === "recording_royalty_pool" && command.MoveCall.function === "new_pool"
   );
