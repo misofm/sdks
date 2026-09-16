@@ -213,7 +213,7 @@ test("pool construction targets the Action and returns an unshared pool", () => 
   const tx = new Transaction();
   const pool = newCompositionRoyaltyPool(tx, {
     authority: vaulted(tx), composition: tx.object(A), compositionShareType: COMPOSITION_SHARE,
-    currencyType: SUI, actionPackageId: ACTION,
+    currencyType: SUI, actionPackageId: ACTION, shareCurrency: tx.object(C),
   });
   tx.moveCall({
     target: `${B}::pool::share`,
@@ -229,6 +229,8 @@ test("pool construction targets the Action and returns an unshared pool", () => 
     "pool::share",
   ]);
   expect(calls(tx)[1]!.package).toBe(ACTION);
+  expect(tx.getData().commands[1]!.MoveCall!.arguments).toHaveLength(3);
+  expect(tx.getData().commands[1]!.MoveCall!.arguments[2]).toEqual(tx.object(C));
   expect((tx.getData().commands[3]!.MoveCall as { arguments: Array<{ Result?: number }> }).arguments[0]!.Result).toBe(1);
 });
 

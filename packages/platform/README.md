@@ -417,7 +417,7 @@ const recipe = client.miso.tx.publishComposition({
   shareType: "0x...::share::Share",
   shareCurrencyId: "0x...",
   shareTreasuryCapId: "0x...",
-  shareRecipients: [{ address: ownerAddress, value: 10_000_000_000_000 }],
+  shareRecipients: [{ address: ownerAddress, value: 100_000_000_000_000 }],
   adminAddress: ownerAddress,
 });
 ```

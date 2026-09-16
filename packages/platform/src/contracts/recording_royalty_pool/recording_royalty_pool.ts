@@ -62,12 +62,14 @@ export const RecordingFundsDepositedEvent = new MoveStruct({ name: `${$moduleNam
 export interface NewPoolArguments {
     recording: RawTransactionArgument<string>;
     adminCap: RawTransactionArgument<string>;
+    shareCurrency: RawTransactionArgument<string>;
 }
 export interface NewPoolOptions {
     package?: string;
     arguments: NewPoolArguments | [
         recording: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>
+        adminCap: RawTransactionArgument<string>,
+        shareCurrency: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -83,9 +85,10 @@ export function newPool(options: NewPoolOptions) {
     const packageAddress = options.package ?? '@local-pkg/recording_royalty_pool';
     const argumentsTypes = [
         null,
+        null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["recording", "adminCap"];
+    const parameterNames = ["recording", "adminCap", "shareCurrency"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_royalty_pool',

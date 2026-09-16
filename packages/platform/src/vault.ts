@@ -352,6 +352,8 @@ export interface NewCompositionRoyaltyPoolParams {
   readonly actionPackageId: string;
   readonly currencyType: string;
   readonly compositionShareType: string;
+  /** Verified fixed-supply ownership currency, not the payout currency. */
+  readonly shareCurrency: TransactionObjectArgument;
 }
 
 /** Create the canonical pool without sharing it so callers can configure fresh stakes first. */
@@ -362,7 +364,7 @@ export function newCompositionRoyaltyPool(
   return invokeWithAdminCap(tx, params.authority, {
     target: `${params.actionPackageId}::composition_royalty_pool::new_pool`,
     typeArguments: [params.compositionShareType, params.currencyType],
-    arguments: [params.composition],
+    arguments: [params.composition, params.shareCurrency],
     adminCapIndex: 1,
   });
 }
@@ -584,6 +586,8 @@ export interface NewRecordingRoyaltyPoolParams {
   readonly currencyType: string;
   readonly recordingShareType: string;
   readonly compositionShareType: string;
+  /** Verified fixed-supply ownership currency, not the payout currency. */
+  readonly shareCurrency: TransactionObjectArgument;
 }
 
 /** Create the canonical pool without sharing it so callers can configure fresh stakes first. */
@@ -598,7 +602,7 @@ export function newRecordingRoyaltyPool(
       params.compositionShareType,
       params.currencyType,
     ],
-    arguments: [params.recording],
+    arguments: [params.recording, params.shareCurrency],
     adminCapIndex: 1,
   });
 }

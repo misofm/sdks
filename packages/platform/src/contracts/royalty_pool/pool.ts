@@ -58,7 +58,12 @@
  *   `value · PRECISION` units, independent of `S`), so deposit rounding never
  *   loses value — it is folded into the next deposit. This also means a share
  *   supply larger than `PRECISION` cannot lock deposits: they accumulate in
- *   `carry` until they fold.
+ *   `carry` until they fold. Production construction admits at most
+ *   `100_000_000_000_000` share base units, so `carry / PRECISION` is always
+ *   strictly less than `10^-4` of one payout base unit. Carry is pool-wide and a
+ *   later deposit folds it against the stake set then registered: accounting is
+ *   exactly conserved, but that sub-base-unit residual is not attributed exactly
+ *   to the cohort present when it arose.
  * - A registration records its debt in `shares · index` units at full precision
  *   and pays `⌊(shares · index − debt) / PRECISION⌋`; the payout is added back to
  *   the debt as `reward · PRECISION`. A registration's lifetime payout is
@@ -183,11 +188,13 @@ export const RoyaltyClaimedEvent = new MoveStruct({ name: `${$moduleName}::Royal
     } });
 export interface NewArguments {
     parent: RawTransactionArgument<string>;
+    shareCurrency: RawTransactionArgument<string>;
 }
 export interface NewOptions {
     package?: string;
     arguments: NewArguments | [
-        parent: RawTransactionArgument<string>
+        parent: RawTransactionArgument<string>,
+        shareCurrency: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -195,10 +202,11 @@ export interface NewOptions {
     ];
 }
 /**
- * Construct a pool as a derived object of `parent`. The derivation key encodes
- * both type parameters, so the pool's address is determined entirely by
- * `(parent_id, Share, Currency)` — and therefore always names a pool of exactly
- * this type (see `RoyaltyPoolKey`).
+ * Construct a pool as a derived object of `parent`, after proving `Share` is the
+ * protocol's fixed-supply, immutable and freeze-proof share currency. The payout
+ * `Currency` remains arbitrary. The derivation key encodes both type parameters,
+ * so the pool's address is determined entirely by `(parent_id, Share, Currency)` —
+ * and therefore always names a pool of exactly this type (see `RoyaltyPoolKey`).
  *
  * Cap-gating happens at the parent: callers must obtain `&mut UID` via whatever
  * cap-gated accessor the parent exposes.
@@ -206,9 +214,10 @@ export interface NewOptions {
 export function _new(options: NewOptions) {
     const packageAddress = options.package ?? '@local-pkg/royalty_pool';
     const argumentsTypes = [
-        '0x2::object::ID'
+        '0x2::object::ID',
+        null
     ] satisfies (string | null)[];
-    const parameterNames = ["parent"];
+    const parameterNames = ["parent", "shareCurrency"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'pool',

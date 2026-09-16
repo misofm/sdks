@@ -25,8 +25,9 @@ import { ArtistRole as ArtistRoleBcs, RolesKey as RolesKeyBcs } from "../contrac
 import { TagsKey as TagsKeyBcs } from "../contracts/party_tags/party_tags.ts";
 import { GenresKey as GenresKeyBcs } from "../contracts/party_genre/party_genre.ts";
 import { Cta as CtaBcs, CtasKey as CtasKeyBcs } from "../contracts/party_cta/party_cta.ts";
-import { mapCtas, mapGenres, mapMedia, mapProfile, mapRoles, mapTags } from "./internal.ts";
+import { mapCtas, mapGenres, mapMedia, mapProfile, mapRoleValues, roleDisplayName, mapTags } from "./internal.ts";
 import { buildLink, platformForDataType } from "./extensions/links.ts";
+import type { Role } from "./extensions/roles.ts";
 import { Cta, Media, PlatformLink, Profile } from "./types.ts";
 
 const PROFILE_KEY_BYTES = ProfileKeyBcs.serialize([false]).toBytes();
@@ -77,17 +78,28 @@ export const getMedia = Effect.fn("getMedia")(function* (
 const ROLES_KEY_BYTES = RolesKeyBcs.serialize([false]).toBytes();
 const RolesValue = bcs.vector(ArtistRoleBcs);
 
-/** The party's artist-type roles (display names), or `[]` if none are set. */
+/** The party's exact artist-role values, or `[]` if none are set. */
+export const getRoleValues = Effect.fn("getRoleValues")(function* (
+  partyId: string,
+  partyRolesPackageId: string,
+): Effect.fn.Return<Role[], DecodeError | TransportError, Sui> {
+  const sui = yield* Sui;
+  const keyTag = normalizeStructTag(`${partyRolesPackageId}::party_roles::RolesKey`);
+  const field = yield* sui.getDynamicFieldOption(ObjectId.make(partyId), {
+    type: keyTag,
+    bcs: ROLES_KEY_BYTES,
+  });
+  if (Option.isNone(field)) return [];
+  const roles = yield* SuiSchema.decode(SuiSchema.bcs(RolesValue), field.value.value.bcs, { objectId: field.value.fieldId });
+  return mapRoleValues(roles);
+});
+
+/** Compatibility read returning display names. Prefer `getRoleValues` when identity matters. */
 export const getRoles = Effect.fn("getRoles")(function* (
   partyId: string,
   partyRolesPackageId: string,
 ): Effect.fn.Return<string[], DecodeError | TransportError, Sui> {
-  const sui = yield* Sui;
-  const keyTag = normalizeStructTag(`${partyRolesPackageId}::party_roles::RolesKey`);
-  const field = yield* sui.getDynamicFieldOption(ObjectId.make(partyId), { type: keyTag, bcs: ROLES_KEY_BYTES });
-  if (Option.isNone(field)) return [];
-  const roles = yield* SuiSchema.decode(SuiSchema.bcs(RolesValue), field.value.value.bcs, { objectId: field.value.fieldId });
-  return mapRoles(roles);
+  return (yield* getRoleValues(partyId, partyRolesPackageId)).map(roleDisplayName);
 });
 
 const TAGS_KEY_BYTES = TagsKeyBcs.serialize([false]).toBytes();

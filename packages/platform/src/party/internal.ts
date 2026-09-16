@@ -6,6 +6,7 @@
 
 import { bcs } from "@mysten/sui/bcs";
 import { fromBase64, toBase64 } from "@mysten/sui/utils";
+import type { Role } from "./extensions/roles.ts";
 import type { Cta, Media, Profile } from "./types.ts";
 
 const u256 = bcs.u256();
@@ -68,18 +69,42 @@ const CANONICAL_ROLE_NAMES: Record<string, string> = {
   Collective: "Collective",
 };
 
-/** One parsed `ArtistRole` enum value → its display name (`Custom` → its string). */
+const CANONICAL_ROLE_KINDS: Record<string, Role["kind"]> = {
+  Artist: "artist",
+  Producer: "producer",
+  Dj: "dj",
+  Composer: "composer",
+  Songwriter: "songwriter",
+  Band: "band",
+  Label: "label",
+  Collective: "collective",
+};
+
+/** One exact role value → its compatibility display name. */
+export function roleDisplayName(role: Role): string {
+  if (role.kind === "custom") return role.name;
+  const generatedKind = Object.entries(CANONICAL_ROLE_KINDS).find(([, kind]) => kind === role.kind)?.[0];
+  return generatedKind === undefined ? role.kind : CANONICAL_ROLE_NAMES[generatedKind]!;
+}
+
+/** A party's `VecSet<ArtistRole>` → exact public role values. */
 // deno-lint-ignore no-explicit-any -- generated parse output is loosely typed
-function roleName(r: any): string {
-  if (r?.$kind === "Custom") return String(r.Custom ?? r.value ?? "");
-  return CANONICAL_ROLE_NAMES[r?.$kind] ?? String(r?.$kind ?? "");
+export function mapRoleValues(d: any): Role[] {
+  const contents = Array.isArray(d) ? d : d?.contents ?? d?.roles?.contents ?? [];
+  return (Array.isArray(contents) ? contents : []).map((role: any): Role => {
+    if (role?.$kind === "Custom") return { kind: "custom", name: String(role.Custom ?? role.value ?? "") };
+    const kind = CANONICAL_ROLE_KINDS[role?.$kind];
+    if (kind === undefined || kind === "custom") {
+      throw new TypeError(`unknown ArtistRole variant ${String(role?.$kind ?? "")}`);
+    }
+    return { kind };
+  });
 }
 
 /** A party's `VecSet<ArtistRole>` → role display names. */
 // deno-lint-ignore no-explicit-any -- generated parse output is loosely typed
 export function mapRoles(d: any): string[] {
-  const contents = Array.isArray(d) ? d : d?.contents ?? d?.roles?.contents ?? [];
-  return (Array.isArray(contents) ? contents : []).map(roleName);
+  return mapRoleValues(d).map(roleDisplayName);
 }
 
 /** A party's `VecSet<String>` tag set → tag strings. */

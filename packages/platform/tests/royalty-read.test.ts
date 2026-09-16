@@ -100,9 +100,31 @@ describe("getRoutedStakeById", () => {
       getRoutedStakeById(ROUTED_STAKE_ID),
     );
     expect(routed?.id).toBe(ROUTED_STAKE_ID);
-    // The wrapped `Stake`'s id is the RoutedStake's own — it is unwrapped in
-    // place, not a separate object at the embedded `stake.id` bytes.
-    expect(routed?.stake).toMatchObject({ id: ROUTED_STAKE_ID, balance: "300" });
+    expect(routed?.stake).toMatchObject({ id: STAKE_ID, balance: "300" });
+  });
+
+  test("preserves the wrapper identity while restake replaces the nested event join key", async () => {
+    const restakedId = `0x${"44".repeat(32)}`;
+    const snapshots = [STAKE_ID, null, restakedId];
+    const positions = [];
+    for (const [index, stakeId] of snapshots.entries()) {
+      const content = routedStakeContract.RoutedStake.serialize({
+        id: ROUTED_STAKE_ID,
+        stake: stakeId === null ? null : {
+          id: stakeId,
+          balance: { value: "300" },
+          registrations: { contents: [] },
+        },
+      }).toBytes();
+      positions.push(await run(
+        [{ objectId: ROUTED_STAKE_ID, type: ROUTED_STAKE_TYPE, version: BigInt(index + 1), content }],
+        getRoutedStakeById(ROUTED_STAKE_ID),
+      ));
+    }
+    expect(positions.map((position) => position?.id)).toEqual([
+      ROUTED_STAKE_ID, ROUTED_STAKE_ID, ROUTED_STAKE_ID,
+    ]);
+    expect(positions.map((position) => position?.stake?.id ?? null)).toEqual(snapshots);
   });
 
   test("stake is null between unstake and restake", async () => {

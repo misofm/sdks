@@ -96,8 +96,8 @@ const { composition, recording, release, track } = protocolContracts;
 
 export const MAX_ATOMIC_PUBLICATION_COMMANDS = 900;
 export const MAX_ATOMIC_PUBLICATION_INPUTS = 2048;
-/** Fixed protocol work-share supply: 10 million shares at six decimals. */
-const WORK_SHARE_SUPPLY = 10_000_000_000_000n;
+/** Fixed protocol work-share supply: 100 million shares at six decimals. */
+const WORK_SHARE_SUPPLY = 100_000_000_000_000n;
 
 export interface PublicationCustody {
   readonly kind: "direct" | "vault";
@@ -488,6 +488,7 @@ function publishComposition(
         };
         const poolParams = {
           authority, composition: parts.work,
+          shareCurrency: tx.object(node.shareCurrencyId),
           compositionShareType: node.shareType,
           currencyType: node.royaltyPool.currencyType,
           actionPackageId: available!.actions.compositionRoyaltyPool,
@@ -559,6 +560,7 @@ function publishRecording(
         };
         const poolParams = {
           authority, recording: parts.work,
+          shareCurrency: tx.object(node.shareCurrencyId),
           recordingShareType: node.shareType,
           compositionShareType: node.compositionShareType,
           currencyType: node.royaltyPool.currencyType,

@@ -140,7 +140,7 @@ test("publishCompositionAndRecording orders new→new→publish→publish and bo
       shareType: `${PKG}::cs::CS`,
       shareCurrencyId: A,
       shareTreasuryCapId: A,
-      shareRecipients: [{ address: A, value: 10_000_000_000_000 }],
+      shareRecipients: [{ address: A, value: 100_000_000_000_000 }],
       adminAddress: A,
     },
     recording: {

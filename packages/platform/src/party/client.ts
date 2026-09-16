@@ -125,6 +125,8 @@ export type MisoPartyService = {
   readonly getMedia: (partyId: string) => Effect.Effect<Option.Option<Media>, DecodeError | TransportError>;
   /** The party's artist-type roles (display names), or `[]`. Fails with: `DecodeError`, `TransportError`. */
   readonly getRoles: (partyId: string) => Effect.Effect<string[], DecodeError | TransportError>;
+  /** The party's exact canonical/custom role values, or `[]`. Fails with: `DecodeError`, `TransportError`. */
+  readonly getRoleValues: (partyId: string) => Effect.Effect<rolesExt.Role[], DecodeError | TransportError>;
   /** The party's free-form tags, or `[]`. Fails with: `DecodeError`, `TransportError`. */
   readonly getTags: (partyId: string) => Effect.Effect<string[], DecodeError | TransportError>;
   /** The party's genre object ids, or `[]`. Fails with: `DecodeError`, `TransportError`. */
@@ -242,6 +244,7 @@ export function makeMisoParty(sui: SuiService, partyos: PartyosService, deployme
     getProfile: (partyId) => withSui(queries.getProfile(partyId, profilePkg)),
     getMedia: (partyId) => withSui(queries.getMedia(partyId, mediaPkg)),
     getRoles: (partyId) => withSui(queries.getRoles(partyId, rolesPkg)),
+    getRoleValues: (partyId) => withSui(queries.getRoleValues(partyId, rolesPkg)),
     getTags: (partyId) => withSui(queries.getTags(partyId, tagsPkg)),
     getGenres: (partyId) => withSui(queries.getGenres(partyId, partyGenrePkg)),
     getCtas: (partyId) => withSui(queries.getCtas(partyId, ctaPkg)),

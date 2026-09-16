@@ -101,7 +101,7 @@ function mapRoutedStake(
 ): typeof RoutedStake.Encoded {
   return {
     id: routedStakeId,
-    stake: parsed.stake ? mapRoyaltyStake(routedStakeId, parsed.stake) : null,
+    stake: parsed.stake ? mapRoyaltyStake(parsed.stake.id, parsed.stake) : null,
   };
 }
 
