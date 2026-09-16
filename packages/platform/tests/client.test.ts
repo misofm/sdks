@@ -30,9 +30,17 @@ import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
 import { RecordSalesUnavailableError } from "../src/errors.ts";
 import type { MisoPlatformDeployment } from "../src/deployments.ts";
 
-const TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
+const BUNDLED_TESTNET = MISO_PLATFORM_DEPLOYMENTS.testnet;
 const REAL_TESTNET_CHAIN_ID = KNOWN_CHAIN_IDS["testnet"]!;
 const A = `0x${"11".repeat(32)}`;
+const TESTNET: MisoPlatformDeployment = {
+  ...BUNDLED_TESTNET,
+  recordSales: {
+    status: "available",
+    recordPackageId: A,
+    recordShopPackageId: `0x${"22".repeat(32)}`,
+  },
+};
 
 interface Call {
   package?: string;
@@ -455,7 +463,7 @@ describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved throug
     createComposition(tx, compositionParams);
 
     const sales = TESTNET.recordSales.status === "available" ? TESTNET.recordSales : undefined;
-    if (!sales) throw new Error("test fixture: bundled testnet Record sales must be available");
+    if (!sales) throw new Error("test fixture: explicit Record sales must be available");
     purchaseRecord({
       releaseId: A,
       edition: 1,

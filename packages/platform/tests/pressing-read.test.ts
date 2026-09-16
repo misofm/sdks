@@ -22,6 +22,7 @@ import {
   openPressing,
   purchaseRecord,
   RECORD_SALES_DERIVATION_VECTOR_V1,
+  type OpenPressingParams,
 } from "../src/pressing.ts";
 import * as pressing from "../src/contracts/record/pressing.ts";
 import * as record from "../src/contracts/record/record.ts";
@@ -102,6 +103,29 @@ test("matches the fixed independent edition, cap, listing, and record derivation
   expect(() => deriveRecordId(PRESSING, 0x1_0000_0000, RECORD_PACKAGE)).toThrow(
     /4294967295/,
   );
+});
+
+test("opening a Pressing requires a positive explicit u32 cap", () => {
+  const params: OpenPressingParams = {
+    releaseId: RELEASE,
+    releaseAdminCapId: BUYER,
+    edition: 1,
+    maxSupply: 100,
+    listings: [],
+    adminCapRecipient: BUYER,
+    recordPackageId: RECORD_PACKAGE,
+    recordShopPackageId: SHOP_PACKAGE,
+  };
+  const open = (overrides: Partial<OpenPressingParams>) =>
+    openPressing({ ...params, ...overrides })(new Transaction());
+  expect(() => open({ maxSupply: undefined as never })).toThrow(RangeError);
+  expect(() => open({ maxSupply: null as never })).toThrow(RangeError);
+  expect(() => open({ maxSupply: 0 })).toThrow(RangeError);
+  expect(() => open({ maxSupply: 0x1_0000_0000 })).toThrow(RangeError);
+
+  const tx = new Transaction();
+  openPressing(params)(tx);
+  expect(calls(tx).some((call) => call.module === "pressing" && call.function === "new")).toBeTrue();
 });
 
 function run<A, E>(objects: FakeObject[], effect: Effect.Effect<A, E, Sui>): Promise<A> {

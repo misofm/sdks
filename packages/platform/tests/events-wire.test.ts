@@ -1089,7 +1089,7 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['release_admin_cap_id', 'address'],
     ['edition', 'u16'],
     ['supply', 'u32'],
-    ['max_supply', 'option_u32'],
+    ['max_supply', 'u32'],
     ['distributors', 'string[]'],
   ] },
   { path: 'products.pressing.purchased', name: 'RecordPurchasedEvent', fields: [
@@ -1104,7 +1104,7 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['supply_before', 'u32'],
     ['supply_delta', 'u32'],
     ['supply_after', 'u32'],
-    ['max_supply', 'option_u32'],
+    ['max_supply', 'u32'],
   ] },
   { path: 'products.pressing.distributorAuthorized', name: 'PressingDistributorAuthorizedEvent', fields: [
     ['pressing_id', 'address'],
@@ -1172,7 +1172,6 @@ const EVENT_WIRE_FIXTURES: readonly WireFixture[] = [
     ['supply_before', 'u32'],
     ['supply_delta', 'u32'],
     ['supply_after', 'u32'],
-    ['has_max_supply', 'bool'],
     ['max_supply', 'u32'],
     ['payment_recipient', 'address'],
     ['proceeds_amount', 'u64'],

@@ -156,7 +156,7 @@ export interface PressingView {
   releaseId: string;
   edition: number;
   supply: number;
-  maxSupply: number | null;
+  maxSupply: number;
   distributors: string[];
 }
 
@@ -218,7 +218,7 @@ export interface PressingPreview {
   coverUrl: string | null;
   edition: number;
   supply: number;
-  maxSupply: number | null;
+  maxSupply: number;
   trackCount: number;
 }
 

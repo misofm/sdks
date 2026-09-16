@@ -73,8 +73,7 @@ function edition(value: number): number {
   return out;
 }
 
-function maxSupply(value: number | null | undefined): number | null {
-  if (value == null) return null;
+function maxSupply(value: number): number {
   const out = uint("max supply", value, MAX_U32);
   if (out === 0) throw new RangeError("max supply must be greater than zero");
   return out;
@@ -182,7 +181,7 @@ export interface OpenPressingParams {
   releaseId: string;
   releaseAdminCapId: string;
   edition: number;
-  maxSupply?: number | null;
+  maxSupply: number;
   listings: readonly ListingTerms[];
   adminCapRecipient: string;
   recordPackageId: string;
@@ -193,14 +192,16 @@ export interface OpenPressingParams {
  * share the Pressing, and transfer its admin capability. */
 export function openPressing(p: OpenPressingParams): Recipe {
   return (tx) => {
+    const validatedEdition = edition(p.edition);
+    const validatedMaxSupply = maxSupply(p.maxSupply);
     const [pressing, cap] = tx.add(
       pressingContract._new({
         package: p.recordPackageId,
         arguments: [
           p.releaseId,
           p.releaseAdminCapId,
-          edition(p.edition),
-          maxSupply(p.maxSupply),
+          validatedEdition,
+          validatedMaxSupply,
         ],
       }),
     );
@@ -424,7 +425,7 @@ export class Pressing extends Schema.Class<Pressing>("@misofm/platform/Pressing"
   releaseId: Schema.String,
   edition: Schema.Number,
   supply: Schema.Number,
-  maxSupply: Schema.NullOr(Schema.Number),
+  maxSupply: Schema.Number,
   distributors: Schema.Array(Schema.String),
 }) {}
 
@@ -524,6 +525,12 @@ function parsePricing(value: unknown): { kind: "fixed" | "floor"; amount: string
 /** Raw BCS-parse -> camelCase mapper; `Schema.decodeUnknownEffect` (via `decodeBcs`) validates and constructs `Pressing`. */
 function mapPressing(pressingId: string, recordPackageId: string, content: Uint8Array): typeof Pressing.Encoded {
   const parsed = pressingContract.Pressing.parse(content);
+  if (pressingContract.Pressing.serialize(parsed).toBytes().length !== content.length) {
+    throw new Error("Pressing has unexpected trailing bytes");
+  }
+  if (parsed.max_supply <= 0 || parsed.supply > parsed.max_supply) {
+    throw new Error("Pressing has an invalid lifetime issuance ceiling");
+  }
   requireId("Pressing UID", parsed.id, pressingId);
   requireId(
     "Pressing derived id",

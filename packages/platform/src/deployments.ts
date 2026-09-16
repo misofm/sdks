@@ -68,7 +68,7 @@ export type RecordSalesDeployment =
       readonly reason: string;
       readonly legacy?: {
         readonly recordPackageId: string;
-        readonly pressingPackageId: string;
+        readonly recordShopPackageId: string;
       };
     }
   | {
@@ -431,11 +431,14 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
     protocol: MISO_DEPLOYMENTS.testnet,
     partyos: PARTYOS_DEPLOYMENTS.testnet,
     recordSales: {
-      status: "available",
-      recordPackageId:
-        "0x39144c9cd87f1cedb33cfeee041db853548d3b1697b82fb429d289b47b42cfa3",
-      recordShopPackageId:
-        "0xbaeb00b56f6294d4bc81690f1b1ddcdf43439dad9342040c9c9bd1dc3c6f55ca",
+      status: "unavailable",
+      reason: "the published Record sales packages use the previous optional-cap ABI; publish and verify the mandatory-cap packages before enabling writes or current-schema reads",
+      legacy: {
+        recordPackageId:
+          "0x39144c9cd87f1cedb33cfeee041db853548d3b1697b82fb429d289b47b42cfa3",
+        recordShopPackageId:
+          "0xbaeb00b56f6294d4bc81690f1b1ddcdf43439dad9342040c9c9bd1dc3c6f55ca",
+      },
     },
     operations: {
       status: "available",

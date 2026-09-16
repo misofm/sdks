@@ -128,9 +128,7 @@ export const RecordSoldEvent = new MoveStruct({ name: `${$moduleName}::RecordSol
         supply_delta: bcs.u32(),
         /** Supply immediately after this mint. */
         supply_after: bcs.u32(),
-        /** Whether the Pressing has a maximum supply. */
-        has_max_supply: bcs.bool(),
-        /** The maximum supply, or zero when uncapped. */
+        /** The immutable lifetime issuance ceiling for this edition. */
         max_supply: bcs.u32(),
         /** The Release address receiving payment. */
         payment_recipient: bcs.Address,

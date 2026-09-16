@@ -92,9 +92,12 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
       languageCode: "0xac318126565a2fab608984a091b3582ba9cda6c32232f567eef50277c5042c36",
     },
     recordSales: {
-      status: "available",
-      recordPackageId: "0x39144c9cd87f1cedb33cfeee041db853548d3b1697b82fb429d289b47b42cfa3",
-      recordShopPackageId: "0xbaeb00b56f6294d4bc81690f1b1ddcdf43439dad9342040c9c9bd1dc3c6f55ca",
+      status: "unavailable",
+      reason: "the published Record sales packages use the previous optional-cap ABI; publish and verify the mandatory-cap packages before enabling writes or current-schema reads",
+      legacy: {
+        recordPackageId: "0x39144c9cd87f1cedb33cfeee041db853548d3b1697b82fb429d289b47b42cfa3",
+        recordShopPackageId: "0xbaeb00b56f6294d4bc81690f1b1ddcdf43439dad9342040c9c9bd1dc3c6f55ca",
+      },
     },
     operations: {
       status: "available",
@@ -154,8 +157,7 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
     deployment.chainIdentifier,
     ...Object.values(deployment.protocol),
     ...Object.values(deployment.partyos),
-    deployment.recordSales.recordPackageId,
-    deployment.recordSales.recordShopPackageId,
+    ...Object.values(deployment.recordSales.legacy),
     deployment.operations.vault.packageId,
     deployment.operations.vault.registryId,
     ...Object.values(deployment.operations.actions),
@@ -244,8 +246,10 @@ test("custom-deployment snapshotting: mutating the caller's object after normali
 
   expect(Object.isFrozen(custom)).toBeFalse();
   custom.chainIdentifier = "mutated-after-normalize";
-  if (custom.recordSales.status !== "available") throw new Error("test fixture");
-  custom.recordSales.recordPackageId = id(701);
+  if (custom.recordSales.status !== "unavailable" || !custom.recordSales.legacy) {
+    throw new Error("test fixture");
+  }
+  custom.recordSales.legacy.recordPackageId = id(701);
 
   // `normalizeMisoPlatformDeployment` (exercised indirectly by `Miso.layer`)
   // snapshots BEFORE any caller mutation reaches it — this proves the

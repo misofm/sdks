@@ -453,6 +453,27 @@ test("unavailable RecordSales rejects a direct-custody pressing before returning
   expect(tx.getData().inputs).toHaveLength(0);
 });
 
+test("atomic publication requires a cap and edition 1 for a fresh release", () => {
+  const input = params();
+  const pressing = input.pressing!;
+  expect(() => publishAtomicCatalog({
+    ...input,
+    pressing: { ...pressing, maxSupply: undefined as never },
+  })).toThrow(/positive u32/);
+  expect(() => publishAtomicCatalog({
+    ...input,
+    pressing: { ...pressing, maxSupply: null as never },
+  })).toThrow(/positive u32/);
+  expect(() => publishAtomicCatalog({
+    ...input,
+    pressing: { ...pressing, maxSupply: 0 },
+  })).toThrow(/positive u32/);
+  expect(() => publishAtomicCatalog({
+    ...input,
+    pressing: { ...pressing, edition: 2 },
+  })).toThrow(/first pressing must have edition 1/);
+});
+
 test("streaming-transcode publication fails before PTB construction without its package identity", () => {
   const input = params();
   const deployment = {

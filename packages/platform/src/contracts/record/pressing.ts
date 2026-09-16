@@ -8,9 +8,9 @@
  * Records.
  *
  * A release may have many Pressings, one at each `PressingKey(edition)`. Each
- * Pressing owns an independent Record sequence, an optional immutable maximum
- * supply, and the set of distributor witness types allowed to mint from that
- * edition. Distributors own delivery mechanics; the Pressing owns issuance.
+ * Pressing owns an independent Record sequence, an immutable maximum supply, and
+ * the set of distributor witness types allowed to mint from that edition.
+ * Distributors own delivery mechanics; the Pressing owns issuance.
  */
 
 import { MoveTuple, MoveStruct, normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
@@ -31,8 +31,8 @@ export const Pressing = new MoveStruct({ name: `${$moduleName}::Pressing`, field
         edition: bcs.u16(),
         /** The number of Records issued by this Pressing. */
         supply: bcs.u32(),
-        /** The immutable supply ceiling, or `none()` for an uncapped Pressing. */
-        max_supply: bcs.option(bcs.u32()),
+        /** The positive, immutable lifetime issuance ceiling. */
+        max_supply: bcs.u32(),
         /** The defining types of distributors currently permitted to mint. */
         distributors: vec_set.VecSet(type_name.TypeName)
     } });
@@ -55,8 +55,8 @@ export const PressingCreatedEvent = new MoveStruct({ name: `${$moduleName}::Pres
         edition: bcs.u16(),
         /** The number of Records issued by this Pressing. */
         supply: bcs.u32(),
-        /** The immutable supply ceiling, if one exists. */
-        max_supply: bcs.option(bcs.u32()),
+        /** The immutable lifetime issuance ceiling. */
+        max_supply: bcs.u32(),
         /** Defining type names of distributors currently permitted to mint. */
         distributors: bcs.vector(bcs.string())
     } });
@@ -83,8 +83,8 @@ export const RecordPurchasedEvent = new MoveStruct({ name: `${$moduleName}::Reco
         supply_delta: bcs.u32(),
         /** Supply immediately after this mint. */
         supply_after: bcs.u32(),
-        /** The immutable supply ceiling, if one exists. */
-        max_supply: bcs.option(bcs.u32())
+        /** The immutable lifetime issuance ceiling. */
+        max_supply: bcs.u32()
     } });
 export const PressingDistributorAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PressingDistributorAuthorizedEvent<phantom Distributor>`, fields: {
         pressing_id: bcs.Address,
@@ -110,7 +110,7 @@ export interface NewArguments {
     release: RawTransactionArgument<string>;
     releaseCap: RawTransactionArgument<string>;
     edition: RawTransactionArgument<number>;
-    maxSupply: RawTransactionArgument<number | null>;
+    maxSupply: RawTransactionArgument<number>;
 }
 export interface NewOptions {
     package?: string;
@@ -118,16 +118,16 @@ export interface NewOptions {
         release: RawTransactionArgument<string>,
         releaseCap: RawTransactionArgument<string>,
         edition: RawTransactionArgument<number>,
-        maxSupply: RawTransactionArgument<number | null>
+        maxSupply: RawTransactionArgument<number>
     ];
 }
 /**
  * Create one edition's Pressing under its Release.
  *
- * `max_supply = none()` creates an uncapped edition; `some(quantity)` creates a
- * permanently capped edition. The Pressing and its admin capability are returned
- * for composition before the caller shares the Pressing and custodies the
- * capability.
+ * Editions start at 1 and must be created sequentially under this Release.
+ * `max_supply` must be positive and permanently caps lifetime issuance. The
+ * Pressing and its admin capability are returned for composition before the caller
+ * shares the Pressing and custodies the capability.
  */
 export function _new(options: NewOptions) {
     const packageAddress = options.package ?? '@local-pkg/record';
@@ -135,7 +135,7 @@ export function _new(options: NewOptions) {
         null,
         null,
         'u16',
-        '0x1::option::Option<u32>'
+        'u32'
     ] satisfies (string | null)[];
     const parameterNames = ["release", "releaseCap", "edition", "maxSupply"];
     return (tx: Transaction) => tx.moveCall({
@@ -405,7 +405,7 @@ export interface MaxSupplyOptions {
         self: RawTransactionArgument<string>
     ];
 }
-/** Return the immutable supply ceiling, if one exists. */
+/** Return the immutable lifetime issuance ceiling. */
 export function maxSupply(options: MaxSupplyOptions) {
     const packageAddress = options.package ?? '@local-pkg/record';
     const argumentsTypes = [

@@ -16,6 +16,8 @@ import { misoConfig } from "../../src/read/config.ts";
 import { MalformedRecordSoldEventError } from "../../src/errors.ts";
 
 const SHOP_PACKAGE = "0xa";
+const CURRENT_RECORD_PACKAGE = `0x${"aa".repeat(32)}`;
+const CURRENT_SHOP_PACKAGE = `0x${"bb".repeat(32)}`;
 const CURRENCY = "0x2::sui::SUI";
 const IDS = {
   listing: `0x${"11".repeat(32)}`,
@@ -28,6 +30,17 @@ const IDS = {
 
 function eventType(packageId = SHOP_PACKAGE, currency = CURRENCY): string {
   return `${packageId}::listing::RecordSoldEvent<${currency}>`;
+}
+
+function receiptConfig() {
+  return {
+    ...misoConfig("testnet"),
+    recordSales: {
+      status: "available" as const,
+      recordPackageId: CURRENT_RECORD_PACKAGE,
+      recordShopPackageId: CURRENT_SHOP_PACKAGE,
+    },
+  };
 }
 
 function bcsEvent(
@@ -52,7 +65,6 @@ function bcsEvent(
     supply_before: 1,
     supply_delta: 1,
     supply_after: 2,
-    has_max_supply: true,
     max_supply: 100,
     payment_recipient: IDS.release,
     proceeds_amount: purchasePrice.toString(),
@@ -99,6 +111,7 @@ describe("Record Shop sale receipts", () => {
         purchased_timestamp_ms: "1234",
         pricing_is_fixed: true,
         price: "99",
+        max_supply: 100,
       },
     };
     expect(() => findRecordSales([malformed], SHOP_PACKAGE)).toThrow(MalformedRecordSoldEventError);
@@ -120,6 +133,7 @@ describe("Record Shop sale receipts", () => {
         purchased_timestamp_ms: "5678",
         pricing_is_fixed: false,
         price: "100",
+        max_supply: 100,
       },
     }], SHOP_PACKAGE, IDS.record);
     expect(sale).toMatchObject({
@@ -147,6 +161,7 @@ describe("Record Shop sale receipts", () => {
         purchased_timestamp_ms: "5678",
         pricing_is_fixed: false,
         price: "100",
+        max_supply: 100,
       },
     }], SHOP_PACKAGE, IDS.record);
     expect(sale(base64)?.purchaseCurrency).toContain("::sui::SUI");
@@ -168,6 +183,7 @@ describe("Record Shop sale receipts", () => {
       purchased_timestamp_ms: 5678,
       pricing_is_fixed: false,
       price: 100,
+      max_supply: 100,
     };
     const sale = (overrides: Record<string, unknown>) => findRecordSale([{
       eventType: eventType(),
@@ -206,6 +222,7 @@ describe("Record Shop sale receipts", () => {
       purchased_timestamp_ms: "5678",
       pricing_is_fixed: true,
       price: "123",
+      max_supply: 100,
     };
     const sale = (overrides: Record<string, unknown>) => findRecordSale([{
       eventType: eventType(),
@@ -216,10 +233,11 @@ describe("Record Shop sale receipts", () => {
     expect(() => sale({ price: -1 })).toThrow(MalformedRecordSoldEventError);
     expect(() => sale({ purchase_currency: [1, 256] })).toThrow(MalformedRecordSoldEventError);
     expect(() => sale({ purchase_currency: "YWJj=".replace("=", "==") })).toThrow(MalformedRecordSoldEventError);
+    expect(() => sale({ max_supply: 0 })).toThrow(MalformedRecordSoldEventError);
   });
 
   test("uses the real GraphQL fallback after fullnode pruning", async () => {
-    const config = misoConfig("testnet");
+    const config = receiptConfig();
     const recordSales = config.recordSales;
     if (recordSales.status !== "available") throw new Error("test fixture requires Record sales");
     const calls: unknown[] = [];
@@ -246,6 +264,7 @@ describe("Record Shop sale receipts", () => {
                     purchased_timestamp_ms: "5678",
                     pricing_is_fixed: true,
                     price: "123",
+                    max_supply: 100,
                   },
                 } }] },
               },
@@ -275,7 +294,7 @@ describe("Record Shop sale receipts", () => {
   });
 
   test("surfaces malformed GraphQL sale JSON from the fallback path", async () => {
-    const config = misoConfig("testnet");
+    const config = receiptConfig();
     const recordSales = config.recordSales;
     if (recordSales.status !== "available") throw new Error("test fixture requires Record sales");
     const graphql = {
@@ -288,7 +307,7 @@ describe("Record Shop sale receipts", () => {
                 type: { repr: eventType(recordSales.recordShopPackageId, config.money.usdCoinType) },
                 json: { listing_id: IDS.listing, record_id: IDS.record, release_id: IDS.release, pressing_id: IDS.pressing,
                   edition: 2, number: 7, purchase_currency: "not-base64", purchase_price: "123", purchased_by: IDS.buyer,
-                  purchased_timestamp_ms: "5678", pricing_is_fixed: true, price: "123" },
+                  purchased_timestamp_ms: "5678", pricing_is_fixed: true, price: "123", max_supply: 100 },
               } }] },
             },
           },

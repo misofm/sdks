@@ -247,8 +247,8 @@ export interface PublicationRelease {
 export interface PublicationPressing {
   /** Positive edition number encoded as Move u16. */
   readonly edition: number;
-  /** Immutable positive u32 ceiling, or null/omitted for an uncapped edition. */
-  readonly maxSupply?: number | null;
+  /** Immutable positive u32 lifetime issuance ceiling. */
+  readonly maxSupply: number;
   readonly listings: {
     readonly currencyType: string;
     readonly price: ListingPrice;
@@ -373,10 +373,9 @@ function publicationEdition(value: number): number {
   return value;
 }
 
-function publicationMaxSupply(value: number | null | undefined): number | null {
-  if (value == null) return null;
+function publicationMaxSupply(value: number): number {
   if (!Number.isInteger(value) || value <= 0 || value > 0xffff_ffff) {
-    throw new RangeError("pressing.maxSupply must be a positive u32 or null");
+    throw new RangeError("pressing.maxSupply must be a positive u32");
   }
   return value;
 }
@@ -686,6 +685,10 @@ export function publishAtomicCatalog(p: AtomicPublicationParams): Recipe {
   if (p.pressing) {
     requireRecordSalesDeployment(p.deployment.recordSales);
     if (!p.release) throw new Error("A pressing requires a release");
+    if (publicationEdition(p.pressing.edition) !== 1) {
+      throw new RangeError("A fresh release's first pressing must have edition 1");
+    }
+    publicationMaxSupply(p.pressing.maxSupply);
   }
   for (const node of [...p.compositions, ...p.recordings]) {
     if (node.royaltyPool && node.custody.kind !== "vault") {

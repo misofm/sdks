@@ -98,9 +98,16 @@ constructors, which still wrap their own Walrus values.
 
 ## The model
 
-A release may have one `Pressing` per positive `u16` edition. Each Pressing owns its
-independent `u32` Record-number sequence, current supply, optional immutable `u32`
+A release may have one `Pressing` per positive `u16` edition. Editions start at 1
+and must be created sequentially. Each Pressing owns its independent `u32`
+Record-number sequence, current supply, a required positive immutable `u32`
 maximum supply, and authorized distributor witness types.
+
+New Pressing creation requires an explicit `maxSupply` from 1 to 4,294,967,295.
+Atomic publication creates a fresh Release, so its Pressing must use edition 1.
+The bundled testnet Record sales deployment remains unavailable until compatible
+mandatory-cap Record and Record Shop packages are published and verified; its
+previous package IDs are retained as non-executable deployment metadata.
 
 Selling in a currency is a `Listing<Currency>`, one per currency, permanent, edited in
 place rather than replaced. The Listing's enabled/disabled state is the sale switch;

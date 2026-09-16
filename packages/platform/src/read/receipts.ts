@@ -181,6 +181,7 @@ function saleFromJson(
   const embeddedCurrency = json.purchase_currency === undefined
     ? currencyType
     : currencyText == null ? null : typeName(currencyText);
+  const maxSupply = positiveU32(json.max_supply);
   if (
     edition == null ||
     number == null ||
@@ -188,6 +189,7 @@ function saleFromJson(
     purchasedTimestampMs == null ||
     !pricing || !validPricingRelationship(purchasePrice, pricing) ||
     embeddedCurrency !== currencyType ||
+    maxSupply == null ||
     typeof recordId !== "string" || !recordId ||
     typeof json.listing_id !== "string" || !json.listing_id ||
     typeof json.pressing_id !== "string" || !json.pressing_id ||
@@ -275,12 +277,15 @@ export function findRecordSales(
     try {
       // Currency is the event's phantom type argument in this generation.
       const s = listingContract.RecordSoldEvent.parse(e.bcs);
+      if (listingContract.RecordSoldEvent.serialize(s).toBytes().length !== e.bcs.length) {
+        throw new MalformedRecordSoldEventError({ reason: "RecordSoldEvent has unexpected trailing bytes" });
+      }
       const pricing = priceFromRichFields(s.pricing_is_fixed, s.price);
       const purchasePrice = coerceU64(s.purchase_price);
       if (
         !pricing || purchasePrice == null ||
         purchasePrice <= 0n || !validPricingRelationship(purchasePrice, pricing) ||
-        s.edition <= 0 || s.number <= 0
+        s.edition <= 0 || s.number <= 0 || s.max_supply <= 0
       ) throw new MalformedRecordSoldEventError({ reason: "malformed canonical RecordSoldEvent" });
       sales.push({
         listingId: s.listing_id,
