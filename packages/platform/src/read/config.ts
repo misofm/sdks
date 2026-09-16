@@ -7,9 +7,7 @@
 // `lib/money.ts`, `lib/pressing.ts`) lives here instead, so a redeploy is a change
 // in ONE file that every surface picks up.
 //
-// Testnet values are derived from the same verified deployment record exported
-// by the platform SDK. Mainnet remains deliberately unavailable until a complete
-// deployment is bundled for it.
+// Network values derive from the verified deployment bundled by the platform SDK.
 
 import type { MisoDeployment } from "@misofm/musicos/deployments";
 import type { PartyDeployment } from "@misofm/partyos/deployments";
@@ -113,11 +111,6 @@ export type MisoConfigOverrides = Partial<
  * `read.*` namespace (misofm/sdks#35, WP6) and `misoConfig` share one
  * derivation instead of two.
  *
- * TODO: `money`/`grpcUrl`/`graphqlUrl`/`apiBaseUrl` are still the fixed
- * Testnet-shaped defaults the predecessor `misoConfig` hard-coded regardless
- * of `deployment.network` (a pre-existing gap this stage's facade-derivation
- * scope does not extend to fixing — see `docs/CONVERSION.md`); pass
- * `overrides` for a Mainnet or custom deployment's real endpoints today.
  */
 export function configFromDeployment(deployment: MisoPlatformDeployment, overrides: MisoConfigOverrides = {}): MisoConfig {
   // Old Vault identities cannot select the current stored-field layout.
@@ -148,14 +141,16 @@ export function configFromDeployment(deployment: MisoPlatformDeployment, overrid
       royaltyPool: deployment.packages.royaltyPool,
     },
     money: {
-      usdCoinType:
-        "0x77774cb7b8cb5622b4ef2658101bf5f1e965418297fe874b683df8f760b6e749::fakeusd::FakeUsd",
+      // Native Sui USDC: https://www.circle.com/blog/now-available-native-usdc-on-sui
+      usdCoinType: deployment.network === "mainnet"
+        ? "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
+        : "0x77774cb7b8cb5622b4ef2658101bf5f1e965418297fe874b683df8f760b6e749::fakeusd::FakeUsd",
       usdDecimals: 6,
     },
-    grpcUrl: "https://fullnode.testnet.sui.io",
-    graphqlUrl: "https://graphql.testnet.sui.io/graphql",
+    grpcUrl: `https://fullnode.${deployment.network}.sui.io`,
+    graphqlUrl: `https://graphql.${deployment.network}.sui.io/graphql`,
     walrusAggregatorUrl: walrusAggregatorUrl(deployment.network),
-    apiBaseUrl: "https://api.testnet.miso.fm",
+    apiBaseUrl: `https://api.${deployment.network}.miso.fm`,
     discoverSales: [],
   };
   return { ...config, ...stripUndefined(overrides) };

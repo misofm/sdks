@@ -1,3 +1,4 @@
+import * as compositionLyrics from "./contracts/composition_lyrics/composition_lyrics.ts";
 // Copyright (c) Miso Labs, Inc.
 import * as recordingMaster from "./contracts/recording_master/recording_master.ts";
 // SPDX-License-Identifier: Apache-2.0
@@ -119,6 +120,10 @@ export const platformEventParsers = {
     releaseCredits: {
       creditAdded: decoder(releaseCredits.ReleaseCreditAddedEvent),
       creditRemoved: decoder(releaseCredits.ReleaseCreditRemovedEvent),
+    },
+    compositionLyrics: {
+      set: decoder(compositionLyrics.CompositionLyricsSetEvent),
+      cleared: decoder(compositionLyrics.CompositionLyricsClearedEvent),
     },
     releaseDescription: {
       descriptionSet: decoder(releaseDescription.ReleaseDescriptionSetEvent),

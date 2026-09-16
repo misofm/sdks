@@ -285,6 +285,8 @@ export interface MisoPlatformDeployment {
     readonly recordingLanguage: string;
     /** Ordered recording genre list (primary first). Optional until first published. */
     readonly recordingGenre?: string;
+    /** Compressed lyrics keyed by language. */
+    readonly compositionLyrics?: string;
     /** Self-attested Audio master extension (`recording_master`). */
     readonly recordingMaster?: string;
     /** Exact Audio dependency of recordingMaster (a distinct immutable type identity). */
@@ -425,6 +427,85 @@ export function normalizeMisoPlatformDeployment(
  * Consumers may still pass an explicit complete deployment for custom networks.
  */
 export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
+  mainnet: {
+    "network": "mainnet",
+    "chainIdentifier": "4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S",
+    protocol: MISO_DEPLOYMENTS.mainnet,
+    partyos: PARTYOS_DEPLOYMENTS.mainnet,
+    "recordSales": {
+      "status": "available",
+      "recordPackageId": "0xbc8fc491364d1bafe6602a2c0ff0a60ee7c5fe776d0e5849363c7c35d30197db",
+      "recordShopPackageId": "0x375b296ed49b461b2fae471ab6d6a4a5acedfb6fe64e022e8140791babeb7b40"
+    },
+    "operations": {
+      "status": "available",
+      "vault": {
+        "packageId": "0xea1a77e23e794ac834b3de1f1c3a885120a1fb742976ed2e32754f9e851ed055",
+        "registryId": "0x7712726eacde3149ffd4903b5c64e409492e91a098899f2373a0066cd2fd758e"
+      },
+      "actions": {
+        "compositionRoyaltyPool": "0xa0650377763e4d1f355e88399c4542a2c8891207f94af38f03a006b22051287b",
+        "recordingRoyaltyPool": "0x2154a6cc26787e3c044a948000a899c0b06baa9cf20fdd366841078271e036b1",
+        "partyWallet": "0xcb1ea037a76d996656bbb2095f6deb5b10a8ee0f9662a93f0f93e026f7d263c4",
+        "compositionRoutedStake": "0x3f7f2613a3e2375366431ba76f85eab35c1c5752036ee6abcbb09000b1158537",
+        "releaseRevenueDistributor": "0x6ef20e184e16d91b8cc123b06e779cb89028dfa6b89d79ce7df3b3f7aca0217f"
+      },
+      "plugins": {
+        "compositionRoyaltyPool": "0x0d0c23da1e75b96eb8e9159ea6b038b7954850ead0188704297ba8c1009b03a1",
+        "recordingRoyaltyPool": "0xabf0ceecdcd85580460761aba30c66e05c26fb5d30c4e365c95f797cef8d1874",
+        "releaseRevenueDistributor": "0xe9e3480ff1a9ac008fd105bfb9af0904d472c0ba77da59865d9da6685faa722d"
+      }
+    },
+    "packages": {
+      "audio": "0x73a989640258bd5d82e0ae23bcb6f874fae65c78aecc1781b9a702801a043d7e",
+      "credit": "0x63f2fb16fffa0f09ce7525ccd4d1331710b82aae194338ff49fd15f389016ebf",
+      "compositionCredits": "0x19f8a00526c6a0cfd108e96459c2f84c5bb0613b60d05cf0d32d790e2c96b553",
+      "compositionLyrics": "0x474e09611863b2a15b1676f0fe3939e9f324069a7fd73780e5a370a5ca545918",
+      "recordingCredits": "0x7960e75b049b2ef2c079d50e7b423ada405e4e7bcd7ad9e632c08adf238ca207",
+      "releaseCredits": "0x859b699dfbc572d78aef8d97c3bea65fb4036ea8f1b09c10dfd303ef3b20d788",
+      "royaltyPool": "0x17fa0d812bb8fe5251c736ebcf2be403f8537d66013bfef28b8a945a89d3f711",
+      "routedStake": "0xfe37af88c89e117d7e2e76ed84b78d71ab95d30db994110f20167cb8bf8632e2",
+      "coverArt": "0x76e1460bcd2bc95cc0a8a40914511c27e5a2425e6d8055caf08161eb59514c67",
+      "releaseCoverArt": "0x1694864f974f978372b8e4c6672b9a791a69aafca4ec908d87d412baa7bc964f",
+      "genre": "0x793da2359ac24b204174ea37440b2cbb42c34f989320a84e48a504ec8a0e3dcc",
+      "releaseDescription": "0x67f3fef318658544d61083c78cc2602fea9bf80d3c1ac791e91c6c58fbad1426",
+      "releaseDspLink": "0x96c029ab47897bced2a181df6257c3113208f1b01f63d394cfa545669f2dd8de",
+      "releaseGenre": "0xf2a8232a41cf45b722afe162889217ff21836173fbc5a8d2872fedb35305a022",
+      "releaseKind": "0xdd333001cee3473b41e501a13897aaedd93ee7d369bacdf195402c6cb7610bf4",
+      "recordingAdvisory": "0x873331a75993ffbc1ee70fe94c12c552d1509e935e8296b17724eef8f1ae3b60",
+      "recordingLanguage": "0x0c181bd3e3f45051fd9dcfc133f211e378fb0ac5d8f1af36a462a3bfd4083659",
+      "recordingGenre": "0x3e1aa58d39be752878aacf5a48e32b11627a89095bd56a9d374ef8eacff36505",
+      "recordingMaster": "0x3c85625e6b0d571e694a76b6be5f61c0634bd7007862ad0f0cca28f08b4e5f55",
+      "recordingStreamingTranscode": "0xe3e9192999b22c045007637d73b670781ceba682092e2388f8fd753b51b9e333",
+      "recordingEngineSession": "0x696c83fbd6515dab7e2f77a034e8ffcf2bc9ecc0bf65cbf7fff2896fa7125b1b",
+      "recordingMasterAudio": "0x73a989640258bd5d82e0ae23bcb6f874fae65c78aecc1781b9a702801a043d7e",
+      "minato": "0x7357ccb584396940dd6749cccf7d00896ecd5185a60bf9dc202a62992b30164c",
+      "ori": "0xadefbe1aeb900807ed03144bddd80dc6478030c28ede3b2990f8e792606f317a",
+      "countryCode": "0x6fada7a2d6c13805380cdff622298b7fff0c8e16d2ce6c3768bcd3f9a6a5e611",
+      "languageCode": "0x69f2d3ee6b5ca1779749b5444d2e42dc7b85a1627d880985fad28f028dd154ea"
+    },
+    "party": {
+      "partyMusic": "0x37724a2ee9f642afe6aefdfe9aa9bf620e3e9251ca47174e4f530edcfa756a62",
+      "partyProLink": "0x2f7f87143391ee2f7be544d6e63234a9e0587485056628d91b6fa7fd321f1fed",
+      "partyMedia": "0x44b97b2976f15b41537218ca63254b5ed647c484ab18e7cc199fe30d4a3bbbad",
+      "partyCta": "0x5117c61d19bc1076bedd89249558902856b75b27340ddc6449fbbed55dc72178",
+      "partyProfile": "0x330e01ca853460e42bfb49724ab28c39183a8919bd3c9f245b0aa06ca2cc13f9",
+      "partyTags": "0xa9827654aee8031055646137cc896afb9d6516bd6bc8cc37e1f2e4c9cc7e418e",
+      "partyPlatformLink": "0xbd84dc8b419f380ec4f3cb82a8f27b6a88bdfd5d7578dd868a6aea9bdf88bcfd",
+      "partyRoles": "0xbfe33852ec52e5c2df2712f0ed1bacd2c87eda1137ac72e4da909d7933212fd0",
+      "partyGenre": "0x5e3256d47b6444a0399159b9b95fbf5e77da35e417bcdfd156ccb6fcefe0130a",
+      "partySocial": "0xb3badfae45854071b863784e61d03f44da07e4f6d07faa7ab55e04948254a215",
+      "countryCode": "0x6fada7a2d6c13805380cdff622298b7fff0c8e16d2ce6c3768bcd3f9a6a5e611",
+      "languageCode": "0x69f2d3ee6b5ca1779749b5444d2e42dc7b85a1627d880985fad28f028dd154ea"
+    },
+    "objects": {
+      "releaseRegistry": "0xb3c65b63cb7ab262d6dc0b29db39b5628b920d13364727e36963ee5081e2e893",
+      "genreRegistry": "0x0950f099c6894e29e707db9df538be79708a71fdf060be3ac7ba2e7bc00b79ef"
+    },
+    "legacy": {
+      "releaseCoverArtPackages": []
+    }
+  },
   testnet: {
     network: "testnet",
     chainIdentifier: "69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD",

@@ -1,0 +1,682 @@
+{
+  "network": "mainnet",
+  "packages": {
+    "release_kind": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_kind",
+      "transactionStatus": "success",
+      "transactionDigest": "7tNUDf3523M9Sgrwu34fFCVGacLeHxPLDcsUksNNy9AA",
+      "packageId": "0xdd333001cee3473b41e501a13897aaedd93ee7d369bacdf195402c6cb7610bf4",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_genre": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_genre",
+      "transactionStatus": "success",
+      "transactionDigest": "7tNUDf3523M9Sgrwu34fFCVGacLeHxPLDcsUksNNy9AA",
+      "packageId": "0xf2a8232a41cf45b722afe162889217ff21836173fbc5a8d2872fedb35305a022",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_engine_session": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_engine_session",
+      "transactionStatus": "success",
+      "transactionDigest": "Bzb4i4Vzoxp7asyRwakhgskHdQve624znEL8FEfXsKf8",
+      "packageId": "0x696c83fbd6515dab7e2f77a034e8ffcf2bc9ecc0bf65cbf7fff2896fa7125b1b",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_cover_art": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_cover_art",
+      "transactionStatus": "success",
+      "transactionDigest": "85Se6XESJFQ7ZcA9ZiCt8GjmyCgi4DykfZ51R2FDGbU",
+      "packageId": "0x1694864f974f978372b8e4c6672b9a791a69aafca4ec908d87d412baa7bc964f",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_dsp_link": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_dsp_link",
+      "transactionStatus": "success",
+      "transactionDigest": "FzQRjDvcCCQn9XCx47DYKqKRsY8jTc7f4rWyJAgZ2nkC",
+      "packageId": "0x96c029ab47897bced2a181df6257c3113208f1b01f63d394cfa545669f2dd8de",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "vault": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "vault",
+      "transactionStatus": "success",
+      "transactionDigest": "HqZmneAwZiB34qzvJ1QYvESeGAnoTz7d6QeqCDhifEB3",
+      "packageId": "0xea1a77e23e794ac834b3de1f1c3a885120a1fb742976ed2e32754f9e851ed055",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [
+        {
+          "objectId": "0x7712726eacde3149ffd4903b5c64e409492e91a098899f2373a0066cd2fd758e",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0xea1a77e23e794ac834b3de1f1c3a885120a1fb742976ed2e32754f9e851ed055::vault::VaultRegistry"
+        }
+      ],
+      "singletonObjects": [
+        {
+          "objectId": "0x7712726eacde3149ffd4903b5c64e409492e91a098899f2373a0066cd2fd758e",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0xea1a77e23e794ac834b3de1f1c3a885120a1fb742976ed2e32754f9e851ed055::vault::VaultRegistry"
+        }
+      ]
+    },
+    "party_music": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_music",
+      "transactionStatus": "success",
+      "transactionDigest": "GVne2KPKKXioqdL7tft1HUyEkngRVTTL5bQ6SGgHza4W",
+      "packageId": "0x37724a2ee9f642afe6aefdfe9aa9bf620e3e9251ca47174e4f530edcfa756a62",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "cover_art": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "cover_art",
+      "transactionStatus": "success",
+      "transactionDigest": "EXBRjSajudCXEH6cdTA184NkQvP9L7WvcWUPxxfB35Gc",
+      "packageId": "0x76e1460bcd2bc95cc0a8a40914511c27e5a2425e6d8055caf08161eb59514c67",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_revenue_distributor_plugin": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_revenue_distributor_plugin",
+      "transactionStatus": "success",
+      "transactionDigest": "FzQRjDvcCCQn9XCx47DYKqKRsY8jTc7f4rWyJAgZ2nkC",
+      "packageId": "0xe9e3480ff1a9ac008fd105bfb9af0904d472c0ba77da59865d9da6685faa722d",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "credit": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "credit",
+      "transactionStatus": "success",
+      "transactionDigest": "EXBRjSajudCXEH6cdTA184NkQvP9L7WvcWUPxxfB35Gc",
+      "packageId": "0x63f2fb16fffa0f09ce7525ccd4d1331710b82aae194338ff49fd15f389016ebf",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "platform_link": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "platform_link",
+      "transactionStatus": "success",
+      "transactionDigest": "HqZmneAwZiB34qzvJ1QYvESeGAnoTz7d6QeqCDhifEB3",
+      "packageId": "0xd438098fe8368939389d7bea35641b81273fed38ff44aeeb1c887ae8e4575609",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_credits": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_credits",
+      "transactionStatus": "success",
+      "transactionDigest": "Bzb4i4Vzoxp7asyRwakhgskHdQve624znEL8FEfXsKf8",
+      "packageId": "0x7960e75b049b2ef2c079d50e7b423ada405e4e7bcd7ad9e632c08adf238ca207",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_pro_link": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_pro_link",
+      "transactionStatus": "success",
+      "transactionDigest": "AyxJHG1YxbvfAxZhafuStkyzXQVcJVMrP12QSwMH5g4Z",
+      "packageId": "0x2f7f87143391ee2f7be544d6e63234a9e0587485056628d91b6fa7fd321f1fed",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_language": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_language",
+      "transactionStatus": "success",
+      "transactionDigest": "Bzb4i4Vzoxp7asyRwakhgskHdQve624znEL8FEfXsKf8",
+      "packageId": "0x0c181bd3e3f45051fd9dcfc133f211e378fb0ac5d8f1af36a462a3bfd4083659",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_royalty_pool_plugin": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_royalty_pool_plugin",
+      "transactionStatus": "success",
+      "transactionDigest": "85Se6XESJFQ7ZcA9ZiCt8GjmyCgi4DykfZ51R2FDGbU",
+      "packageId": "0xabf0ceecdcd85580460761aba30c66e05c26fb5d30c4e365c95f797cef8d1874",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "record": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "record",
+      "transactionStatus": "success",
+      "transactionDigest": "FhHFN9TdsiEfzYGXp9KQ71MnfFMvJLku3L3WAmZ55MVu",
+      "packageId": "0xbc8fc491364d1bafe6602a2c0ff0a60ee7c5fe776d0e5849363c7c35d30197db",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_royalty_pool": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_royalty_pool",
+      "transactionStatus": "success",
+      "transactionDigest": "DZ28nPtWKYHtMwV9tHqmNqrhF3z5ASfsqPzFkPMFZ1dp",
+      "packageId": "0x2154a6cc26787e3c044a948000a899c0b06baa9cf20fdd366841078271e036b1",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_advisory": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_advisory",
+      "transactionStatus": "success",
+      "transactionDigest": "Bzb4i4Vzoxp7asyRwakhgskHdQve624znEL8FEfXsKf8",
+      "packageId": "0x873331a75993ffbc1ee70fe94c12c552d1509e935e8296b17724eef8f1ae3b60",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_media": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_media",
+      "transactionStatus": "success",
+      "transactionDigest": "GVne2KPKKXioqdL7tft1HUyEkngRVTTL5bQ6SGgHza4W",
+      "packageId": "0x44b97b2976f15b41537218ca63254b5ed647c484ab18e7cc199fe30d4a3bbbad",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "routed_stake": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "routed_stake",
+      "transactionStatus": "success",
+      "transactionDigest": "7tNUDf3523M9Sgrwu34fFCVGacLeHxPLDcsUksNNy9AA",
+      "packageId": "0xfe37af88c89e117d7e2e76ed84b78d71ab95d30db994110f20167cb8bf8632e2",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "record_shop": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "record_shop",
+      "transactionStatus": "success",
+      "transactionDigest": "85Se6XESJFQ7ZcA9ZiCt8GjmyCgi4DykfZ51R2FDGbU",
+      "packageId": "0x375b296ed49b461b2fae471ab6d6a4a5acedfb6fe64e022e8140791babeb7b40",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "per_track": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "per_track",
+      "transactionStatus": "success",
+      "transactionDigest": "FhHFN9TdsiEfzYGXp9KQ71MnfFMvJLku3L3WAmZ55MVu",
+      "packageId": "0x01c10bf9ff71a64c2850ce64055124942d65bd0be48ec4758d90073287f389b6",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_cta": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_cta",
+      "transactionStatus": "success",
+      "transactionDigest": "GVne2KPKKXioqdL7tft1HUyEkngRVTTL5bQ6SGgHza4W",
+      "packageId": "0x5117c61d19bc1076bedd89249558902856b75b27340ddc6449fbbed55dc72178",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_description": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_description",
+      "transactionStatus": "success",
+      "transactionDigest": "DZ28nPtWKYHtMwV9tHqmNqrhF3z5ASfsqPzFkPMFZ1dp",
+      "packageId": "0x67f3fef318658544d61083c78cc2602fea9bf80d3c1ac791e91c6c58fbad1426",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_profile": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_profile",
+      "transactionStatus": "success",
+      "transactionDigest": "AyxJHG1YxbvfAxZhafuStkyzXQVcJVMrP12QSwMH5g4Z",
+      "packageId": "0x330e01ca853460e42bfb49724ab28c39183a8919bd3c9f245b0aa06ca2cc13f9",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_revenue_distributor": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_revenue_distributor",
+      "transactionStatus": "success",
+      "transactionDigest": "7tNUDf3523M9Sgrwu34fFCVGacLeHxPLDcsUksNNy9AA",
+      "packageId": "0x6ef20e184e16d91b8cc123b06e779cb89028dfa6b89d79ce7df3b3f7aca0217f",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "composition_royalty_pool": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "composition_royalty_pool",
+      "transactionStatus": "success",
+      "transactionDigest": "FhHFN9TdsiEfzYGXp9KQ71MnfFMvJLku3L3WAmZ55MVu",
+      "packageId": "0xa0650377763e4d1f355e88399c4542a2c8891207f94af38f03a006b22051287b",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "genre": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "genre",
+      "transactionStatus": "success",
+      "transactionDigest": "EXBRjSajudCXEH6cdTA184NkQvP9L7WvcWUPxxfB35Gc",
+      "packageId": "0x793da2359ac24b204174ea37440b2cbb42c34f989320a84e48a504ec8a0e3dcc",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [
+        {
+          "objectId": "0x0950f099c6894e29e707db9df538be79708a71fdf060be3ac7ba2e7bc00b79ef",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0x793da2359ac24b204174ea37440b2cbb42c34f989320a84e48a504ec8a0e3dcc::genre::GenreRegistry"
+        }
+      ],
+      "singletonObjects": [
+        {
+          "objectId": "0x0950f099c6894e29e707db9df538be79708a71fdf060be3ac7ba2e7bc00b79ef",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0x793da2359ac24b204174ea37440b2cbb42c34f989320a84e48a504ec8a0e3dcc::genre::GenreRegistry"
+        }
+      ]
+    },
+    "recording_master": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_master",
+      "transactionStatus": "success",
+      "transactionDigest": "DZ28nPtWKYHtMwV9tHqmNqrhF3z5ASfsqPzFkPMFZ1dp",
+      "packageId": "0x3c85625e6b0d571e694a76b6be5f61c0634bd7007862ad0f0cca28f08b4e5f55",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "recording_genre": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_genre",
+      "transactionStatus": "success",
+      "transactionDigest": "Bzb4i4Vzoxp7asyRwakhgskHdQve624znEL8FEfXsKf8",
+      "packageId": "0x3e1aa58d39be752878aacf5a48e32b11627a89095bd56a9d374ef8eacff36505",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "composition_credits": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "composition_credits",
+      "transactionStatus": "success",
+      "transactionDigest": "FhHFN9TdsiEfzYGXp9KQ71MnfFMvJLku3L3WAmZ55MVu",
+      "packageId": "0x19f8a00526c6a0cfd108e96459c2f84c5bb0613b60d05cf0d32d790e2c96b553",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "musicos": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "musicos",
+      "transactionStatus": "success",
+      "transactionDigest": "GVne2KPKKXioqdL7tft1HUyEkngRVTTL5bQ6SGgHza4W",
+      "packageId": "0x4c5c399d34fc60c34acd5008db032c213c04f76b9c07444e52b1133d5d006728",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [
+        {
+          "objectId": "0xb3c65b63cb7ab262d6dc0b29db39b5628b920d13364727e36963ee5081e2e893",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0x4c5c399d34fc60c34acd5008db032c213c04f76b9c07444e52b1133d5d006728::release::ReleaseRegistry"
+        }
+      ],
+      "singletonObjects": [
+        {
+          "objectId": "0xb3c65b63cb7ab262d6dc0b29db39b5628b920d13364727e36963ee5081e2e893",
+          "owner": {
+            "Shared": {
+              "initial_shared_version": 1
+            }
+          },
+          "type": "0x4c5c399d34fc60c34acd5008db032c213c04f76b9c07444e52b1133d5d006728::release::ReleaseRegistry"
+        }
+      ]
+    },
+    "recording_streaming_transcode": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "recording_streaming_transcode",
+      "transactionStatus": "success",
+      "transactionDigest": "DZ28nPtWKYHtMwV9tHqmNqrhF3z5ASfsqPzFkPMFZ1dp",
+      "packageId": "0xe3e9192999b22c045007637d73b670781ceba682092e2388f8fd753b51b9e333",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_tags": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_tags",
+      "transactionStatus": "success",
+      "transactionDigest": "6Uf8naj2FyqhkTxXfW3VFMeqYvahtNyVkMoLY7ER3Nhs",
+      "packageId": "0xa9827654aee8031055646137cc896afb9d6516bd6bc8cc37e1f2e4c9cc7e418e",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "partyos": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "partyos",
+      "transactionStatus": "success",
+      "transactionDigest": "EXBRjSajudCXEH6cdTA184NkQvP9L7WvcWUPxxfB35Gc",
+      "packageId": "0x8625400639b03bcb16478721d1d6992a719f230000bfcee426f5c760e082b173",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "composition_lyrics": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "composition_lyrics",
+      "transactionStatus": "success",
+      "transactionDigest": "FhHFN9TdsiEfzYGXp9KQ71MnfFMvJLku3L3WAmZ55MVu",
+      "packageId": "0x474e09611863b2a15b1676f0fe3939e9f324069a7fd73780e5a370a5ca545918",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_platform_link": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_platform_link",
+      "transactionStatus": "success",
+      "transactionDigest": "AyxJHG1YxbvfAxZhafuStkyzXQVcJVMrP12QSwMH5g4Z",
+      "packageId": "0xbd84dc8b419f380ec4f3cb82a8f27b6a88bdfd5d7578dd868a6aea9bdf88bcfd",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "royalty_pool": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "royalty_pool",
+      "transactionStatus": "success",
+      "transactionDigest": "6Uf8naj2FyqhkTxXfW3VFMeqYvahtNyVkMoLY7ER3Nhs",
+      "packageId": "0x17fa0d812bb8fe5251c736ebcf2be403f8537d66013bfef28b8a945a89d3f711",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "release_credits": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "release_credits",
+      "transactionStatus": "success",
+      "transactionDigest": "DZ28nPtWKYHtMwV9tHqmNqrhF3z5ASfsqPzFkPMFZ1dp",
+      "packageId": "0x859b699dfbc572d78aef8d97c3bea65fb4036ea8f1b09c10dfd303ef3b20d788",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "share": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "share",
+      "transactionStatus": "success",
+      "transactionDigest": "HqZmneAwZiB34qzvJ1QYvESeGAnoTz7d6QeqCDhifEB3",
+      "packageId": "0x7e2935f3972f543c406ab49fc02835c4d2baf63363f0aa07ab271e2fd09e0550",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_wallet": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_wallet",
+      "transactionStatus": "success",
+      "transactionDigest": "6Uf8naj2FyqhkTxXfW3VFMeqYvahtNyVkMoLY7ER3Nhs",
+      "packageId": "0xcb1ea037a76d996656bbb2095f6deb5b10a8ee0f9662a93f0f93e026f7d263c4",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "audio": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "audio",
+      "transactionStatus": "success",
+      "transactionDigest": "EXBRjSajudCXEH6cdTA184NkQvP9L7WvcWUPxxfB35Gc",
+      "packageId": "0x73a989640258bd5d82e0ae23bcb6f874fae65c78aecc1781b9a702801a043d7e",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "composition_royalty_pool_plugin": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "composition_royalty_pool_plugin",
+      "transactionStatus": "success",
+      "transactionDigest": "85Se6XESJFQ7ZcA9ZiCt8GjmyCgi4DykfZ51R2FDGbU",
+      "packageId": "0x0d0c23da1e75b96eb8e9159ea6b038b7954850ead0188704297ba8c1009b03a1",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_roles": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_roles",
+      "transactionStatus": "success",
+      "transactionDigest": "AyxJHG1YxbvfAxZhafuStkyzXQVcJVMrP12QSwMH5g4Z",
+      "packageId": "0xbfe33852ec52e5c2df2712f0ed1bacd2c87eda1137ac72e4da909d7933212fd0",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_genre": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_genre",
+      "transactionStatus": "success",
+      "transactionDigest": "GVne2KPKKXioqdL7tft1HUyEkngRVTTL5bQ6SGgHza4W",
+      "packageId": "0x5e3256d47b6444a0399159b9b95fbf5e77da35e417bcdfd156ccb6fcefe0130a",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "composition_routed_stake": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "composition_routed_stake",
+      "transactionStatus": "success",
+      "transactionDigest": "85Se6XESJFQ7ZcA9ZiCt8GjmyCgi4DykfZ51R2FDGbU",
+      "packageId": "0x3f7f2613a3e2375366431ba76f85eab35c1c5752036ee6abcbb09000b1158537",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    },
+    "party_social": {
+      "schemaVersion": 1,
+      "network": "mainnet",
+      "package": "party_social",
+      "transactionStatus": "success",
+      "transactionDigest": "AyxJHG1YxbvfAxZhafuStkyzXQVcJVMrP12QSwMH5g4Z",
+      "packageId": "0xb3badfae45854071b863784e61d03f44da07e4f6d07faa7ab55e04948254a215",
+      "immutable": true,
+      "upgradeCapCount": 0,
+      "unexpectedSenderOwnedObjects": [],
+      "createdObjects": [],
+      "singletonObjects": []
+    }
+  },
+  "externalPackages": {
+    "minato": "0x7357ccb584396940dd6749cccf7d00896ecd5185a60bf9dc202a62992b30164c",
+    "ori": "0xadefbe1aeb900807ed03144bddd80dc6478030c28ede3b2990f8e792606f317a",
+    "countryCode": "0x6fada7a2d6c13805380cdff622298b7fff0c8e16d2ce6c3768bcd3f9a6a5e611",
+    "languageCode": "0x69f2d3ee6b5ca1779749b5444d2e42dc7b85a1627d880985fad28f028dd154ea"
+  }
+}
