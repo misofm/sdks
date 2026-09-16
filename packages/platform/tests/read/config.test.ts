@@ -50,8 +50,14 @@ describe("misoConfig", () => {
     ]);
   });
 
-  test("fails closed when the SDK has no deployment for a network", () => {
-    expect(() => misoConfig("mainnet")).toThrow(/no bundled Miso platform deployment/);
+  test("derives Mainnet reads from the verified generation", () => {
+    const deployment = getMisoPlatformDeployment("mainnet");
+    const config = misoConfig("mainnet");
+    expect(config.deployment).toBe(deployment.protocol);
+    expect(config.protocol.vault).toBe(deployment.operations.status === "available" ? deployment.operations.vault.packageId : null);
+    expect(config.recordSales.status).toBe("available");
+    expect(config.grpcUrl).toContain("mainnet");
+    expect(config.graphqlUrl).toContain("mainnet");
   });
 
   // B1, misofm/sdks#35 verification: a deployment with no current or legacy

@@ -39,6 +39,9 @@ export type PartyDeployment = Readonly<Record<PartyosPackageName, string>> & {
 
 /** Verified immutable deployments bundled with this SDK release. */
 export const PARTYOS_DEPLOYMENTS = Object.freeze({
+  mainnet: Object.freeze({
+    partyos: "0x8625400639b03bcb16478721d1d6992a719f230000bfcee426f5c760e082b173",
+  } as const),
   testnet: Object.freeze({
     partyos: "0x4975efc33acaf42f20c15eff8003a60aea300e2bc88433ed4e9b5d6b705464e2",
   } as const),

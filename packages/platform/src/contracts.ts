@@ -119,3 +119,6 @@ export const partyProfile = withoutUnsafeCalls(rawPartyProfile, ["profile"] as c
 export * as partyRoles from "./contracts/party_roles/party_roles.ts";
 export * as partySocial from "./contracts/party_social/party_social.ts";
 export * as partyTags from "./contracts/party_tags/party_tags.ts";
+
+import * as rawCompositionLyrics from "./contracts/composition_lyrics/composition_lyrics.ts";
+export const compositionLyrics = withoutUnsafeCalls(rawCompositionLyrics, ["lyrics"] as const);

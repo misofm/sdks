@@ -63,7 +63,8 @@ const OPERATIONS = {
 
 test("deployment/network selection remains fail closed", () => {
   expect(getMisoPlatformDeployment("testnet")).toBe(MISO_PLATFORM_DEPLOYMENTS.testnet);
-  expect(() => getMisoPlatformDeployment("mainnet")).toThrow(/no bundled/);
+  expect(getMisoPlatformDeployment("mainnet")).toBe(MISO_PLATFORM_DEPLOYMENTS.mainnet);
+  expect(() => getMisoPlatformDeployment("localnet")).toThrow(/no bundled/);
   expect(networkFrom(undefined)).toBe("testnet");
   expect(networkFrom("mainnet")).toBe("mainnet");
   expect(() => networkFrom("tesnet")).toThrow(/unsupported network/);

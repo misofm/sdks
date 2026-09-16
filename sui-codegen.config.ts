@@ -110,6 +110,7 @@ const config: MisoCodegenConfig = {
     platform("party_wallet", "misofm/partyos-actions/party_wallet"),
 
     // Work extensions (persistent data attached to a musicos work).
+    platform("composition_lyrics", "misofm/musicos-extensions/composition_lyrics"),
     platform("composition_credits", "misofm/musicos-extensions/composition_credits"),
     platform("recording_advisory", "misofm/musicos-extensions/recording_advisory"),
     platform("recording_credits", "misofm/musicos-extensions/recording_credits"),
