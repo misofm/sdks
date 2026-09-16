@@ -13,14 +13,7 @@ describe("misoConfig", () => {
     expect(config.deployment).toBe(deployment.protocol);
     expect(config.recordSales).toBe(deployment.recordSales);
     expect(config.protocol).toEqual({
-      // The bundled testnet manifest's `operations` is always "available", so
-      // the fallback branch never runs here; `?? null` matches
-      // `configFromDeployment`'s own "no current or legacy Vault package id"
-      // case (B1, misofm/sdks#35 verification — see the dedicated test below).
-      vault:
-        (deployment.operations.status === "available"
-          ? deployment.operations.vault.packageId
-          : deployment.operations.legacy?.vaultPackageId) ?? null,
+      vault: null,
       releaseCoverArt: deployment.packages.releaseCoverArt,
       royaltyPool: deployment.packages.royaltyPool,
       releaseKind: deployment.packages.releaseKind,
@@ -74,4 +67,14 @@ describe("misoConfig", () => {
     expect(() => configFromDeployment(withoutVault)).not.toThrow();
     expect(configFromDeployment(withoutVault).protocol.vault).toBeNull();
   });
+});
+
+test("historical Vault metadata cannot select the current object codec", () => {
+  const deployment = getMisoPlatformDeployment("testnet");
+  const legacy = { ...deployment, operations: {
+    status: "unavailable" as const,
+    reason: "old Vault ABI",
+    legacy: { vaultPackageId: `0x${"12".repeat(32)}` },
+  } };
+  expect(configFromDeployment(legacy).protocol.vault).toBeNull();
 });

@@ -12,7 +12,9 @@ import * as recordingMaster from "./contracts/recording_master/recording_master.
  * Phantom type arguments are represented by the generated codecs' structural
  * layouts and therefore require no BCS type arguments. As with every BCS
  * parser, callers must still filter by the full on-chain event type because a
- * byte decoder cannot validate a Move type identity.
+ * byte decoder cannot validate a Move type identity. Vault parsers use the
+ * renamed schema: `vaulted_cap_id` is the custodied object and `cap_id` is
+ * VaultAdminCap. Historical Vault IDs must not select these current schemas.
  */
 
 import { decodeEvent } from "@misofm/musicos/events";

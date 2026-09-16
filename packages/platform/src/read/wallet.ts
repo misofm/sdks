@@ -364,13 +364,13 @@ const ownedVaultedWorkCaps = Effect.fn("ownedVaultedWorkCaps")(function* (
   TransportError | OperationsUnavailableError,
   Sui
 > {
-  // No current-or-legacy Vault package id: this deployment has no vaulted
-  // works to enumerate at all, so the caller (`getOwnedWorks`) fails typed
+  // No current Vault package id: this deployment cannot safely decode
+  // vaulted works, so the caller (`getOwnedWorks`) fails typed
   // rather than silently reporting only the direct caps (B1, misofm/sdks#35
   // verification — `MisoConfig` itself always constructs; this is the one
   // member that actually needs the missing field).
   if (config.protocol.vault === null) {
-    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+    return yield* new OperationsUnavailableError({ reason: "no current Vault package id is configured for this deployment" });
   }
   const out: {
     compositions: VaultedGenericCap[];
@@ -416,7 +416,7 @@ const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(functio
   // `getWorkByCap`'s own guard below) — this is a defensive typed failure,
   // not an expected path, so an interpolated `null` can never reach `vaultType`.
   if (config.protocol.vault === null) {
-    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+    return yield* new OperationsUnavailableError({ reason: "no current Vault package id is configured for this deployment" });
   }
   const releaseCapType = `${config.deployment.musicos}::release::ReleaseAdminCap`;
   const vaultType = normalizeStructTag(`${config.protocol.vault}::vault::Vault<${releaseCapType}>`);
@@ -429,7 +429,7 @@ const resolveVaultedReleaseCaps = Effect.fn("resolveVaultedReleaseCaps")(functio
     try {
       if (normalizeStructTag(object.type) !== vaultType) return;
       const vault = vaultContract.Vault(networkContracts.release.ReleaseAdminCap).parse(object.content);
-      const releaseId = vault.cap?.value?.release_id;
+      const releaseId = vault.vaulted_cap?.value?.release_id;
       if (releaseId) releasesByVault.set(caps[index]!.vaultId, releaseId);
     } catch {
       // Batch catalog discovery is best-effort per authority, matching the
@@ -588,7 +588,7 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   // requires the deployment's Vault package id (B1, misofm/sdks#35
   // verification) — fail typed rather than misreport "no such work".
   if (config.protocol.vault === null) {
-    return yield* new OperationsUnavailableError({ reason: "no current or legacy Vault package id is configured for this deployment" });
+    return yield* new OperationsUnavailableError({ reason: "no current Vault package id is configured for this deployment" });
   }
   const vaulted = classifyVaultedWorkAdminCapType(type, config.protocol.vault, miso);
   if (!vaulted) {

@@ -124,7 +124,7 @@ test("borrowed caps are enclosed by exact borrow/action/put-back ordering", () =
 test("Vault and VaultAdminCap derivation match fixed on-chain vectors", () => {
   const vaultId = deriveVaultId({
     vaultRegistryId: `0x${"01".repeat(32)}`,
-    capId: `0x${"02".repeat(32)}`,
+    vaultedCapId: `0x${"02".repeat(32)}`,
     vaultPackageId: `0x${"03".repeat(32)}`,
     capType: `0x${"04".repeat(32)}::release::ReleaseAdminCap`,
   });
@@ -184,7 +184,7 @@ test("withdraw and restore use the exact Vault package, cap type, and returned c
     capType: CAP,
     vaultPackageId: VAULT,
   });
-  expect(labels(tx)).toEqual(["vault::withdraw_cap", "vault::restore_cap"]);
+  expect(labels(tx)).toEqual(["vault::withdraw_vaulted_cap", "vault::restore_vaulted_cap"]);
   expect(calls(tx).map((call) => call.package)).toEqual([VAULT, VAULT]);
   expect(calls(tx).map((call) => call.typeArguments)).toEqual([[CAP], [CAP]]);
   const restore = tx.getData().commands[1]!.MoveCall as { arguments: Array<{ $kind: string; Result?: number }> };
@@ -455,4 +455,19 @@ test("resolveReceivingCoins: B9 (misofm/sdks#35 verification) — an unresolvabl
   ];
   const error = await flipRun(objects, vaultApi.resolveReceivingCoins([coinA, missing]));
   expect(error._tag).toBe("ObjectNotFound");
+});
+
+
+test("generated Vault named arguments distinguish the administrator from the custodied cap", () => {
+  const tx = new Transaction();
+  const self = tx.object(A);
+  const cap = tx.object(B);
+  const vaultedCap = tx.object(C);
+  tx.add(vaultContract.restoreVaultedCap({
+    package: VAULT, typeArguments: [CAP], arguments: { self, cap, vaultedCap },
+  }));
+  const call = tx.getData().commands[0]!.MoveCall!;
+  expect(call.function).toBe("restore_vaulted_cap");
+  expect(call.arguments.map((arg) => (arg as { Input: number }).Input)).toEqual([0, 1, 2]);
+  expect(tx.getData().inputs.map((input) => input.UnresolvedObject?.objectId)).toEqual([A, B, C]);
 });

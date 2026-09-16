@@ -9,13 +9,13 @@ import { type Transaction, type TransactionArgument } from '@mysten/sui/transact
 import { normalizeMoveArguments, type RawTransactionArgument } from '../utils/index.ts';
 export interface InstallArguments {
     vault: RawTransactionArgument<string>;
-    vaultAdminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface InstallOptions {
     package?: string;
     arguments: InstallArguments | [
         vault: RawTransactionArgument<string>,
-        vaultAdminCap: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -27,7 +27,7 @@ export function install(options: InstallOptions) {
         null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["vault", "vaultAdminCap"];
+    const parameterNames = ["vault", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_royalty_pool_plugin',
@@ -38,13 +38,13 @@ export function install(options: InstallOptions) {
 }
 export interface UninstallArguments {
     vault: RawTransactionArgument<string>;
-    vaultAdminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface UninstallOptions {
     package?: string;
     arguments: UninstallArguments | [
         vault: RawTransactionArgument<string>,
-        vaultAdminCap: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -56,7 +56,7 @@ export function uninstall(options: UninstallOptions) {
         null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["vault", "vaultAdminCap"];
+    const parameterNames = ["vault", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'recording_royalty_pool_plugin',

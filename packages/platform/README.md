@@ -429,6 +429,12 @@ The protocol, immutable Record and Record Shop packages, minato, and core
 `ReleaseRegistry` address all come from the deployment selected by the Sui
 client's network. Record sales have no Record Registry or Settings singleton.
 
+`disperseShares` targets the deployed `minato::disperse<C>` and sorts paired
+payouts into its canonical run encoding. Amounts must be positive `u64` values;
+recipient text must be nonempty and a valid Sui address. Duplicate recipients
+are preserved, and `balance::destroy_zero` enforces the exact allocation total.
+The public helper signature is unchanged.
+
 For custom PTBs, the bare primitives (`disperseShares`, `finalizeComposition`,
 `finalizeRecording`) and the whole-graph orchestrator are exported standalone:
 
@@ -719,17 +725,23 @@ Actions, and the full Composition routed-stake Action lifecycle. Receive flows
 take exact object references and construct the required
 `vector<Receiving<Coin<Currency>>>` in the PTB.
 
-The bundled Testnet deployment sets `operations.status` to `"available"` with
-one canonical Vault package and registry, five distinct raw Action packages,
-and three distinct suffixed plugin packages. Zero-config Testnet clients
-expose that complete verified surface at `client.miso.vault` — always an
-object; each member throws `OperationsUnavailableError` when a deployment's
-`operations.status` is `"unavailable"`, instead of the namespace itself being
-`undefined`. Custom deployments remain fail-closed unless they provide the
-same atomic identity set. Structural validation checks canonical,
-pairwise-distinct IDs; callers remain responsible for the provenance and
-compatibility of arbitrary custom IDs. The bundled map is recursively frozen
-from one verified immutable admin export.
+The bundled Testnet deployment sets `operations.status` to `"unavailable"`:
+the recorded package uses the previous Vault custody layout/API. Its identities
+remain under `operations.legacy` for provenance and do not select current
+transaction builders or object readers. Publish a fresh Vault package and registry,
+republish dependent plugins, then supply a verified complete operations deployment.
+`client.miso.vault` remains an object whose members fail with
+`OperationsUnavailableError` while unavailable. Custom deployment validation checks
+canonical, pairwise-distinct IDs; callers own their ABI compatibility and provenance.
+
+The generated Vault API uses `withdrawVaultedCap`, `restoreVaultedCap`, and
+`vaultedCapId`. Named arguments use `cap` for the `VaultAdminCap` and `vaultedCap`
+for the custodied capability. Stored fields are `vaulted_cap_id` and `vaulted_cap`;
+events use `vaulted_cap_id` for the custodied object and `cap_id` for the
+administrator. The high-level `deriveVaultId` input is now `vaultedCapId`.
+BCS field order is unchanged by this rename, so a decoder cannot detect a stale
+schema from bytes alone. Match events to the exact deployed package/type generation;
+never interpret the old event's `cap_id` as the current administrator ID.
 
 ### Migrating from 0.16
 
@@ -775,6 +787,15 @@ identity and initial accounting state. Sharing is silent: the generated
 are removed. Use `primitives.royaltyPool.poolCreated` for pool discovery;
 registration and deposit events report any changes made before sharing.
 
+Positive direct pool deposits emit `RoyaltyDepositedEvent<Share, Currency>`;
+positive accumulator settlements emit only
+`RoyaltyPoolFundsSettledEvent<Share, Currency>`. These are mutually exclusive
+pool accounting receipts. The settlement event now includes
+`cumulative_reward_per_share_before` and `carry_before` immediately after
+`value`, followed by its existing after-state fields. Fold both event kinds
+to reconstruct total pool inflows. Action receipts and framework funds effects
+provide additional context; do not count them again as new pool deposits.
+
 Routed stakes likewise retain `RoutedStakeCreatedEvent` at construction with
 parent identity and initial stake value. Sharing is silent; the generated
 `RoutedStakeSharedEvent` codec and `primitives.routedStake.shared` parser are
@@ -799,6 +820,18 @@ capability provenance. Sharing is silent: `ListingSharedEvent`, the
 `products.listing.shared` parser and Miso facade export are removed. Use
 `products.listing.created` for discovery; pricing, availability and purchase
 events report subsequent changes, including changes made before sharing.
+
+Record destruction emits only `record_id`, `release_id`, `pressing_id`,
+`edition`, and `number`. It does not transfer funds or refund a purchase.
+Join the Record ID to its purchase event for original currency, price, purchaser,
+and purchase time; those immutable fields also remain on a live Record.
+`destroy` remains nongeneric.
+
+Master changes use `MasterSetEvent<RecordingShare, CompositionShare>` and
+`MasterUnsetEvent<RecordingShare, CompositionShare>`. Their BCS fields are
+unchanged: the share identities are carried by the full Move event type.
+Phantom arguments do not appear in payload bytes. Preserve the full type tag
+alongside decoded data and use the query service's supported type filters.
 
 Route the events that still exist by their owning purpose:
 

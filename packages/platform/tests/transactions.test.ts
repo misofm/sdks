@@ -203,7 +203,7 @@ test("publishCompositionAndRecording orders new→new→publish→publish and bo
   expect(compositionArg.NestedResult![1]).toBe(0); // its first return value (the Composition)
 
   // Both minato disperse calls are present (composition + recording).
-  expect(seq.filter((f) => f === "minato::disperse_balance").length).toBe(2);
+  expect(seq.filter((f) => f === "minato::disperse").length).toBe(2);
 
   // recording::new carries [RecordingShare, CompositionShare] type args.
   const recTypeArgs = (

@@ -47,6 +47,8 @@ import { asU64, directAdminCap, disposeNewAdminCap, invokeWithAdminCap, type Adm
 import * as royaltyPool from "./contracts/royalty_pool/pool.ts";
 import * as royaltyPoolStake from "./contracts/royalty_pool/stake.ts";
 
+import { encodeMinatoDistribution } from "./minato-codec.ts";
+
 const { track, release } = contracts;
 
 interface ReleaseParts {
@@ -212,7 +214,7 @@ export function shareRoyaltyPool(tx: Transaction, params: ShareRoyaltyPoolParams
 }
 
 /**
- * Splits a share `Balance` across `recipients` via `minato::disperse_balance`, then
+ * Splits a share `Balance` across `recipients` via Minato v1 `minato::disperse`, then
  * destroys the emptied balance. Exposed for consumers assembling custom share
  * distributions in their own PTBs.
  */
@@ -223,13 +225,14 @@ export function disperseShares(
   balance: TransactionObjectArgument,
   recipients: ShareRecipient[],
 ) {
+  const distribution = encodeMinatoDistribution(recipients);
   tx.moveCall({
-    target: `${minatoPackageId}::minato::disperse_balance`,
+    target: `${minatoPackageId}::minato::disperse`,
     typeArguments: [shareType],
     arguments: [
       balance,
-      tx.makeMoveVec({ type: "u64", elements: recipients.map((r) => tx.pure.u64(asU64("share recipient value", r.value)))}),
-      tx.makeMoveVec({ type: "address", elements: recipients.map((r) => tx.pure.address(r.address)) }),
+      tx.pure.vector("address", distribution.recipients),
+      tx.pure.vector("u8", distribution.runs),
     ],
   });
   tx.moveCall({ target: "0x2::balance::destroy_zero", typeArguments: [shareType], arguments: [balance] });

@@ -276,7 +276,7 @@ test("atomic publication includes the full graph, extensions, plugins, and custo
   expect(count("stake::new")).toBe(2);
   expect(count("pool::register_stake")).toBe(2);
   expect(count("pool::share")).toBe(2);
-  expect(count("minato::disperse_balance")).toBe(0);
+  expect(count("minato::disperse")).toBe(0);
   expect(count("release_revenue_distributor_plugin::install")).toBe(1);
   expect(count("composition_routed_stake::install")).toBe(0);
   expect(count("party_wallet::install")).toBe(0);
@@ -517,7 +517,7 @@ test("SDK callers can explicitly retain legacy balance dispersal without royalty
   publishAtomicCatalog(balanced)(tx);
   const seq = calls(tx);
   expect(
-    seq.filter((call) => call === "minato::disperse_balance"),
+    seq.filter((call) => call === "minato::disperse"),
   ).toHaveLength(2);
   expect(seq.filter((call) => call === "stake::new")).toHaveLength(0);
   expect(
@@ -555,7 +555,7 @@ test("a royalty pool with stake distribution still builds and registers every st
     recordings: input.recordings.map(({ routedStake: _, ...node }) => node),
   })(tx);
   const seq = calls(tx);
-  expect(seq.filter((call) => call === "minato::disperse_balance")).toHaveLength(0);
+  expect(seq.filter((call) => call === "minato::disperse")).toHaveLength(0);
   expect(seq.filter((call) => call === "stake::new")).toHaveLength(2);
   expect(
     seq.filter((call) => call.endsWith("_royalty_pool::new_pool")),
@@ -672,8 +672,8 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
     bcs: contracts.vault.VaultCreatedEvent.serialize({
       registry_id: OPERATIONS.vault.registryId,
       vault_id: vaultIds[index]!,
-      cap_id: wrappedCapId,
-      admin_cap_id: `0x${(80 + index).toString(16).repeat(64).slice(0, 64)}`,
+      vaulted_cap_id: wrappedCapId,
+      cap_id: `0x${(80 + index).toString(16).repeat(64).slice(0, 64)}`,
       authorized_plugins_id: `0x${(90 + index).toString(16).repeat(64).slice(0, 64)}`,
       authorized_plugin_count: "0",
       active: true,
@@ -701,6 +701,16 @@ test("atomic result parsing maps canonical Vault events without requiring top-le
     [recordingPoolId]: `${deployment.packages.royaltyPool}::pool::RoyaltyPool<${SHARE_2},0x2::sui::SUI>`,
     [routedStakeId]: `${deployment.packages.routedStake}::routed_stake::RoutedStake<${SHARE_2},${SHARE_1}>`,
   };
+  // A foreign package's same-named event must neither decode nor override
+  // the configured Vault's custody mapping (the bytes are deliberately invalid).
+  events.push({
+    eventType: `0xdead::vault::VaultCreatedEvent<0x1::cap::Cap>`,
+    bcs: new Uint8Array([255]),
+  });
+  events.push({
+    eventType: "0xdead::party::PartyCreatedEvent",
+    bcs: new Uint8Array([255]),
+  });
   const result = buildExecuted({ objectTypes, events });
 
   const parsed = parseAtomicPublicationResult(input, result);

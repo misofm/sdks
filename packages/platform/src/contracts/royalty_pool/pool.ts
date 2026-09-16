@@ -122,6 +122,8 @@ export const RoyaltyPoolFundsSettledEvent = new MoveStruct({ name: `${$moduleNam
         source_address: bcs.Address,
         accumulator_root_id: bcs.Address,
         value: bcs.u64(),
+        cumulative_reward_per_share_before: bcs.u256(),
+        carry_before: bcs.u128(),
         pool_balance_after: bcs.u64(),
         staked_shares_after: bcs.u64(),
         cumulative_reward_per_share_after: bcs.u256(),

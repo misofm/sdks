@@ -281,7 +281,7 @@ export type MisoIds = {
   readonly record: (pressingId: string, number: number) => string;
   readonly listing: (pressingId: string, currencyType: string) => string;
   readonly sale: (releaseId: string, edition: number, currencyType: string) => { pressingId: string; listingId: string };
-  readonly vault: (capId: string, capType: string) => string;
+  readonly vault: (vaultedCapId: string, capType: string) => string;
   readonly vaultAdminCap: (vaultId: string) => string;
   readonly genre: (canonicalName: string) => string;
 };
@@ -314,7 +314,7 @@ export type MisoCall = {
   readonly releaseKind: ReturnType<typeof bindModulePackage<typeof releaseKindContract, readonly ["setKind", "unsetKind", "hasKind"]>>;
   readonly releaseRevenueDistributor: ReturnType<typeof bindModulePackage<typeof releaseRevenueDistributorContract, readonly ["redeemAllAndDistribute", "receiveAndDistribute"]>> | undefined;
   readonly releaseRevenueDistributorPlugin: ReturnType<typeof bindModulePackage<typeof releaseRevenueDistributorPluginContract, readonly ["install", "uninstall", "redeemAllAndDistribute", "receiveAndDistribute", "isInstalled"]>> | undefined;
-  readonly vault: ReturnType<typeof bindModulePackage<typeof vaultContract, readonly ["share", "withdrawCap", "restoreCap", "derivedAddress", "capId", "isActive", "authorizedPlugins", "isPluginAuthorized"]>> | undefined;
+  readonly vault: ReturnType<typeof bindModulePackage<typeof vaultContract, readonly ["share", "withdrawVaultedCap", "restoreVaultedCap", "derivedAddress", "vaultedCapId", "isActive", "authorizedPlugins", "isPluginAuthorized"]>> | undefined;
   readonly compositionRoyaltyPool: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"]>> | undefined;
   readonly compositionRoyaltyPoolPlugin: ReturnType<typeof bindModulePackage<typeof compositionRoyaltyPoolPluginContract, readonly ["install", "uninstall", "receiveAndDeposit", "redeemAllAndDeposit", "isInstalled"]>> | undefined;
   readonly recordingRoyaltyPool: ReturnType<typeof bindModulePackage<typeof recordingRoyaltyPoolContract, readonly ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"]>> | undefined;
@@ -474,7 +474,7 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
     record: (pressingId, number) => deriveRecordId(pressingId, number, sales().recordPackageId),
     listing: (pressingId, currencyType) => deriveListingId(pressingId, currencyType, sales().recordShopPackageId),
     sale: (releaseId, edition, currencyType) => deriveSaleIds(releaseId, edition, currencyType, sales().recordPackageId, sales().recordShopPackageId),
-    vault: (capId, capType) => vaultActions.deriveVaultId({ vaultRegistryId: operations().vault.registryId, capId, capType, vaultPackageId: operations().vault.packageId }),
+    vault: (vaultedCapId, capType) => vaultActions.deriveVaultId({ vaultRegistryId: operations().vault.registryId, vaultedCapId, capType, vaultPackageId: operations().vault.packageId }),
     vaultAdminCap: (vaultId) => vaultActions.deriveVaultAdminCapId(vaultId, operations().vault.packageId),
     genre: (canonicalName) => deriveGenreAddress(deployment.objects.genreRegistry, deployment.packages.genre, canonicalName),
   };
@@ -551,7 +551,7 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
       ? bindModulePackage(releaseRevenueDistributorPluginContract, ops.plugins.releaseRevenueDistributor, ["install", "uninstall", "redeemAllAndDistribute", "receiveAndDistribute", "isInstalled"] as const)
       : undefined,
     vault: ops
-      ? bindModulePackage(vaultContract, ops.vault.packageId, ["share", "withdrawCap", "restoreCap", "derivedAddress", "capId", "isActive", "authorizedPlugins", "isPluginAuthorized"] as const)
+      ? bindModulePackage(vaultContract, ops.vault.packageId, ["share", "withdrawVaultedCap", "restoreVaultedCap", "derivedAddress", "vaultedCapId", "isActive", "authorizedPlugins", "isPluginAuthorized"] as const)
       : undefined,
     compositionRoyaltyPool: ops
       ? bindModulePackage(compositionRoyaltyPoolContract, ops.actions.compositionRoyaltyPool, ["newPool", "receiveAndDeposit", "redeemAllAndDeposit", "poolAddress"] as const)

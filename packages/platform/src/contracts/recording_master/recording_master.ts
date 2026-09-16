@@ -17,11 +17,11 @@ import { type Transaction, type TransactionArgument } from '@mysten/sui/transact
 import * as audio from './deps/audio/audio.ts';
 const $moduleName = '@local-pkg/recording_master::recording_master';
 export const ExtensionKey = new MoveTuple({ name: `${$moduleName}::ExtensionKey`, fields: [bcs.bool()] });
-export const MasterSetEvent = new MoveStruct({ name: `${$moduleName}::MasterSetEvent`, fields: {
+export const MasterSetEvent = new MoveStruct({ name: `${$moduleName}::MasterSetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address,
         master: audio.Audio
     } });
-export const MasterUnsetEvent = new MoveStruct({ name: `${$moduleName}::MasterUnsetEvent`, fields: {
+export const MasterUnsetEvent = new MoveStruct({ name: `${$moduleName}::MasterUnsetEvent<phantom RecordingShare, phantom CompositionShare>`, fields: {
         recording_id: bcs.Address
     } });
 export interface SetMasterArguments {

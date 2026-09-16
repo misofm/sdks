@@ -16,6 +16,7 @@
  */
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
+import { normalizeSuiAddress, parseStructTag } from "@mysten/sui/utils";
 import {
   contracts as protocolContracts,
   deriveCompositionAdminCapId,
@@ -1131,9 +1132,14 @@ function expectOneCreated(result: Executed, type: string, description: string): 
 function vaultsByCap(result: Executed, vaultPackageId: string) {
   const out = new Map<string, { vaultId: string; vaultAdminCapId: string }>();
   for (const event of result.events) {
-    if (!event.eventType.includes("::vault::VaultCreatedEvent<")) continue;
+    const tag = parseStructTag(event.eventType);
+    if (
+      tag.address !== normalizeSuiAddress(vaultPackageId) ||
+      tag.module !== "vault" || tag.name !== "VaultCreatedEvent" ||
+      tag.typeParams.length !== 1
+    ) continue;
     const parsed = parseVaultCreatedEvent(event.bcs);
-    out.set(parsed.cap_id, {
+    out.set(parsed.vaulted_cap_id, {
       vaultId: parsed.vault_id,
       vaultAdminCapId: deriveVaultAdminCapId(parsed.vault_id, vaultPackageId),
     });
@@ -1174,7 +1180,12 @@ export function parseAtomicPublicationResult(
     : new Map<string, { vaultId: string; vaultAdminCapId: string }>();
 
   const createdPartyNodes = p.parties.filter((node): node is Extract<PublicationParty, { create: string }> => "create" in node);
-  const partyEvents = result.events.filter((event) => event.eventType.endsWith("::party::PartyCreatedEvent"));
+  const partyPackageId = normalizeSuiAddress(p.deployment.partyos.partyos);
+  const partyEvents = result.events.filter((event) => {
+    const tag = parseStructTag(event.eventType);
+    return tag.address === partyPackageId && tag.module === "party"
+      && tag.name === "PartyCreatedEvent" && tag.typeParams.length === 0;
+  });
   if (partyEvents.length !== createdPartyNodes.length) {
     throw new Error(`Expected ${createdPartyNodes.length} PartyCreatedEvent values; found ${partyEvents.length}`);
   }

@@ -28,17 +28,17 @@ export const VaultRegistry = new MoveStruct({ name: `${$moduleName}::VaultRegist
  * Custodies one capability and the typed authorization records for plugins.
  *
  * `Vault` intentionally lacks `store`: only this module can share it, and no
- * production API can delete it. `cap_id` permanently binds the shell to the exact
- * capability from which its ID was derived. An empty Vault can only be restored
- * with that same capability object.
+ * production API can delete it. `vaulted_cap_id` permanently binds the shell to
+ * the exact capability from which its ID was derived. An empty Vault can only be
+ * restored with that same capability object.
  */
 export function Vault<Cap extends BcsType<any>>(...typeParameters: [
     Cap
 ]) {
     return new MoveStruct({ name: `${$moduleName}::Vault<${typeParameters[0].name as Cap['name']}>`, fields: {
             id: bcs.Address,
-            cap_id: bcs.Address,
-            cap: bcs.option(borrow.Referent(typeParameters[0])),
+            vaulted_cap_id: bcs.Address,
+            vaulted_cap: bcs.option(borrow.Referent(typeParameters[0])),
             authorized_plugins: bag.Bag
         } });
 }
@@ -56,8 +56,8 @@ export const VaultRegistryCreatedEvent = new MoveStruct({ name: `${$moduleName}:
 export const VaultCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultCreatedEvent<phantom Cap>`, fields: {
         registry_id: bcs.Address,
         vault_id: bcs.Address,
+        vaulted_cap_id: bcs.Address,
         cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
         authorized_plugins_id: bcs.Address,
         authorized_plugin_count: bcs.u64(),
         active: bcs.bool(),
@@ -65,50 +65,50 @@ export const VaultCreatedEvent = new MoveStruct({ name: `${$moduleName}::VaultCr
     } });
 export const PluginAuthorizedEvent = new MoveStruct({ name: `${$moduleName}::PluginAuthorizedEvent<phantom Cap, phantom Witness>`, fields: {
         vault_id: bcs.Address,
+        vaulted_cap_id: bcs.Address,
         cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
         authorized_plugins_id: bcs.Address,
         authorized_plugin_count: bcs.u64(),
         authorized: bcs.bool()
     } });
 export const PluginRevokedEvent = new MoveStruct({ name: `${$moduleName}::PluginRevokedEvent<phantom Cap, phantom Witness>`, fields: {
         vault_id: bcs.Address,
+        vaulted_cap_id: bcs.Address,
         cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
         authorized_plugins_id: bcs.Address,
         authorized_plugin_count: bcs.u64(),
         authorized: bcs.bool()
     } });
 export const VaultCapabilityWithdrawnEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityWithdrawnEvent<phantom Cap>`, fields: {
         vault_id: bcs.Address,
+        vaulted_cap_id: bcs.Address,
         cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });
 export const VaultCapabilityRestoredEvent = new MoveStruct({ name: `${$moduleName}::VaultCapabilityRestoredEvent<phantom Cap>`, fields: {
         vault_id: bcs.Address,
+        vaulted_cap_id: bcs.Address,
         cap_id: bcs.Address,
-        admin_cap_id: bcs.Address,
         active: bcs.bool(),
         capability_available: bcs.bool()
     } });
 export interface NewArguments<Cap extends BcsType<any>> {
     registry: RawTransactionArgument<string>;
-    cap: RawTransactionArgument<Cap>;
+    vaultedCap: RawTransactionArgument<Cap>;
 }
 export interface NewOptions<Cap extends BcsType<any>> {
     package?: string;
     arguments: NewArguments<Cap> | [
         registry: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<Cap>
+        vaultedCap: RawTransactionArgument<Cap>
     ];
     typeArguments: [
         string
     ];
 }
 /**
- * Custody `cap` in its canonical permanent Vault and create the canonical
+ * Custody `vaulted_cap` in its canonical permanent Vault and create the canonical
  * vault-specific administrator capability.
  */
 export function _new<Cap extends BcsType<any>>(options: NewOptions<Cap>) {
@@ -117,7 +117,7 @@ export function _new<Cap extends BcsType<any>>(options: NewOptions<Cap>) {
         null,
         `${options.typeArguments[0]}`
     ] satisfies (string | null)[];
-    const parameterNames = ["registry", "cap"];
+    const parameterNames = ["registry", "vaultedCap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -153,15 +153,15 @@ export function share(options: ShareOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface WithdrawCapArguments {
+export interface WithdrawVaultedCapArguments {
     self: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
-export interface WithdrawCapOptions {
+export interface WithdrawVaultedCapOptions {
     package?: string;
-    arguments: WithdrawCapArguments | [
+    arguments: WithdrawVaultedCapArguments | [
         self: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -171,32 +171,32 @@ export interface WithdrawCapOptions {
  * Withdraw the exact capability while leaving its canonical Vault and
  * VaultAdminCap intact. Every plugin must be revoked first.
  */
-export function withdrawCap(options: WithdrawCapOptions) {
+export function withdrawVaultedCap(options: WithdrawVaultedCapOptions) {
     const packageAddress = options.package ?? '@local-pkg/vault';
     const argumentsTypes = [
         null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "adminCap"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
-        function: 'withdraw_cap',
+        function: 'withdraw_vaulted_cap',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
 }
-export interface RestoreCapArguments<Cap extends BcsType<any>> {
+export interface RestoreVaultedCapArguments<Cap extends BcsType<any>> {
     self: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
-    cap: RawTransactionArgument<Cap>;
+    cap: RawTransactionArgument<string>;
+    vaultedCap: RawTransactionArgument<Cap>;
 }
-export interface RestoreCapOptions<Cap extends BcsType<any>> {
+export interface RestoreVaultedCapOptions<Cap extends BcsType<any>> {
     package?: string;
-    arguments: RestoreCapArguments<Cap> | [
+    arguments: RestoreVaultedCapArguments<Cap> | [
         self: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<Cap>
+        cap: RawTransactionArgument<string>,
+        vaultedCap: RawTransactionArgument<Cap>
     ];
     typeArguments: [
         string
@@ -206,32 +206,32 @@ export interface RestoreCapOptions<Cap extends BcsType<any>> {
  * Restore the exact capability used to derive this permanent Vault. Restoring
  * always starts from a clean plugin-authorization slate.
  */
-export function restoreCap<Cap extends BcsType<any>>(options: RestoreCapOptions<Cap>) {
+export function restoreVaultedCap<Cap extends BcsType<any>>(options: RestoreVaultedCapOptions<Cap>) {
     const packageAddress = options.package ?? '@local-pkg/vault';
     const argumentsTypes = [
         null,
         null,
         `${options.typeArguments[0]}`
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "adminCap", "cap"];
+    const parameterNames = ["self", "cap", "vaultedCap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
-        function: 'restore_cap',
+        function: 'restore_vaulted_cap',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });
 }
 export interface AuthorizePluginArguments<Witness extends BcsType<any>> {
     self: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
     _: RawTransactionArgument<Witness>;
 }
 export interface AuthorizePluginOptions<Witness extends BcsType<any>> {
     package?: string;
     arguments: AuthorizePluginArguments<Witness> | [
         self: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>,
+        cap: RawTransactionArgument<string>,
         _: RawTransactionArgument<Witness>
     ];
     typeArguments: [
@@ -247,7 +247,7 @@ export function authorizePlugin<Witness extends BcsType<any>>(options: Authorize
         null,
         `${options.typeArguments[1]}`
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "adminCap", "_"];
+    const parameterNames = ["self", "cap", "_"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -258,13 +258,13 @@ export function authorizePlugin<Witness extends BcsType<any>>(options: Authorize
 }
 export interface RevokePluginArguments {
     self: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface RevokePluginOptions {
     package?: string;
     arguments: RevokePluginArguments | [
         self: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string,
@@ -278,7 +278,7 @@ export function revokePlugin(options: RevokePluginOptions) {
         null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "adminCap"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -325,13 +325,13 @@ export function borrowAsPlugin<Witness extends BcsType<any>>(options: BorrowAsPl
 }
 export interface BorrowAsAdminArguments {
     self: RawTransactionArgument<string>;
-    adminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
 }
 export interface BorrowAsAdminOptions {
     package?: string;
     arguments: BorrowAsAdminArguments | [
         self: RawTransactionArgument<string>,
-        adminCap: RawTransactionArgument<string>
+        cap: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
@@ -344,7 +344,7 @@ export function borrowAsAdmin(options: BorrowAsAdminOptions) {
         null,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "adminCap"];
+    const parameterNames = ["self", "cap"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -355,14 +355,14 @@ export function borrowAsAdmin(options: BorrowAsAdminOptions) {
 }
 export interface PutBackArguments<Cap extends BcsType<any>> {
     self: RawTransactionArgument<string>;
-    cap: RawTransactionArgument<Cap>;
+    vaultedCap: RawTransactionArgument<Cap>;
     receipt: TransactionArgument;
 }
 export interface PutBackOptions<Cap extends BcsType<any>> {
     package?: string;
     arguments: PutBackArguments<Cap> | [
         self: RawTransactionArgument<string>,
-        cap: RawTransactionArgument<Cap>,
+        vaultedCap: RawTransactionArgument<Cap>,
         receipt: TransactionArgument
     ];
     typeArguments: [
@@ -382,7 +382,7 @@ export function putBack<Cap extends BcsType<any>>(options: PutBackOptions<Cap>) 
         `${options.typeArguments[0]}`,
         null
     ] satisfies (string | null)[];
-    const parameterNames = ["self", "cap", "receipt"];
+    const parameterNames = ["self", "vaultedCap", "receipt"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -393,26 +393,26 @@ export function putBack<Cap extends BcsType<any>>(options: PutBackOptions<Cap>) 
 }
 export interface DerivedAddressArguments {
     registry: RawTransactionArgument<string>;
-    capId: RawTransactionArgument<string>;
+    vaultedCapId: RawTransactionArgument<string>;
 }
 export interface DerivedAddressOptions {
     package?: string;
     arguments: DerivedAddressArguments | [
         registry: RawTransactionArgument<string>,
-        capId: RawTransactionArgument<string>
+        vaultedCapId: RawTransactionArgument<string>
     ];
     typeArguments: [
         string
     ];
 }
-/** Derive the canonical Vault address for `cap_id` in this registry. */
+/** Derive the canonical Vault address for `vaulted_cap_id` in this registry. */
 export function derivedAddress(options: DerivedAddressOptions) {
     const packageAddress = options.package ?? '@local-pkg/vault';
     const argumentsTypes = [
         null,
         '0x2::object::ID'
     ] satisfies (string | null)[];
-    const parameterNames = ["registry", "capId"];
+    const parameterNames = ["registry", "vaultedCapId"];
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
@@ -421,12 +421,12 @@ export function derivedAddress(options: DerivedAddressOptions) {
         typeArguments: options.typeArguments
     });
 }
-export interface CapIdArguments {
+export interface VaultedCapIdArguments {
     self: RawTransactionArgument<string>;
 }
-export interface CapIdOptions {
+export interface VaultedCapIdOptions {
     package?: string;
-    arguments: CapIdArguments | [
+    arguments: VaultedCapIdArguments | [
         self: RawTransactionArgument<string>
     ];
     typeArguments: [
@@ -434,7 +434,7 @@ export interface CapIdOptions {
     ];
 }
 /** The exact capability object permanently assigned to this Vault. */
-export function capId(options: CapIdOptions) {
+export function vaultedCapId(options: VaultedCapIdOptions) {
     const packageAddress = options.package ?? '@local-pkg/vault';
     const argumentsTypes = [
         null
@@ -443,7 +443,7 @@ export function capId(options: CapIdOptions) {
     return (tx: Transaction) => tx.moveCall({
         package: packageAddress,
         module: 'vault',
-        function: 'cap_id',
+        function: 'vaulted_cap_id',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

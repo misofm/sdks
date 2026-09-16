@@ -205,7 +205,7 @@ export function withdrawVaultCapability(
     readonly vaultPackageId: string;
   },
 ): TransactionObjectArgument {
-  return tx.add(vault.withdrawCap({
+  return tx.add(vault.withdrawVaultedCap({
     package: params.vaultPackageId,
     typeArguments: [params.capType],
     arguments: [object(tx, params.vault), object(tx, params.vaultAdminCap)],
@@ -223,7 +223,7 @@ export function restoreVaultCapability(
     readonly vaultPackageId: string;
   },
 ): void {
-  tx.add(vault.restoreCap({
+  tx.add(vault.restoreVaultedCap({
     package: params.vaultPackageId,
     typeArguments: [params.capType],
     arguments: [
@@ -282,7 +282,8 @@ export function custodyNewAdminCap(
 
 export interface VaultIdParams {
   readonly vaultRegistryId: string;
-  readonly capId: string;
+  /** The custodied capability ID, never the VaultAdminCap ID. */
+  readonly vaultedCapId: string;
   readonly capType: string;
   readonly vaultPackageId: string;
 }
@@ -295,7 +296,7 @@ export function deriveVaultId(params: VaultIdParams): string {
   return deriveObjectID(
     params.vaultRegistryId,
     keyType,
-    vault.VaultKey.serialize([params.capId]).toBytes(),
+    vault.VaultKey.serialize([params.vaultedCapId]).toBytes(),
   );
 }
 
