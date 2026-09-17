@@ -72,7 +72,7 @@ export const MISO_DEPLOYMENTS = Object.freeze({
     musicos: "0x4c5c399d34fc60c34acd5008db032c213c04f76b9c07444e52b1133d5d006728",
   } as const),
   testnet: Object.freeze({
-    musicos: "0xfbdce06cb6aa207d0d76d5f0f1f43cda294a0a8131193cd8a63eed3c5a0c563a",
+    musicos: "0x02dda3f548d9d38a9122a714663b4d304dad03499879f270f5769bc96e235c67",
   } as const),
 } as const) satisfies Partial<
   Record<MisoNetwork, MisoDeployment>
