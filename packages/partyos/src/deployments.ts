@@ -43,7 +43,7 @@ export const PARTYOS_DEPLOYMENTS = Object.freeze({
     partyos: "0x8625400639b03bcb16478721d1d6992a719f230000bfcee426f5c760e082b173",
   } as const),
   testnet: Object.freeze({
-    partyos: "0x4975efc33acaf42f20c15eff8003a60aea300e2bc88433ed4e9b5d6b705464e2",
+    partyos: "0x4193ae54fa991730b97cc322aa210ce6e7096fe2e5d6ab717a267e1791803ee7",
   } as const),
 } as const) satisfies Partial<Record<PartyosNetwork, PartyDeployment>>;
 

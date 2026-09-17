@@ -15,7 +15,7 @@ describe("misoConfig", () => {
     expect(config.recordSales).toBe(deployment.recordSales);
     expect(config.apiBaseUrl).toBe("https://api.testnet.miso.fm/v1");
     expect(config.protocol).toEqual({
-      vault: null,
+      vault: deployment.operations.status === "available" ? deployment.operations.vault.packageId : null,
       releaseCoverArt: deployment.packages.releaseCoverArt,
       royaltyPool: deployment.packages.royaltyPool,
       releaseKind: deployment.packages.releaseKind,

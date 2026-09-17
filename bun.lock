@@ -30,7 +30,7 @@
     },
     "packages/musicos": {
       "name": "@misofm/musicos",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "devDependencies": {
         "@effect/language-service": "0.87.2",
         "@mysten/bcs": "2.1.1",
@@ -52,7 +52,7 @@
     },
     "packages/partyos": {
       "name": "@misofm/partyos",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "dependencies": {
         "@mysten/bcs": "^2.1.1",
       },
@@ -74,10 +74,10 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.44.0",
+      "version": "0.45.0",
       "dependencies": {
-        "@misofm/musicos": "0.7.0",
-        "@misofm/partyos": "0.7.0",
+        "@misofm/musicos": "0.7.1",
+        "@misofm/partyos": "0.7.1",
         "@misofm/streaming": "0.3.0",
         "@mysten/bcs": "^2.1.1",
       },
