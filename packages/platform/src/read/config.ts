@@ -84,9 +84,10 @@ export interface MisoConfig {
   /** Walrus aggregator serving cover art and party media for this network. */
   walrusAggregatorUrl: string;
   /**
-   * Public origin of the Miso API, used to build avatar URLs (`/media/avatar/…`).
-   * Avatars are an R2-backed API lane, not on-chain data, so the SDK needs the
-   * public host to hand back a URL a browser can actually fetch.
+   * Public versioned API base, used to build avatar URLs
+   * (`/v1/parties/:partyId/avatar`). Avatars are an R2-backed API lane, not
+   * on-chain data, so the SDK needs the public base to hand back a URL a
+   * browser can actually fetch.
    */
   apiBaseUrl: string;
   /** Explicit currency offers on the Discover shelf, in display order. */
@@ -150,7 +151,7 @@ export function configFromDeployment(deployment: MisoPlatformDeployment, overrid
     grpcUrl: `https://fullnode.${deployment.network}.sui.io`,
     graphqlUrl: `https://graphql.${deployment.network}.sui.io/graphql`,
     walrusAggregatorUrl: walrusAggregatorUrl(deployment.network),
-    apiBaseUrl: `https://api.${deployment.network}.miso.fm`,
+    apiBaseUrl: `https://api.${deployment.network}.miso.fm/v1`,
     discoverSales: [],
   };
   return { ...config, ...stripUndefined(overrides) };

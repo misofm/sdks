@@ -285,6 +285,13 @@ objects into the JSON-safe views a client actually renders. It works in browsers
 Workers, and servers. Miso's HTTP API is a thin validated and cached transport over
 this same surface, not a separate domain implementation.
 
+Version 0.44 targets the public `/v1` API namespace. `MisoConfig.apiBaseUrl` is
+the versioned API base (for example, `https://api.testnet.miso.fm/v1`), and
+artist profiles now return canonical party avatar URLs at
+`/v1/parties/:partyId/avatar`. Authenticated platform mutations use the same
+canonical paths while retaining exact legacy `/platform/...` challenge targets
+for migration clients.
+
 Every read here takes the resolved `MisoConfig` (package ids, not a transport)
 and declares `Sui`/`SuiGraphQL` in its Requirements — `createMisoClient`
 (`read/client.ts`) still bundles the transport, config, and the `client.miso`

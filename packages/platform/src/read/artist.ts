@@ -33,7 +33,7 @@ export interface GetArtistOptions {
 
 /** Public avatar URL for a party (served from the API's R2 lane; 404 when unset). */
 export function partyAvatarUrl(apiBaseUrl: string, partyId: string): string {
-  return `${apiBaseUrl.replace(/\/$/, "")}/media/avatar/${partyId}`;
+  return `${apiBaseUrl.replace(/\/+$/, "")}/parties/${encodeURIComponent(partyId)}/avatar`;
 }
 
 /**
