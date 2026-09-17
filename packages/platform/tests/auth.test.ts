@@ -163,6 +163,83 @@ describe("auth contract", () => {
     expect(calls).toEqual(["challenge", "sign", "mutation"]);
   });
 
+  for (const [method, path, legacyPath] of [
+    ["PUT", "/v1/usernames/alice", "/platform/usernames/alice"],
+    ["POST", "/v1/media/party-bundles", "/platform/media/party"],
+    ["PUT", "/v1/parties/0xAbC/avatar", "/platform/media/avatar/0xAbC"],
+    ["PUT", "/v1/me/avatar", "/platform/media/avatar/user"],
+  ] as const) {
+    test(`signs and submits the exact canonical target ${path}`, async () => {
+      const calls: string[] = [];
+      const issuedChallenge = challenge(method, path, Date.now());
+      const body = JSON.stringify({ example: "unchanged" });
+      const response = await Effect.runPromise(authenticatedFetch(
+        `https://api.testnet.miso.fm${path}`,
+        {
+          method,
+          body,
+          auth: {
+            token: "oidc-token",
+            address: ADDRESS,
+            network: "testnet",
+            signer: {
+              async signPersonalMessage(message) {
+                calls.push("sign");
+                expect(new TextDecoder().decode(message)).toBe(issuedChallenge.payload);
+                return { signature: "sui-signature" };
+              },
+            },
+          },
+          fetch: (async (input, init) => {
+            if (String(input) === "https://api.testnet.miso.fm/v1/auth/challenges") {
+              calls.push("challenge");
+              expect(init?.method).toBe("POST");
+              expect(JSON.parse(String(init?.body))).toEqual({ method, path });
+              return Response.json(issuedChallenge);
+            }
+            calls.push("mutation");
+            expect(String(input)).toBe(`https://api.testnet.miso.fm${path}`);
+            expect(init?.method).toBe(method);
+            expect(init?.body).toBe(body);
+            expect(new Headers(init?.headers).get(MISO_AUTH_HEADERS.signature)).toBe("sui-signature");
+            return Response.json({ ok: true });
+          }) as typeof fetch,
+        },
+      ));
+      expect(response.ok).toBe(true);
+      expect(calls).toEqual(["challenge", "sign", "mutation"]);
+    });
+
+    test(`rejects the legacy challenge for ${path} before signing or submitting`, async () => {
+      let fetchCalls = 0;
+      let signCalls = 0;
+      const error = await Effect.runPromise(authenticatedFetch(
+        `https://api.testnet.miso.fm${path}`,
+        {
+          method,
+          auth: {
+            token: "oidc-token",
+            address: ADDRESS,
+            network: "testnet",
+            signer: {
+              async signPersonalMessage() {
+                signCalls += 1;
+                return { signature: "must-not-sign" };
+              },
+            },
+          },
+          fetch: (async () => {
+            fetchCalls += 1;
+            return Response.json(challenge(method, legacyPath, Date.now()));
+          }) as unknown as typeof fetch,
+        },
+      ).pipe(Effect.flip));
+      expect(error).toMatchObject({ code: "invalid_challenge" });
+      expect(fetchCalls).toBe(1);
+      expect(signCalls).toBe(0);
+    });
+  }
+
   test("surfaces a rejected challenge without invoking the signer", async () => {
     let signed = false;
     const error = await Effect.runPromise(
