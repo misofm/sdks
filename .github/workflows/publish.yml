@@ -1,13 +1,12 @@
 name: Publish to npm
 
-# Publishes on a per-package version tag (effect-v0.1.0, musicos-v0.1.0, partyos-v0.1.0,
-# platform-v0.25.0, streaming-v0.1.0, transcoding-v0.3.0, …), so a release is a deliberate act
-# rather than a side effect of merging, and releasing one workspace package never
-# implies another. Failed tag jobs
-# can be re-run from Actions without permitting a branch to publish a package.
+# Routes per-package version tags (effect-v0.1.0, bridge-v0.1.0, musicos-v0.1.0,
+# partyos-v0.1.0, platform-v0.25.0, streaming-v0.1.0, transcoding-v0.3.0, …).
+# Bridge tags run the validation and tarball checks but intentionally skip npm
+# publication. Other package tags publish only their selected workspace.
 on:
   push:
-    tags: ["effect-v*", "musicos-v*", "partyos-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
+    tags: ["effect-v*", "bridge-v*", "musicos-v*", "partyos-v*", "platform-v*", "streaming-v*", "transcoding-v*"]
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -57,6 +56,10 @@ jobs:
               DIR="packages/effect"
               VERSION="${TAG#effect-v}"
               ;;
+            bridge-v*)
+              DIR="packages/bridge"
+              VERSION="${TAG#bridge-v}"
+              ;;
             musicos-v*)
               DIR="packages/musicos"
               VERSION="${TAG#musicos-v}"
@@ -78,7 +81,7 @@ jobs:
               VERSION="${TAG#transcoding-v}"
               ;;
             *)
-              echo "::error::Tag '$TAG' does not match effect-v*, musicos-v*, partyos-v*, platform-v*, streaming-v*, or transcoding-v*"
+              echo "::error::Tag '$TAG' does not match effect-v*, bridge-v*, musicos-v*, partyos-v*, platform-v*, streaming-v*, or transcoding-v*"
               exit 1
               ;;
           esac
@@ -142,5 +145,6 @@ jobs:
       # Trusted Publisher -> GitHub Actions, naming this repo and the workflow
       # file (publish.yml).
       - name: Publish
+        if: ${{ !startsWith(github.ref_name, 'bridge-v') }}
         working-directory: ${{ steps.pkg.outputs.dir }}
         run: npm publish --provenance --access public

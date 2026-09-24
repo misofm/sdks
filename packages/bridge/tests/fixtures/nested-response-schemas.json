@@ -1,0 +1,124 @@
+{
+  "endorsement": {
+    "name": "base",
+    "status": "incomplete",
+    "requirements": {
+      "complete": ["first_name", "last_name"],
+      "pending": ["tax_identification_number"],
+      "missing": {
+        "all_of": ["tax_identification_number", "source_of_funds_questionnaire"]
+      },
+      "issues": [
+        "endorsement_not_available_in_customers_region",
+        { "id_front_photo": "id_expired" }
+      ]
+    },
+    "future_requirements": [
+      {
+        "effective_date": "2026-10-01",
+        "verification_stage": "manual_review",
+        "pending": ["proof_of_address"],
+        "missing": { "any_of": ["proof_of_address", "bank_statement"] },
+        "issues": [{ "proof_of_address": "document_expired" }]
+      }
+    ]
+  },
+  "virtualAccountInstructions": {
+    "us": {
+      "currency": "usd",
+      "payment_rails": ["ach_push", "fednow", "wire"],
+      "bank_name": "Lead Bank",
+      "bank_address": "1801 Main St., Kansas City, MO 64108",
+      "bank_beneficiary_name": "Customer Name",
+      "bank_beneficiary_address": "1234 Main St., Kansas City, MO 64108",
+      "bank_account_number": "123456789",
+      "bank_routing_number": "87654321"
+    },
+    "eu": {
+      "iban": "DE89370400440532013000",
+      "bic": "COBADEFFXXX",
+      "account_holder_name": "Customer Name",
+      "bank_beneficiary_name": "Customer Name",
+      "bank_beneficiary_address": "10 Example Street, Berlin",
+      "currency": "eur",
+      "payment_rails": "sepa",
+      "bank_name": "Example Bank",
+      "bank_address": "10 Example Street, Berlin"
+    },
+    "mx": {
+      "clabe": "012345678901234567",
+      "account_holder_name": "Customer Name",
+      "currency": "mxn",
+      "payment_rails": ["spei"],
+      "bank_name": "Example Bank",
+      "bank_address": "Av. Reforma 100, Ciudad de Mexico"
+    },
+    "br": {
+      "br_code": "00020101021226890014br.gov.bcb.pix",
+      "account_holder_name": "Customer Name",
+      "currency": "brl",
+      "payment_rails": ["pix"],
+      "bank_name": "Example Bank",
+      "bank_address": "Av. Paulista 1000, Sao Paulo"
+    },
+    "gb": {
+      "account_number": "12345678",
+      "sort_code": "123456",
+      "account_holder_name": "Customer Name",
+      "bank_beneficiary_name": "Customer Name",
+      "bank_beneficiary_address": "10 Example Street, London",
+      "currency": "gbp",
+      "payment_rails": "faster_payments",
+      "bank_name": "Example Bank",
+      "bank_address": "10 Example Street, London"
+    },
+    "co": {
+      "bre_b_key": "customer@example.co",
+      "account_holder_name": "Customer Name",
+      "deposit_message": "Customer reference 123",
+      "currency": "cop",
+      "payment_rails": ["bre_b"],
+      "bank_name": "Example Bank",
+      "bank_address": "Carrera 7 # 71-21, Bogota"
+    }
+  },
+  "cardProgramSummary": {
+    "period": "month",
+    "period_starting": "2026-09-01",
+    "cards_provisioned_count": 168,
+    "card_transactions_count": 241,
+    "provisioned_cards_by_country": { "USA": 123, "MEX": 45 },
+    "transaction_volume": "-100.0",
+    "transacting_card_accounts_count": 112,
+    "card_transactions_count_by_country": { "USA": 74, "MEX": 55 },
+    "transaction_volume_by_country": { "USA": "7.04", "MEX": "5.0" },
+    "transacting_cards_by_country": { "USA": 123, "MEX": 41 }
+  },
+  "deactivateResponse": {
+    "id": "va123456",
+    "status": "deactivated",
+    "developer_fee_percent": "0.1",
+    "fee_config": {
+      "source": {
+        "default": { "fee_percent": "0.5", "minimum_fee": "1.00" }
+      }
+    },
+    "customer_id": "cus123456",
+    "created_at": "2026-09-24T12:00:00Z",
+    "source_deposit_instructions": {
+      "currency": "usd",
+      "payment_rails": ["ach_push", "fednow", "wire"],
+      "bank_name": "Lead Bank",
+      "bank_address": "1801 Main St., Kansas City, MO 64108",
+      "bank_beneficiary_name": "Customer Name",
+      "bank_beneficiary_address": "1234 Main St., Kansas City, MO 64108",
+      "bank_account_number": "123456789",
+      "bank_routing_number": "87654321"
+    },
+    "destination": {
+      "currency": "usdc",
+      "payment_rail": "base",
+      "address": "0x1234567890abcdef"
+    }
+  }
+}

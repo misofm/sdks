@@ -1,0 +1,89 @@
+{
+  "ExternalAccountResponse": {
+    "id": "acctfixture01",
+    "customer_id": "custfixture01",
+    "created_at": "2026-09-23T12:00:00.000Z",
+    "updated_at": "2026-09-23T12:00:00.000Z",
+    "account_owner_name": "Miso Fixture",
+    "currency": "usd",
+    "account_type": "us",
+    "active": true,
+    "bank_name": "Fixture Bank",
+    "account": {
+      "account_number": "000000000000",
+      "routing_number": "000000000",
+      "last_4": "0000",
+      "checking_or_savings": "checking"
+    }
+  },
+  "CreateExternalAccountInput": {
+    "currency": "usd",
+    "account_owner_name": "Miso Fixture",
+    "account_type": "us",
+    "account": {
+      "account_number": "000000000000",
+      "routing_number": "000000000",
+      "checking_or_savings": "checking"
+    },
+    "address": {
+      "street_line_1": "123 Fixture Street",
+      "city": "Example City",
+      "state": "CA",
+      "postal_code": "90000",
+      "country": "USA"
+    }
+  },
+  "CreateLiquidationAddressResponse": {
+    "id": "lafixture01",
+    "customer_id": "custfixture01",
+    "external_account_id": "acctfixture01",
+    "currency": "usdc",
+    "chain": "ethereum",
+    "address": "0x0000000000000000000000000000000000000001",
+    "destination_payment_rail": "ach",
+    "destination_currency": "usd",
+    "state": "active",
+    "created_at": "2026-09-23T12:00:00.000Z",
+    "updated_at": "2026-09-23T12:00:00.000Z",
+    "supported_currencies": {
+      "ethereum": ["usdc"]
+    }
+  },
+  "FeeExternalAccount": {
+    "id": "feafixture01",
+    "customer_id": "devfixture01",
+    "created_at": "2026-09-23T12:00:00.000Z",
+    "updated_at": "2026-09-23T12:00:00.000Z",
+    "account_owner_name": "Miso Fixture",
+    "account_name": "Fixture Fee Account",
+    "currency": "usd",
+    "account_type": "us",
+    "active": true,
+    "account": {
+      "account_number": "000000000000",
+      "routing_number": "000000000",
+      "last_4": "0000",
+      "checking_or_savings": "checking"
+    }
+  },
+  "CreateFeeExternalAccountInput": {
+    "currency": "usd",
+    "account_owner_name": "Miso Fixture",
+    "account_type": "us",
+    "account": {
+      "account_number": "000000000000",
+      "routing_number": "000000000",
+      "checking_or_savings": "checking"
+    }
+  },
+  "CardAccount": {
+    "id": "cardfixture01",
+    "customer_id": "custfixture01",
+    "status": "active",
+    "balances": {
+      "available": {"amount": "10.00", "currency": "usdc"},
+      "hold": {"amount": "0.00", "currency": "usdc"}
+    },
+    "freezes": []
+  }
+}

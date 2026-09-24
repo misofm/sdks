@@ -1,0 +1,8 @@
+{
+	"name": "misofm-bridge-example",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-15",
+	"vars": {
+		"BRIDGE_ENVIRONMENT": "sandbox"
+	}
+}

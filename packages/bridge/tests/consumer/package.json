@@ -1,0 +1,16 @@
+{
+  "name": "@misofm/bridge-isolated-consumer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json && node runtime.mjs",
+    "check:worker": "tsc -p tsconfig.worker.json && node worker-smoke.mjs"
+  },
+  "dependencies": {
+    "@misofm/bridge": "file:./bridge.tgz",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
