@@ -1,0 +1,691 @@
+{
+  "patches": [
+    {
+      "op": "add",
+      "path": "/paths/~1developer~1fees/post/responses/200/content/application~1json/schema",
+      "value": {
+        "$ref": "#/components/schemas/DeveloperFees"
+      },
+      "description": "Bridge's POST response includes a concrete JSON example for default_liquidation_address_fee_percent but omits its schema. Reuse the existing DeveloperFees contract shared by GET /developer/fees."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/CreateLiquidationAddressResponse/type",
+      "value": "object",
+      "description": "This response is an object assembled by allOf with required object fields, but upstream omits type: object. Making the implied type explicit avoids an invalid primitive union and preserves the required response fields."
+    },
+    {
+      "op": "replace",
+      "path": "/components/schemas/CardFreeze/properties/initiator",
+      "value": {
+        "type": "string",
+        "enum": ["developer", "customer", "bridge"],
+        "description": "The party that initiated the freeze. Card account responses also include freezes initiated by Bridge."
+      },
+      "description": "CardAccount freezes explicitly allow the bridge initiator while the shared request enum omits it. Scope the response union here so PostCardFreezeInput remains limited to customer or developer."
+    },
+    {
+      "op": "replace",
+      "path": "/components/schemas/FeeExternalAccount/required",
+      "value": ["id", "created_at", "updated_at", "account_owner_name", "currency", "account_type", "active"],
+      "description": "The published successful fee-account response omits customer_id and account_name; customer_id is not meaningful for a developer-owned account, and account_name has no declared property schema. Do not synthesize these as required fields."
+    },
+    {
+      "op": "remove",
+      "path": "/components/schemas/LiquidationAddressCustomDeveloperFeePercent/example",
+      "description": "The nullable fee-percent example is a string value; rc.112 copies it onto the null union branch as well, producing an invalid TypeScript annotation. Keep the constraint and nullability, but omit this branch-ambiguous example metadata."
+    },
+    {
+      "op": "add",
+      "path": "/paths/~1customers~1{customerID}~1card_accounts~1{cardAccountID}~1ephemeral_keys/post/requestBody/required",
+      "value": false,
+      "description": "OpenAPI 3.0 requestBody.required defaults to false. Make that default explicit because rc.112 otherwise treats an omitted flag as a required payload."
+    },
+    {
+      "op": "add",
+      "path": "/paths/~1customers~1{customerID}~1card_accounts~1{cardAccountID}~1freeze/post/requestBody/required",
+      "value": false,
+      "description": "OpenAPI 3.0 requestBody.required defaults to false. Make that default explicit because rc.112 otherwise treats an omitted flag as a required payload."
+    },
+    {
+      "op": "add",
+      "path": "/paths/~1customers~1{customerID}~1card_accounts~1{cardAccountID}~1unfreeze/post/requestBody/required",
+      "value": false,
+      "description": "OpenAPI 3.0 requestBody.required defaults to false. Make that default explicit because rc.112 otherwise treats an omitted flag as a required payload."
+    },
+    {
+      "op": "add",
+      "path": "/paths/~1customers~1{customerID}~1card_accounts~1{cardAccountID}~1create_mobile_wallet_provisioning_request/post/requestBody/required",
+      "value": false,
+      "description": "OpenAPI 3.0 requestBody.required defaults to false. Make that default explicit because rc.112 otherwise treats an omitted flag as a required payload."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Endorsement/properties/requirements/properties/missing/additionalProperties",
+      "value": true,
+      "description": "Bridge documents this response as an open breakdown object and its successful examples use { all_of: [...] }, but publishes no value schema. OpenAPI permits arbitrary properties by default; make that JSON-compatible shape explicit instead of generating an impossible never-valued record."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Endorsement/properties/requirements/properties/missing/nullable",
+      "value": true,
+      "description": "The declared type is object, but Bridge's published successful customer examples return missing: null. Preserve that observed response alternative while keeping non-null breakdown values JSON-compatible."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Endorsement/properties/requirements/properties/issues/items/oneOf/1/additionalProperties",
+      "value": { "type": "string" },
+      "description": "The published issue description defines object values as field-to-issue-code mappings (for example id_front_photo: id_expired). Explicitly type the omitted map value schema as a string."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Endorsement/properties/future_requirements/items/properties/missing/additionalProperties",
+      "value": true,
+      "description": "Future requirements reuse the same open missing-breakdown object as current requirements and likewise omit its property schema. Preserve JSON values while allowing the documented null alternative."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Endorsement/properties/future_requirements/items/properties/issues/items/oneOf/1/additionalProperties",
+      "value": { "type": "string" },
+      "description": "Future issues use the same field-to-issue-code object shape as current issues; define the omitted values as strings per the published description."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/CardProgramSummary/properties/provisioned_cards_by_country/additionalProperties",
+      "value": { "type": "integer" },
+      "description": "This open country-keyed count map has integer values in the published examples but omits additionalProperties, which the pinned generator otherwise interprets as a record of never."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/CardProgramSummary/properties/card_transactions_count_by_country/additionalProperties",
+      "value": { "type": "integer" },
+      "description": "This open country-keyed transaction-count map has integer values in the published examples but omits additionalProperties, which the pinned generator otherwise interprets as a record of never."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/CardProgramSummary/properties/transaction_volume_by_country/additionalProperties",
+      "value": { "type": "string" },
+      "description": "Transaction-volume values are decimal strings in the published examples. State that omitted value type explicitly while preserving open country keys."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/CardProgramSummary/properties/transacting_cards_by_country/additionalProperties",
+      "value": { "type": "integer" },
+      "description": "This open country-keyed card-count map has integer values in the published examples but omits additionalProperties, which the pinned generator otherwise interprets as a record of never."
+    },
+    {
+      "op": "add",
+      "path": "/components/schemas/Customer/properties/last_name/nullable",
+      "value": true,
+      "description": "The published successful business-customer response explicitly returns last_name: null. Customer is response-only; leave the separate create/update payload schemas unchanged."
+    },
+    {
+      "op": "replace",
+      "path": "/components/schemas/Endorsement/properties/requirements/properties/complete/items",
+      "value": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "required": ["associated_person", "items"],
+            "properties": {
+              "associated_person": { "type": "string" },
+              "items": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "The published successful business-customer response includes one structured completed requirement with associated_person and a string items array. Keep ordinary string entries and model this documented object exactly, without an unknown-value escape hatch."
+    },
+    {
+      "op": "replace",
+      "path": "/paths/~1customers/get/responses/200/content/application~1json/schema/required",
+      "value": ["data"],
+      "description": "Both published successful GET /customers examples omit count. Make only this response's count optional while keeping the data array required and count constrained to an integer when present."
+    }
+  ],
+  "objectSchemas": [
+    {
+      "pointer": "/components/schemas/ExternalAccount",
+      "reason": "ExternalAccount is the declared oneOf of bank-rail object variants. The pinned generator needs the OpenAPI-implied object type, and object composition keeps additional fields because OpenAPI leaves additionalProperties open by default."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountBaseWithOwnerInfo",
+      "reason": "This shared external-account property schema omits type: object. Add the implied type and preserve OpenAPI's default allowance for additional fields so allOf variants can compose."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountBaseWithoutOwnerInfo",
+      "reason": "This shared external-account input property schema omits type: object. Add the implied type and preserve OpenAPI's default allowance for additional fields so allOf variants can compose."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountUs",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountUs/allOf/1",
+      "reason": "This US external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountIban",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountIban/allOf/1",
+      "reason": "This IBAN external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountClabe",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountClabe/allOf/1",
+      "reason": "This CLABE external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountPix",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountPix/allOf/1",
+      "reason": "This Pix external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountGb",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountGb/allOf/1",
+      "reason": "This GB external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountBreB",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountBreB/allOf/1",
+      "reason": "This Bre-B external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountCoBankTransfer",
+      "reason": "This external-account response variant is an allOf object whose root omits type: object. Normalize the implied object type and retain open additional properties across its shared and rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountCoBankTransfer/allOf/1",
+      "reason": "This CO bank-transfer external-account allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/ExternalAccountResponse",
+      "reason": "The response schema requires shared fields and allOf-intersects the ExternalAccount rail union. Make its implied object root explicit and keep properties contributed by the union."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountInput",
+      "reason": "This request schema is the declared oneOf of bank-rail input objects. Make the implied object type explicit so the generated union retains every rail variant."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountUsInput",
+      "reason": "This US external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountUsInput/allOf/1",
+      "reason": "This US external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountIbanInput",
+      "reason": "This IBAN external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountIbanInput/allOf/1",
+      "reason": "This IBAN external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountClabeInput",
+      "reason": "This CLABE external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountClabeInput/allOf/1",
+      "reason": "This CLABE external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountPixKeyInput",
+      "reason": "This Pix-key external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountPixKeyInput/allOf/1",
+      "reason": "This Pix-key external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountBrCodeInput",
+      "reason": "This BR Code external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountBrCodeInput/allOf/1",
+      "reason": "This BR Code external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountFPSInput",
+      "reason": "This Faster Payments external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountFPSInput/allOf/1",
+      "reason": "This Faster Payments external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountBreBInput",
+      "reason": "This Bre-B external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountBreBInput/allOf/1",
+      "reason": "This Bre-B external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountCoBankTransferInput",
+      "reason": "This CO bank-transfer external-account input is an allOf object whose root omits type: object. Normalize the implied type and keep shared fields from composing with rail-specific fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateExternalAccountCoBankTransferInput/allOf/1",
+      "reason": "This CO bank-transfer external-account input allOf branch contributes rail-specific properties and must allow the shared properties from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CreateFeeExternalAccountInput",
+      "reason": "This fee-account input is an allOf object whose root omits type: object. Normalize the implied type while retaining fields from ExternalAccountUs."
+    },
+    {
+      "pointer": "/components/schemas/FeeExternalAccount",
+      "reason": "This fee-account response is an allOf object whose root omits type: object. Normalize the implied type while retaining the required ExternalAccountUs fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateLiquidationAddress",
+      "reason": "This liquidation-address request schema has object properties but omits type: object. Make the implied object shape explicit and preserve the OpenAPI default for additional fields."
+    },
+    {
+      "pointer": "/components/schemas/CreateLiquidationAddressResponse",
+      "reason": "This allOf response root must remain open so request fields and response fields contributed by its two branches can intersect."
+    },
+    {
+      "pointer": "/components/schemas/CreateLiquidationAddressResponse/allOf/1",
+      "reason": "This liquidation-address response allOf branch contributes response fields and must allow the request fields from its sibling branch."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount",
+      "reason": "CardAccount is an object response with a composed freeze item. Preserve OpenAPI's default allowance for additional card-account properties."
+    },
+    {
+      "pointer": "/components/schemas/CardFreeze",
+      "reason": "CardFreeze has required object fields but omits type: object. Make the implied object shape explicit and retain OpenAPI's default additional-field behavior."
+    },
+    {
+      "pointer": "/components/schemas/CardCryptoAccount",
+      "reason": "CardCryptoAccount has required object fields but omits type: object. Make the implied object shape explicit and retain OpenAPI's default additional-field behavior."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount/properties/freezes/items",
+      "reason": "This card-freeze item combines the CardFreeze ref with an inline initiator restriction; make the object explicit and allow the remaining CardFreeze fields."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount/properties/balances",
+      "reason": "CardAccount balances reference a sibling object schema; keep all declared balance properties while preserving the OpenAPI default for additional balance fields."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount/properties/cardholder_name",
+      "reason": "CardholderName is referenced with an OpenAPI 3.0 type sibling; keep the sibling open so it does not reject fields declared by the referenced component."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount/properties/card_details",
+      "reason": "CardDetails is referenced with an OpenAPI 3.0 type sibling; keep the sibling open so it does not reject fields declared by the referenced component."
+    },
+    {
+      "pointer": "/components/schemas/CardAccount/properties/crypto_account",
+      "reason": "CardCryptoAccount is referenced with an OpenAPI 3.0 type sibling; keep the sibling open so it does not reject fields declared by the referenced component."
+    },
+    {
+      "pointer": "/components/schemas/CardholderName",
+      "reason": "CardholderName is an object component with required names; make its object type explicit and preserve OpenAPI's default for additional fields."
+    },
+    {
+      "pointer": "/components/schemas/CardDetails",
+      "reason": "CardDetails is an object component with required card fields; make its object type explicit and preserve OpenAPI's default for additional fields."
+    },
+    {
+      "pointer": "/components/schemas/CardBalances/properties/available",
+      "reason": "Card balance entries reference CardBalance with an OpenAPI 3.0 type sibling; keep the sibling open so it does not reject the referenced balance fields."
+    },
+    {
+      "pointer": "/components/schemas/CardBalances/properties/hold",
+      "reason": "Card hold entries reference CardBalance with an OpenAPI 3.0 type sibling; keep the sibling open so it does not reject the referenced balance fields."
+    },
+    {
+      "pointer": "/components/schemas/CardBalances",
+      "reason": "CardBalances has required object fields but omits type: object. Make its object shape explicit and preserve OpenAPI's default for additional fields."
+    },
+    {
+      "pointer": "/components/schemas/CardBalance",
+      "reason": "CardBalance has object properties but omits type: object. Make its object shape explicit so CardBalances can retain its required fields."
+    },
+    {
+      "pointer": "/components/schemas/WebhookEvent",
+      "reason": "WebhookEvent has required object fields but omits type: object. Make the event envelope explicit and retain its OpenAPI default for additional fields."
+    },
+    {
+      "pointer": "/components/schemas/WebhookEvent/properties/event_object",
+      "reason": "Webhook event objects contain resource-specific fields not enumerable in one shared schema; accept JSON properties instead of generating an impossible closed record."
+    },
+    {
+      "pointer": "/components/schemas/WebhookEvent/properties/event_object_changes",
+      "reason": "Webhook event change objects contain resource-specific fields not enumerable in one shared schema; accept JSON properties instead of generating an impossible closed record."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountResponse",
+      "reason": "VirtualAccountResponse declares object fields but omits the OpenAPI-implied type: object. Make that shape explicit so the six source-instruction alternatives and allOf response composition stay typed."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsUs",
+      "reason": "This US deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsEu",
+      "reason": "This EU deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsMx",
+      "reason": "This Mexico deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsBr",
+      "reason": "This Brazil deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsGb",
+      "reason": "This UK deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsCo",
+      "reason": "This Colombia deposit-instruction allOf variant omits type: object at its root. Normalize the implied object root and retain fields from its rail-specific and common branches."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsCommon",
+      "reason": "The shared deposit-instruction component contributes bank name and address inside rail-specific allOf variants. OpenAPI permits extra properties, so retain fields contributed by sibling rail branches."
+    },
+    {
+      "pointer": "/components/schemas/GbBankAccountVirtualAccount",
+      "reason": "The UK deposit-instruction variant reuses this object through allOf. Keep the shared account fields open so its currency, payment rail, account-holder, and common bank properties compose."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsUs/allOf/0",
+      "reason": "The US rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsEu/allOf/0",
+      "reason": "The EU rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsMx/allOf/0",
+      "reason": "The Mexico rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsBr/allOf/0",
+      "reason": "The Brazil rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsGb/allOf/0",
+      "reason": "The shared GB bank-account branch must allow common deposit-instruction fields contributed by other allOf siblings."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsGb/allOf/1",
+      "reason": "The UK rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/components/schemas/VirtualAccountSourceDepositInstructionsCo/allOf/0",
+      "reason": "The Colombia rail-specific allOf branch must allow common bank fields contributed by its sibling branch under OpenAPI's default additionalProperties behavior."
+    },
+    {
+      "pointer": "/paths/~1customers~1{customerID}~1virtual_accounts~1{virtualAccountID}~1deactivate/post/responses/200/content/application~1json/schema",
+      "reason": "The deactivate success response is an allOf object over VirtualAccountResponse but omits its own root type. Normalize this implied object root so the referenced response properties remain typed."
+    },
+    {
+      "pointer": "/paths/~1customers~1{customerID}~1virtual_accounts~1{virtualAccountID}~1deactivate/post/responses/200/content/application~1json/schema/allOf/1",
+      "reason": "The example-only deactivate status override is an object branch in an allOf response; retain the base response's remaining properties under OpenAPI's default additionalProperties behavior."
+    }
+  ],
+  "propertyObjectSchemas": {
+    "reason": "A property-bearing or required-bearing component schema node with no explicit type and no allOf/oneOf/anyOf is an object schema. Normalize only the missing type; retain the raw fields, nullability, required lists, enums and composition. OpenAPI 3.0 leaves additional properties allowed by default.",
+    "pointers": [
+      "/components/schemas/Address",
+      "/components/schemas/Address2025WinterRefresh",
+      "/components/schemas/ApiKey",
+      "/components/schemas/ApiKeyWithSecret/allOf/1",
+      "/components/schemas/AssociatedPerson",
+      "/components/schemas/Balance",
+      "/components/schemas/BrCodeBankAccount",
+      "/components/schemas/BreBBankAccount",
+      "/components/schemas/BridgeWallet/allOf/1",
+      "/components/schemas/BridgeWalletWithBalances/allOf/1",
+      "/components/schemas/CardAccountEphemeralKeyResponse",
+      "/components/schemas/CardAccountFundingInstructions",
+      "/components/schemas/CardAuthorization",
+      "/components/schemas/CardAuthorization/properties/details",
+      "/components/schemas/CardCryptoTransactionDetails",
+      "/components/schemas/CardLocalTransactionDetails",
+      "/components/schemas/CardPushProvisioningResponse",
+      "/components/schemas/CardPushProvisioningResponse/properties/apple_pay",
+      "/components/schemas/CardPushProvisioningResponse/properties/google_pay",
+      "/components/schemas/CardSpendingLimit",
+      "/components/schemas/CardTransaction",
+      "/components/schemas/CardUnfreezeResponse/allOf/1",
+      "/components/schemas/CardWithdrawal",
+      "/components/schemas/CardWithdrawalDestination",
+      "/components/schemas/ClabeBankAccount",
+      "/components/schemas/CoBankTransferBankAccount",
+      "/components/schemas/Country",
+      "/components/schemas/CreateApiKeyInput",
+      "/components/schemas/CreateBatchSettlementSchedule",
+      "/components/schemas/CreateBridgeWallet",
+      "/components/schemas/CreateBridgeWalletResponse/allOf/1",
+      "/components/schemas/CreateDeveloperFeeConfig",
+      "/components/schemas/CreateIndividualCustomerPayload/allOf/2",
+      "/components/schemas/CreateKycLinks",
+      "/components/schemas/CreateStaticMemo",
+      "/components/schemas/CreateVirtualAccount",
+      "/components/schemas/CreateWebhook",
+      "/components/schemas/Customer",
+      "/components/schemas/DepositInstructions",
+      "/components/schemas/DeveloperFeeConfig",
+      "/components/schemas/DeveloperFees",
+      "/components/schemas/Drain",
+      "/components/schemas/DrainDestination",
+      "/components/schemas/DrainReceipt",
+      "/components/schemas/DrainReturnDetails",
+      "/components/schemas/Endorsement",
+      "/components/schemas/Error",
+      "/components/schemas/Error/properties/source",
+      "/components/schemas/ExchangeDetails",
+      "/components/schemas/ExternalAccountAddress",
+      "/components/schemas/FakePayin",
+      "/components/schemas/FundsRequest",
+      "/components/schemas/GasFee",
+      "/components/schemas/IbanBankAccount",
+      "/components/schemas/IndividualKycLinkResponse",
+      "/components/schemas/LiquidationAddress",
+      "/components/schemas/Payin",
+      "/components/schemas/Payout",
+      "/components/schemas/PixKeyBankAccount",
+      "/components/schemas/PlaidExchangePublicToken",
+      "/components/schemas/PlaidLinkRequest",
+      "/components/schemas/PostCardAccountDepositAddressInput",
+      "/components/schemas/PostCardAccountEphemeralKeyInput",
+      "/components/schemas/PostCardAccountsInput",
+      "/components/schemas/PostCardFreezeInput",
+      "/components/schemas/PostCardPushProvisioningInput",
+      "/components/schemas/PostCardPushProvisioningInput/properties/apple_pay",
+      "/components/schemas/PostCardPushProvisioningInput/properties/google_pay",
+      "/components/schemas/PostCardUnfreezeInput",
+      "/components/schemas/PrefundedAccount",
+      "/components/schemas/PrefundedAccountHistory",
+      "/components/schemas/PutWebhookPayload",
+      "/components/schemas/Receipt",
+      "/components/schemas/RejectionReason",
+      "/components/schemas/Rfi",
+      "/components/schemas/SendWebhookPayload",
+      "/components/schemas/StaticMemoDestination",
+      "/components/schemas/StaticMemoEvent",
+      "/components/schemas/StaticMemoEventSource",
+      "/components/schemas/StaticMemoEventSourceDepositInstructions",
+      "/components/schemas/StaticMemoResponse",
+      "/components/schemas/StaticMemoSourceDepositInstructions",
+      "/components/schemas/StaticMemoSourceInput",
+      "/components/schemas/Subdivision",
+      "/components/schemas/TransferDestination",
+      "/components/schemas/TransferRequest",
+      "/components/schemas/TransferRequest/properties/destination/allOf/1",
+      "/components/schemas/TransferRequest/properties/source/allOf/1",
+      "/components/schemas/TransferResponse",
+      "/components/schemas/TransferResponse/properties/destination/allOf/1",
+      "/components/schemas/TransferResponse/properties/source/allOf/1",
+      "/components/schemas/TransferResponse/properties/source_deposit_instructions/allOf/1",
+      "/components/schemas/TransferReturnDetails",
+      "/components/schemas/TransferRouteResponse",
+      "/components/schemas/TransferSource",
+      "/components/schemas/TransferUpdateRequest",
+      "/components/schemas/UpdateBusinessCustomerPayload",
+      "/components/schemas/UpdateDeveloperFeeConfig",
+      "/components/schemas/UpdateExternalAccountInput",
+      "/components/schemas/UpdateIndividualCustomerPayload",
+      "/components/schemas/UpdateLiquidationAddress",
+      "/components/schemas/UpdateStaticMemo",
+      "/components/schemas/UpdateStaticMemoDestination",
+      "/components/schemas/UpdateVirtualAccount",
+      "/components/schemas/UpdateVirtualAccountDestination",
+      "/components/schemas/UsBankAccount",
+      "/components/schemas/UsBankAccountUpdate",
+      "/components/schemas/VirtualAccountDestination",
+      "/components/schemas/VirtualAccountEvent",
+      "/components/schemas/VirtualAccountEventSource",
+      "/components/schemas/VirtualAccountRefundDetails",
+      "/components/schemas/VirtualAccountSourceInput",
+      "/components/schemas/Webhook",
+      "/components/schemas/WebhookEventDeliveryLog"
+    ]
+  },
+  "schemaVariants": [
+    {
+      "source": "UsBankAccount",
+      "input": "UsBankAccountInput",
+      "outputRequired": ["routing_number", "last_4"],
+      "inputRequired": ["account_number", "routing_number"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountUsInput/allOf/1/properties/account/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "The shared bank schema marks account_number writeOnly and last_4 readOnly but requires both. Keep the documented response requirements on UsBankAccount and provide a request variant that requires writable account fields only."
+    },
+    {
+      "source": "IbanBankAccount",
+      "input": "IbanBankAccountInput",
+      "outputRequired": ["country", "last_4"],
+      "inputRequired": ["account_number", "country"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountIbanInput/allOf/1/properties/iban/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "IBAN account_number is writeOnly and last_4 is readOnly, although both are listed as required. Preserve the response shape and give create requests a direction-correct required list."
+    },
+    {
+      "source": "ClabeBankAccount",
+      "input": "ClabeBankAccountInput",
+      "outputRequired": ["last_4"],
+      "inputRequired": ["account_number"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountClabeInput/allOf/1/properties/clabe/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "CLABE account_number is writeOnly and last_4 is readOnly, although both are listed as required. Preserve the response shape and give create requests a direction-correct required list."
+    },
+    {
+      "source": "PixKeyBankAccount",
+      "input": "PixKeyBankAccountInput",
+      "outputRequired": ["account_preview"],
+      "inputRequired": ["pix_key"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountPixKeyInput/allOf/1/properties/pix_key/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "PixKeyBankAccount requires its writeOnly pix_key and readOnly account_preview together. Keep account_preview required for responses and require the supplied key for requests."
+    },
+    {
+      "source": "BrCodeBankAccount",
+      "input": "BrCodeBankAccountInput",
+      "outputRequired": ["account_preview"],
+      "inputRequired": ["br_code"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountBrCodeInput/allOf/1/properties/br_code/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "BrCodeBankAccount requires the writeOnly BR code and readOnly preview together. Keep the response preview requirement and give create requests their writable required field."
+    },
+    {
+      "source": "GbBankAccount",
+      "input": "GbBankAccountInput",
+      "outputRequired": ["last_4", "sort_code"],
+      "inputRequired": ["account_number", "sort_code"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountFPSInput/allOf/1/properties/account/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "GB account_number is writeOnly while last_4 is readOnly, but the upstream shared schema requires both. Preserve output requirements and define create requirements from writable fields."
+    },
+    {
+      "source": "BreBBankAccount",
+      "input": "BreBBankAccountInput",
+      "outputRequired": ["last_4"],
+      "inputRequired": ["bre_b_key"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountBreBInput/allOf/1/properties/account/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "The Bre-B key is writeOnly and last_4 is readOnly although both are required upstream. Preserve the masked response field and require only the supplied key on create."
+    },
+    {
+      "source": "CoBankTransferBankAccount",
+      "input": "CoBankTransferBankAccountInput",
+      "outputRequired": ["last_4", "routing_number"],
+      "inputRequired": ["account_number", "bank_code", "account_type", "document_type", "document_number", "phone_number"],
+      "requestRefs": [
+        "/components/schemas/CreateExternalAccountCoBankTransferInput/allOf/1/properties/account/$ref"
+      ],
+      "inputRefOverrides": [],
+      "reason": "CO bank transfer's required list describes supplied account details, but success responses expose only the readOnly last_4 and routing_number fields. Keep those response requirements and separate the create contract."
+    },
+    {
+      "source": "ExternalAccountUs",
+      "input": "ExternalAccountUsInput",
+      "requestRefs": [
+        "/components/schemas/CreateFeeExternalAccountInput/allOf/0/$ref"
+      ],
+      "inputRefOverrides": [
+        {
+          "pointer": "/allOf/1/properties/account/$ref",
+          "schema": "UsBankAccountInput"
+        }
+      ],
+      "reason": "CreateFeeExternalAccountInput currently points at the response variant, so its nested account requires response-only last_4. Clone the same request-compatible US rail shape and swap only its nested bank contract."
+    }
+  ],
+  "generatedSchemaOverrides": [
+    {
+      "name": "PostCustomersByCustomerIDCardAccountsByCardAccountIDStatementsPeriodPdf200ApplicationPdf",
+      "fromType": "string",
+      "type": "Uint8Array<ArrayBufferLike>",
+      "fromSchema": "Schema.String.annotate({ \"format\": \"binary\" })",
+      "schema": "Schema.Uint8Array.annotate({ \"format\": \"binary\" })",
+      "reason": "The rc.112 generator emits a string schema for OpenAPI format: binary, then applies HttpApiSchema.asUint8Array, which requires Uint8Array on the encoded side. Map this PDF transport schema to bytes."
+    },
+    {
+      "name": "PostCardholdersByCardholderIDCardsByCardIDStatementsPeriodPdf200ApplicationPdf",
+      "fromType": "string",
+      "type": "Uint8Array<ArrayBufferLike>",
+      "fromSchema": "Schema.String.annotate({ \"format\": \"binary\" })",
+      "schema": "Schema.Uint8Array.annotate({ \"format\": \"binary\" })",
+      "reason": "The rc.112 generator emits a string schema for OpenAPI format: binary, then applies HttpApiSchema.asUint8Array, which requires Uint8Array on the encoded side. Map this PDF transport schema to bytes."
+    }
+  ]
+}

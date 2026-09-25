@@ -48,9 +48,17 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
+      # The Bridge workerd smoke uses Wrangler 4.137.0, which requires Node 22.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build
         run: bun run build
       - name: Consumer check
         run: bun run test:consumer
+      - name: Bridge packed Node and Worker consumers
+        run: bun run --filter @misofm/bridge test:consumer
+      - name: Bridge local workerd runtime
+        run: bun run --filter @misofm/bridge test:workerd

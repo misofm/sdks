@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "code": "optional-request-body-approximated",
+      "message": "Optional request body was approximated by adding a no-content payload alternative.",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/ephemeral_keys",
+      "method": "post",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDEphemeralKeys"
+    },
+    {
+      "code": "optional-request-body-approximated",
+      "message": "Optional request body was approximated by adding a no-content payload alternative.",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/freeze",
+      "method": "post",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDFreeze"
+    },
+    {
+      "code": "optional-request-body-approximated",
+      "message": "Optional request body was approximated by adding a no-content payload alternative.",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/unfreeze",
+      "method": "post",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDUnfreeze"
+    },
+    {
+      "code": "optional-request-body-approximated",
+      "message": "Optional request body was approximated by adding a no-content payload alternative.",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/create_mobile_wallet_provisioning_request",
+      "method": "post",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDCreateMobileWalletProvisioningRequest"
+    },
+    {
+      "code": "response-headers-ignored",
+      "message": "Response headers on status 200 were ignored in HttpApi generation.",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/statements/{period}.pdf",
+      "method": "post",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDStatementsPeriodPdf"
+    },
+    {
+      "code": "response-headers-ignored",
+      "message": "Response headers on status 200 were ignored in HttpApi generation.",
+      "path": "/cardholders/{cardholderID}/cards/{cardID}/statements/{period}.pdf",
+      "method": "post",
+      "operationId": "postCardholdersByCardholderIDCardsByCardIDStatementsPeriodPdf"
+    }
+  ],
+  "review": {
+    "optional-request-body-approximated": "Four card-account POST request bodies omit `required`, whose OpenAPI 3.0 default is false. The overlay makes that explicit; rc.112 represents the optional body as an HttpApiSchema.NoContent alternative and emits this warning. Effect v4 rc.112 OpenApi.fromApi currently writes required:true for any non-empty body, so downstream OpenAPI round-tripping cannot preserve this source optionality, although the generated endpoint retains the no-content payload alternative.",
+    "response-headers-ignored": "The only two instances are the Content-Disposition attachment headers on the PDF statement endpoints. The generated HttpApi schema retains the application/pdf Uint8Array body, but rc.112 cannot describe response headers; consumers that need the filename can select decoded-and-response mode and inspect the raw HttpClientResponse."
+  }
+}

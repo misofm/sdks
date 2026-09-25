@@ -1,0 +1,79 @@
+{
+  "liquidationAddressRequest": {
+    "currency": "usdc",
+    "chain": "ethereum",
+    "external_account_id": "acctfixture01",
+    "destination_payment_rail": "ach",
+    "destination_currency": "usd"
+  },
+  "liquidationAddressResponse": {
+    "id": "lafixture01",
+    "chain": "ethereum",
+    "customer_id": "custfixture01",
+    "external_account_id": "acctfixture01",
+    "address": "0x0000000000000000000000000000000000000001",
+    "currency": "usdc",
+    "destination_payment_rail": "ach",
+    "destination_currency": "usd",
+    "supported_currencies": {
+      "ethereum": ["usdc"]
+    },
+    "state": "active",
+    "created_at": "2026-09-23T12:00:00.000Z",
+    "updated_at": "2026-09-23T12:00:00.000Z"
+  },
+  "cardAccountRequest": {
+    "currency": "usdc",
+    "chain": "ethereum"
+  },
+  "cardAccountResponse": {
+    "id": "cardfixture01",
+    "customer_id": "custfixture01",
+    "status": "active",
+    "balances": {
+      "available": {"amount": "10.00", "currency": "usdc"},
+      "hold": {"amount": "0.00", "currency": "usdc"}
+    },
+    "freezes": []
+  },
+  "cardFreezeResponse": {
+    "status": "freeze_created",
+    "card_account_id": "cardfixture01",
+    "initiator": "developer",
+    "reason": "planned_inactivity",
+    "created_at": "2026-09-23T12:00:00.000Z"
+  },
+  "prefundedAccount": {
+    "id": "f15972de-4cdd-460c-9da3-34f7321bfa3f",
+    "currency": "usd",
+    "available_balance": "134.12",
+    "name": "miso_fixture_account",
+    "created_at": "2020-01-01T00:00:00.000Z",
+    "updated_at": "2020-01-02T00:00:00.000Z"
+  },
+  "webhooks": {
+    "data": [
+      {
+        "id": "wep_c0ffee1234",
+        "url": "https://example.invalid/bridge-events",
+        "status": "active",
+        "public_key": "-----BEGIN PUBLIC KEY-----\nfixture-key-not-for-verification\n-----END PUBLIC KEY-----",
+        "event_categories": ["customer"]
+      }
+    ]
+  },
+  "developerFees": {
+    "default_liquidation_address_fee_percent": "1.3"
+  },
+  "countries": {
+    "count": 1,
+    "data": [
+      {
+        "name": "United States",
+        "alpha3": "USA",
+        "postal_code_format": "^\\d{5}(-\\d{4})?$",
+        "subdivisions": []
+      }
+    ]
+  }
+}

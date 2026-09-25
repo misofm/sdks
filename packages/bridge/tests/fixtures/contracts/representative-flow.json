@@ -1,0 +1,117 @@
+{
+  "customer": {
+    "type": "individual",
+    "first_name": "Miso",
+    "last_name": "Fixture",
+    "email": "miso.fixture@example.invalid"
+  },
+  "kycLink": {
+    "type": "individual",
+    "full_name": "Miso Fixture",
+    "email": "miso.fixture@example.invalid",
+    "redirect_uri": "https://example.invalid/kyc-complete"
+  },
+  "wallet": {
+    "chain": "ethereum"
+  },
+  "externalAccount": {
+    "currency": "usd",
+    "account_owner_name": "Miso Fixture",
+    "account_type": "us",
+    "account": {
+      "account_number": "000000000000",
+      "routing_number": "000000000",
+      "checking_or_savings": "checking"
+    },
+    "address": {
+      "street_line_1": "123 Fixture Street",
+      "city": "Example City",
+      "state": "CA",
+      "postal_code": "90000",
+      "country": "USA"
+    }
+  },
+  "transfer": {
+    "on_behalf_of": "custfixture01",
+    "amount": "12.34",
+    "source": {
+      "currency": "usdc",
+      "payment_rail": "ethereum",
+      "bridge_wallet_id": "walletfixture01"
+    },
+    "destination": {
+      "currency": "usd",
+      "payment_rail": "ach",
+      "external_account_id": "acctfixture01"
+    }
+  },
+  "webhook": {
+    "api_version": "2026-09-23",
+    "event_id": "evtfixture01",
+    "event_developer_id": "devfixture01",
+    "event_category": "customer",
+    "event_type": "created",
+    "event_object_id": "custfixture01",
+    "event_object_status": "active",
+    "event_object": {
+      "id": "custfixture01",
+      "type": "individual"
+    },
+    "event_object_changes": {
+      "status": "active"
+    },
+    "event_created_at": "2026-09-23T12:00:00.000Z"
+  },
+  "responses": {
+    "customer": {
+      "id": "custfixture01",
+      "type": "individual",
+      "first_name": "Miso",
+      "last_name": "Fixture",
+      "email": "miso.fixture@example.invalid",
+      "status": "active"
+    },
+    "kycLink": {
+      "id": "kycfixture01",
+      "full_name": "Miso Fixture",
+      "email": "miso.fixture@example.invalid",
+      "type": "individual",
+      "kyc_link": "https://example.invalid/kyc/fixture",
+      "tos_link": "https://example.invalid/tos/fixture",
+      "kyc_status": "not_started",
+      "tos_status": "pending",
+      "customer_id": "custfixture01"
+    },
+    "wallet": {
+      "id": "walletfixture01",
+      "chain": "ethereum",
+      "address": "0x0000000000000000000000000000000000000001"
+    },
+    "transfer": {
+      "id": "transferfixture01",
+      "amount": "12.34",
+      "developer_fee": "0.00",
+      "currency": "usd",
+      "on_behalf_of": "custfixture01",
+      "source": {
+        "currency": "usdc",
+        "payment_rail": "ethereum",
+        "bridge_wallet_id": "walletfixture01"
+      },
+      "destination": {
+        "currency": "usd",
+        "payment_rail": "ach",
+        "external_account_id": "acctfixture01"
+      },
+      "state": "awaiting_funds",
+      "receipt": {
+        "initial_amount": "12.34",
+        "developer_fee": "0.00",
+        "exchange_fee": "0.00",
+        "subtotal_amount": "12.34"
+      },
+      "created_at": "2026-09-23T12:00:00.000Z",
+      "updated_at": "2026-09-23T12:00:00.000Z"
+    }
+  }
+}

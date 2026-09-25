@@ -1,0 +1,837 @@
+{
+  "sourceSha256": "e8aee6cee1b5518d81f384c8b718dd9d9154dd9eb55345ff73d8b8dbe88327f2",
+  "groups": {
+    "API Keys": "apiKeys",
+    "Associated Persons": "associatedPersons",
+    "Batch Settlements": "batchSettlements",
+    "Bridge Wallets": "bridgeWallets",
+    "Cards": "cards",
+    "Crypto Return Policies": "cryptoReturnPolicies",
+    "Customers": "customers",
+    "Developer Fees": "developerFees",
+    "Developers": "developers",
+    "Exchange Rates": "exchangeRates",
+    "External Accounts": "externalAccounts",
+    "Fiat Payout Configuration": "fiatPayoutConfiguration",
+    "Funds Requests": "fundsRequests",
+    "KYC Links": "kycLinks",
+    "Liquidation Addresses": "liquidationAddresses",
+    "Lists": "lists",
+    "Plaid": "plaid",
+    "Prefunded Accounts": "prefundedAccounts",
+    "Rewards": "rewards",
+    "RFIs": "rfis",
+    "Sandbox": "sandbox",
+    "Static Memos": "staticMemos",
+    "Transfers": "transfers",
+    "Travel Rule": "travelRule",
+    "Virtual Accounts": "virtualAccounts",
+    "Webhooks": "webhooks"
+  },
+  "operations": [
+    {
+      "method": "post",
+      "path": "/api_keys",
+      "operationId": "postApiKeys",
+      "group": "apiKeys"
+    },
+    {
+      "method": "get",
+      "path": "/api_keys/whoami",
+      "operationId": "getApiKeysWhoami",
+      "group": "apiKeys"
+    },
+    {
+      "method": "get",
+      "path": "/associated_persons/{associatedPersonID}",
+      "operationId": "getAssociatedPersonsByAssociatedPersonID",
+      "group": "associatedPersons"
+    },
+    {
+      "method": "put",
+      "path": "/associated_persons/{associatedPersonID}",
+      "operationId": "putAssociatedPersonsByAssociatedPersonID",
+      "group": "associatedPersons"
+    },
+    {
+      "method": "delete",
+      "path": "/associated_persons/{associatedPersonID}",
+      "operationId": "deleteAssociatedPersonsByAssociatedPersonID",
+      "group": "associatedPersons"
+    },
+    {
+      "method": "post",
+      "path": "/cardholders/{cardholderID}/cards/{cardID}/statements/{period}.pdf",
+      "operationId": "postCardholdersByCardholderIDCardsByCardIDStatementsPeriodPdf",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/crypto_return_policies",
+      "operationId": "getCryptoReturnPolicies",
+      "group": "cryptoReturnPolicies"
+    },
+    {
+      "method": "post",
+      "path": "/crypto_return_policies",
+      "operationId": "postCryptoReturnPolicies",
+      "group": "cryptoReturnPolicies"
+    },
+    {
+      "method": "put",
+      "path": "/crypto_return_policies/{policyID}",
+      "operationId": "putCryptoReturnPoliciesByPolicyID",
+      "group": "cryptoReturnPolicies"
+    },
+    {
+      "method": "delete",
+      "path": "/crypto_return_policies/{policyID}",
+      "operationId": "deleteCryptoReturnPoliciesByPolicyID",
+      "group": "cryptoReturnPolicies"
+    },
+    {
+      "method": "get",
+      "path": "/customers",
+      "operationId": "getCustomers",
+      "group": "customers"
+    },
+    {
+      "method": "post",
+      "path": "/customers",
+      "operationId": "postCustomers",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}",
+      "operationId": "getCustomersByCustomerID",
+      "group": "customers"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}",
+      "operationId": "putCustomersByCustomerID",
+      "group": "customers"
+    },
+    {
+      "method": "delete",
+      "path": "/customers/{customerID}",
+      "operationId": "deleteCustomersByCustomerID",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/associated_persons",
+      "operationId": "getCustomersByCustomerIDAssociatedPersons",
+      "group": "customers"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/associated_persons",
+      "operationId": "postCustomersByCustomerIDAssociatedPersons",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/associated_persons/{associatedPersonID}",
+      "operationId": "getCustomersByCustomerIDAssociatedPersonsByAssociatedPersonID",
+      "group": "customers"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/associated_persons/{associatedPersonID}",
+      "operationId": "putCustomersByCustomerIDAssociatedPersonsByAssociatedPersonID",
+      "group": "customers"
+    },
+    {
+      "method": "delete",
+      "path": "/customers/{customerID}/associated_persons/{associatedPersonID}",
+      "operationId": "deleteCustomersByCustomerIDAssociatedPersonsByAssociatedPersonID",
+      "group": "customers"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/batch_settlement_schedules",
+      "operationId": "postCustomersByCustomerIDBatchSettlementSchedules",
+      "group": "batchSettlements"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts",
+      "operationId": "getCustomersByCustomerIDCardAccounts",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts",
+      "operationId": "postCustomersByCustomerIDCardAccounts",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountID",
+      "group": "cards"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}",
+      "operationId": "putCustomersByCustomerIDCardAccountsByCardAccountID",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/auth_controls",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDAuthControls",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/authorizations",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDAuthorizations",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/create_mobile_wallet_provisioning_request",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDCreateMobileWalletProvisioningRequest",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/deposit_addresses",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDDepositAddresses",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/ephemeral_keys",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDEphemeralKeys",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/freeze",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDFreeze",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/pin",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDPin",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/statements/{period}.pdf",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDStatementsPeriodPdf",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/transactions",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDTransactions",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/transactions/{transactionID}",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDTransactionsByTransactionID",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/unfreeze",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDUnfreeze",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/withdrawals",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDWithdrawals",
+      "group": "cards"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/withdrawals",
+      "operationId": "postCustomersByCustomerIDCardAccountsByCardAccountIDWithdrawals",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/card_accounts/{cardAccountID}/withdrawals/{cardWithdrawalID}",
+      "operationId": "getCustomersByCustomerIDCardAccountsByCardAccountIDWithdrawalsByCardWithdrawalID",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/external_accounts",
+      "operationId": "getCustomersByCustomerIDExternalAccounts",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/external_accounts",
+      "operationId": "postCustomersByCustomerIDExternalAccounts",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}",
+      "operationId": "getCustomersByCustomerIDExternalAccountsByExternalAccountID",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}",
+      "operationId": "putCustomersByCustomerIDExternalAccountsByExternalAccountID",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "delete",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}",
+      "operationId": "deleteCustomersByCustomerIDExternalAccountsByExternalAccountID",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}/deactivate",
+      "operationId": "postCustomersByCustomerIDExternalAccountsByExternalAccountIDDeactivate",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}/reactivate",
+      "operationId": "postCustomersByCustomerIDExternalAccountsByExternalAccountIDReactivate",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/external_accounts/{externalAccountID}/verify",
+      "operationId": "postCustomersByCustomerIDExternalAccountsByExternalAccountIDVerify",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/fiat_payout_configuration",
+      "operationId": "getCustomersByCustomerIDFiatPayoutConfiguration",
+      "group": "fiatPayoutConfiguration"
+    },
+    {
+      "method": "patch",
+      "path": "/customers/{customerID}/fiat_payout_configuration",
+      "operationId": "patchCustomersByCustomerIDFiatPayoutConfiguration",
+      "group": "fiatPayoutConfiguration"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/kyc_link",
+      "operationId": "getCustomersByCustomerIDKycLink",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/liquidation_addresses",
+      "operationId": "getCustomersByCustomerIDLiquidationAddresses",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/liquidation_addresses",
+      "operationId": "postCustomersByCustomerIDLiquidationAddresses",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/liquidation_addresses/{liquidationAddressID}",
+      "operationId": "getCustomersByCustomerIDLiquidationAddressesByLiquidationAddressID",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/liquidation_addresses/{liquidationAddressID}",
+      "operationId": "putCustomersByCustomerIDLiquidationAddressesByLiquidationAddressID",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/liquidation_addresses/{liquidationAddressID}/balances",
+      "operationId": "getCustomersByCustomerIDLiquidationAddressesByLiquidationAddressIDBalances",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/liquidation_addresses/{liquidationAddressID}/drains",
+      "operationId": "getCustomersByCustomerIDLiquidationAddressesByLiquidationAddressIDDrains",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/liquidation_addresses/{liquidationAddressID}/drains/{drainID}/execute",
+      "operationId": "postCustomersByCustomerIDLiquidationAddressesByLiquidationAddressIDDrainsByDrainIDExecute",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/plaid_link_requests",
+      "operationId": "postCustomersByCustomerIDPlaidLinkRequests",
+      "group": "plaid"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/simulate_kyc_approval",
+      "operationId": "postCustomersByCustomerIDSimulateKycApproval",
+      "group": "sandbox"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/static_memos",
+      "operationId": "getCustomersByCustomerIDStaticMemos",
+      "group": "staticMemos"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/static_memos",
+      "operationId": "postCustomersByCustomerIDStaticMemos",
+      "group": "staticMemos"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/static_memos/{staticMemoID}",
+      "operationId": "getCustomersByCustomerIDStaticMemosByStaticMemoID",
+      "group": "staticMemos"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/static_memos/{staticMemoID}",
+      "operationId": "putCustomersByCustomerIDStaticMemosByStaticMemoID",
+      "group": "staticMemos"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/static_memos/{staticMemoID}/history",
+      "operationId": "getCustomersByCustomerIDStaticMemosByStaticMemoIDHistory",
+      "group": "staticMemos"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/tos_acceptance_link",
+      "operationId": "getCustomersByCustomerIDTosAcceptanceLink",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/transfers",
+      "operationId": "getCustomersByCustomerIDTransfers",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/transfers/static_templates",
+      "operationId": "getCustomersByCustomerIDTransfersStaticTemplates",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/virtual_accounts",
+      "operationId": "getCustomersByCustomerIDVirtualAccounts",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/virtual_accounts",
+      "operationId": "postCustomersByCustomerIDVirtualAccounts",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/virtual_accounts/{virtualAccountID}",
+      "operationId": "getCustomersByCustomerIDVirtualAccountsByVirtualAccountID",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "put",
+      "path": "/customers/{customerID}/virtual_accounts/{virtualAccountID}",
+      "operationId": "putCustomersByCustomerIDVirtualAccountsByVirtualAccountID",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/virtual_accounts/{virtualAccountID}/deactivate",
+      "operationId": "postCustomersByCustomerIDVirtualAccountsByVirtualAccountIDDeactivate",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/virtual_accounts/{virtualAccountID}/history",
+      "operationId": "getCustomersByCustomerIDVirtualAccountsByVirtualAccountIDHistory",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/virtual_accounts/{virtualAccountID}/reactivate",
+      "operationId": "postCustomersByCustomerIDVirtualAccountsByVirtualAccountIDReactivate",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/wallets",
+      "operationId": "getCustomersByCustomerIDWallets",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "post",
+      "path": "/customers/{customerID}/wallets",
+      "operationId": "postCustomersByCustomerIDWallets",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "get",
+      "path": "/customers/{customerID}/wallets/{bridgeWalletID}",
+      "operationId": "getCustomersByCustomerIDWalletsByBridgeWalletID",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "post",
+      "path": "/customers/tos_links",
+      "operationId": "postCustomersTosLinks",
+      "group": "customers"
+    },
+    {
+      "method": "get",
+      "path": "/developer/cards/designs",
+      "operationId": "getDeveloperCardsDesigns",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/developer/cards/summary",
+      "operationId": "getDeveloperCardsSummary",
+      "group": "cards"
+    },
+    {
+      "method": "get",
+      "path": "/developer/fee_external_account",
+      "operationId": "getDeveloperFeeExternalAccount",
+      "group": "developers"
+    },
+    {
+      "method": "post",
+      "path": "/developer/fee_external_account",
+      "operationId": "postDeveloperFeeExternalAccount",
+      "group": "developers"
+    },
+    {
+      "method": "get",
+      "path": "/developer/fees",
+      "operationId": "getDeveloperFees",
+      "group": "developers"
+    },
+    {
+      "method": "post",
+      "path": "/developer/fees",
+      "operationId": "postDeveloperFees",
+      "group": "developers"
+    },
+    {
+      "method": "get",
+      "path": "/exchange_rates",
+      "operationId": "getExchangeRates",
+      "group": "exchangeRates"
+    },
+    {
+      "method": "get",
+      "path": "/external_accounts",
+      "operationId": "getExternalAccounts",
+      "group": "externalAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/fees/configurations",
+      "operationId": "getFeesConfigurations",
+      "group": "developerFees"
+    },
+    {
+      "method": "post",
+      "path": "/fees/configurations",
+      "operationId": "postFeesConfigurations",
+      "group": "developerFees"
+    },
+    {
+      "method": "get",
+      "path": "/fees/configurations/{developerFeeConfigID}",
+      "operationId": "getFeesConfigurationsByDeveloperFeeConfigID",
+      "group": "developerFees"
+    },
+    {
+      "method": "put",
+      "path": "/fees/configurations/{developerFeeConfigID}",
+      "operationId": "putFeesConfigurationsByDeveloperFeeConfigID",
+      "group": "developerFees"
+    },
+    {
+      "method": "get",
+      "path": "/funds_requests",
+      "operationId": "getFundsRequests",
+      "group": "fundsRequests"
+    },
+    {
+      "method": "get",
+      "path": "/kyc_links",
+      "operationId": "getKycLinks",
+      "group": "kycLinks"
+    },
+    {
+      "method": "post",
+      "path": "/kyc_links",
+      "operationId": "postKycLinks",
+      "group": "kycLinks"
+    },
+    {
+      "method": "get",
+      "path": "/kyc_links/{kycLinkID}",
+      "operationId": "getKycLinksByKycLinkID",
+      "group": "kycLinks"
+    },
+    {
+      "method": "get",
+      "path": "/liquidation_addresses",
+      "operationId": "getLiquidationAddresses",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/liquidation_addresses/drains",
+      "operationId": "getLiquidationAddressesDrains",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/liquidation_addresses/drains/pending",
+      "operationId": "getLiquidationAddressesDrainsPending",
+      "group": "liquidationAddresses"
+    },
+    {
+      "method": "get",
+      "path": "/lists/countries",
+      "operationId": "getListsCountries",
+      "group": "lists"
+    },
+    {
+      "method": "get",
+      "path": "/lists/occupation_codes",
+      "operationId": "getListsOccupationCodes",
+      "group": "lists"
+    },
+    {
+      "method": "post",
+      "path": "/plaid_exchange_public_token/{link_token}",
+      "operationId": "postPlaidExchangePublicTokenByLinkToken",
+      "group": "plaid"
+    },
+    {
+      "method": "get",
+      "path": "/prefunded_accounts",
+      "operationId": "getPrefundedAccounts",
+      "group": "prefundedAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/prefunded_accounts/{prefundedAccountID}",
+      "operationId": "getPrefundedAccountsByPrefundedAccountID",
+      "group": "prefundedAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/prefunded_accounts/{prefundedAccountID}/history",
+      "operationId": "getPrefundedAccountsByPrefundedAccountIDHistory",
+      "group": "prefundedAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/rewards/{currency}",
+      "operationId": "getRewardsByCurrency",
+      "group": "rewards"
+    },
+    {
+      "method": "get",
+      "path": "/rewards/{currency}/customer/{customerID}",
+      "operationId": "getRewardsByCurrencyCustomerByCustomerID",
+      "group": "rewards"
+    },
+    {
+      "method": "get",
+      "path": "/rewards/{currency}/customer/{customerID}/history",
+      "operationId": "getRewardsByCurrencyCustomerByCustomerIDHistory",
+      "group": "rewards"
+    },
+    {
+      "method": "get",
+      "path": "/rewards/{currency}/history",
+      "operationId": "getRewardsByCurrencyHistory",
+      "group": "rewards"
+    },
+    {
+      "method": "get",
+      "path": "/rfis",
+      "operationId": "getRfis",
+      "group": "rfis"
+    },
+    {
+      "method": "get",
+      "path": "/rfis/{rfiID}",
+      "operationId": "getRfisByRfiID",
+      "group": "rfis"
+    },
+    {
+      "method": "get",
+      "path": "/static_memos",
+      "operationId": "getStaticMemos",
+      "group": "staticMemos"
+    },
+    {
+      "method": "get",
+      "path": "/static_memos/history",
+      "operationId": "getStaticMemosHistory",
+      "group": "staticMemos"
+    },
+    {
+      "method": "get",
+      "path": "/transfers",
+      "operationId": "getTransfers",
+      "group": "transfers"
+    },
+    {
+      "method": "post",
+      "path": "/transfers",
+      "operationId": "postTransfers",
+      "group": "transfers"
+    },
+    {
+      "method": "get",
+      "path": "/transfers/{transferID}",
+      "operationId": "getTransfersByTransferID",
+      "group": "transfers"
+    },
+    {
+      "method": "put",
+      "path": "/transfers/{transferID}",
+      "operationId": "putTransfersByTransferID",
+      "group": "transfers"
+    },
+    {
+      "method": "delete",
+      "path": "/transfers/{transferID}",
+      "operationId": "deleteTransfersByTransferID",
+      "group": "transfers"
+    },
+    {
+      "method": "post",
+      "path": "/transfers/{transferID}/execute",
+      "operationId": "postTransfersByTransferIDExecute",
+      "group": "transfers"
+    },
+    {
+      "method": "get",
+      "path": "/transfers/pending",
+      "operationId": "getTransfersPending",
+      "group": "transfers"
+    },
+    {
+      "method": "get",
+      "path": "/transfers/static_templates",
+      "operationId": "getTransfersStaticTemplates",
+      "group": "transfers"
+    },
+    {
+      "method": "post",
+      "path": "/travel_rule_data/{id}",
+      "operationId": "postTravelRuleDataById",
+      "group": "travelRule"
+    },
+    {
+      "method": "get",
+      "path": "/virtual_accounts",
+      "operationId": "getVirtualAccounts",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/virtual_accounts/history",
+      "operationId": "getVirtualAccountsHistory",
+      "group": "virtualAccounts"
+    },
+    {
+      "method": "get",
+      "path": "/wallets",
+      "operationId": "getWallets",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "get",
+      "path": "/wallets/{bridgeWalletID}",
+      "operationId": "getWalletsByBridgeWalletID",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "get",
+      "path": "/wallets/{bridgeWalletID}/history",
+      "operationId": "getWalletsByBridgeWalletIDHistory",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "get",
+      "path": "/wallets/total_balances",
+      "operationId": "getWalletsTotalBalances",
+      "group": "bridgeWallets"
+    },
+    {
+      "method": "get",
+      "path": "/webhook_events",
+      "operationId": "getWebhookEvents",
+      "group": "webhooks"
+    },
+    {
+      "method": "get",
+      "path": "/webhooks",
+      "operationId": "getWebhooks",
+      "group": "webhooks"
+    },
+    {
+      "method": "post",
+      "path": "/webhooks",
+      "operationId": "postWebhooks",
+      "group": "webhooks"
+    },
+    {
+      "method": "put",
+      "path": "/webhooks/{webhookID}",
+      "operationId": "putWebhooksByWebhookID",
+      "group": "webhooks"
+    },
+    {
+      "method": "delete",
+      "path": "/webhooks/{webhookID}",
+      "operationId": "deleteWebhooksByWebhookID",
+      "group": "webhooks"
+    },
+    {
+      "method": "get",
+      "path": "/webhooks/{webhookID}/events",
+      "operationId": "getWebhooksByWebhookIDEvents",
+      "group": "webhooks"
+    },
+    {
+      "method": "get",
+      "path": "/webhooks/{webhookID}/logs",
+      "operationId": "getWebhooksByWebhookIDLogs",
+      "group": "webhooks"
+    },
+    {
+      "method": "post",
+      "path": "/webhooks/{webhookID}/send",
+      "operationId": "postWebhooksByWebhookIDSend",
+      "group": "webhooks"
+    }
+  ]
+}

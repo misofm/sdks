@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["scripts", "src", "tests"],
+  "exclude": ["tests/consumer"],
+  "compilerOptions": {
+    "types": ["bun"],
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true
+  }
+}

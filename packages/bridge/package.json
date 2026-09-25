@@ -1,0 +1,87 @@
+{
+  "name": "@misofm/bridge",
+  "version": "0.1.0",
+  "packageManager": "bun@1.4.0",
+  "description": "Portable Effect v4 SDK for the Bridge API",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misofm/sdks.git",
+    "directory": "packages/bridge"
+  },
+  "homepage": "https://github.com/misofm/sdks#readme",
+  "bugs": {
+    "url": "https://github.com/misofm/sdks/issues"
+  },
+  "keywords": [
+    "bridge",
+    "effect",
+    "miso",
+    "sdk"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./bridge": {
+      "types": "./dist/Bridge.d.ts",
+      "default": "./dist/Bridge.js"
+    },
+    "./generated": {
+      "types": "./dist/generated/BridgeApi.d.ts",
+      "default": "./dist/generated/BridgeApi.js"
+    },
+    "./pagination": {
+      "types": "./dist/Pagination.d.ts",
+      "default": "./dist/Pagination.js"
+    },
+    "./webhooks": {
+      "types": "./dist/Webhooks.d.ts",
+      "default": "./dist/Webhooks.js"
+    },
+    "./errors": {
+      "types": "./dist/Errors.d.ts",
+      "default": "./dist/Errors.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "docs",
+    "examples",
+    "LICENSE",
+    "package.json"
+  ],
+  "scripts": {
+    "generate": "bun scripts/generate.ts",
+    "generate:check": "bun scripts/generate.ts --check",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test",
+    "build": "tsc -p tsconfig.build.json",
+    "test:consumer": "bun scripts/check-consumer.ts",
+    "test:workerd": "bun scripts/check-workerd.ts"
+  },
+  "devDependencies": {
+    "@effect/openapi-generator": "4.0.0-rc.112",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@types/bun": "^1.4.0",
+    "effect": "4.0.0-rc.112",
+    "typescript": "^7.0.2",
+    "wrangler": "4.137.0"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112",
+    "typescript": "^5.7 || ^6 || ^7"
+  }
+}
