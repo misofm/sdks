@@ -54,11 +54,13 @@ if (runtime === "node") {
   // tarballs reach npm only through `overrides`.
   await run("npm", [
     "install",
+    "--strict-peer-deps",
     "--ignore-scripts",
     tarball,
-    "effect@4.0.3",
-    "@effect/platform-node@4.0.3",
+    "effect@4.0.4",
+    "@effect/platform-node@4.0.4",
   ]);
+  await run("npm", ["ls"]);
   await run("node", [
     "--input-type=module",
     "-e",
@@ -70,8 +72,8 @@ if (runtime === "node") {
     "--ignore-scripts",
     tarball,
     ...extras,
-    "effect@4.0.3",
-    "@effect/platform-node@4.0.3",
+    "effect@4.0.4",
+    "@effect/platform-node@4.0.4",
   ]);
   await run("bun", [
     "-e",

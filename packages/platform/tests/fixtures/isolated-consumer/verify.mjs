@@ -271,8 +271,10 @@ assertSingleInstance("@mysten/sui");
 assertSingleInstance("effect");
 
 // `@mysten/bcs` is a peer of partyos, musicos and platform (not a bundled
-// dependency), so codecs generated in one package and parsed in another
-// share one `BcsType` implementation.
+// dependency). The runtime codecs come through `@mysten/sui/bcs`; the peer is
+// type-only (the generated declarations `import type {} from "@mysten/bcs"`),
+// so one installed copy keeps the `BcsType` types in the packed `.d.ts` files
+// identical to the ones `@mysten/sui` exposes.
 assertSingleInstance("@mysten/bcs");
 
 // A consumer that ends up resolving two copies of the same `@misofm/*`

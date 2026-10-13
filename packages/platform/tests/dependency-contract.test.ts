@@ -14,8 +14,12 @@ const repositoryRoot = `${import.meta.dir}/..`;
 // The pinned development version of each package the SDK builds against, and
 // the (wider) peer range consumers may bring. The dev pin must satisfy the
 // peer range, and a consumer must not install the package itself.
+//
+// CI also runs the SDKs against other releases inside the peer range
+// (`scripts/use-sui-version.ts`, the `sui-matrix` job): it rewrites the dev pin
+// and sets MISO_SUI_VERSION, which replaces the expected development version.
 const pinnedVersions = {
-  "@mysten/sui": { development: "2.29.0", peer: "^2.29.0" },
+  "@mysten/sui": { development: process.env["MISO_SUI_VERSION"] ?? "2.29.0", peer: "^2.29.0" },
 } as const;
 const exactVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
@@ -57,9 +61,10 @@ test("Sui is pinned for development and a caret range for consumers", async () =
     expect(developmentVersion, `${name} devDependency must be exact`).toMatch(
       exactVersionPattern,
     );
-    expect(peerVersion, `${name} peer range must admit the dev pin`).toBe(
-      `^${developmentVersion}`,
-    );
+    expect(
+      Bun.semver.satisfies(developmentVersion ?? "", peerVersion ?? ""),
+      `${name} peer range must admit the dev pin`,
+    ).toBe(true);
     expect(
       consumer.devDependencies?.[name] ?? consumer.dependencies?.[name],
       `${name} must be resolved only through the SDK peer contract`,
@@ -86,6 +91,6 @@ test("Effect, sui-effect and bcs are peers on the stable 4.0.x line", async () =
   // bundled dependency.
   expect(manifest.peerDependencies?.["@mysten/bcs"]).toBe("^2.1.1");
   expect(manifest.dependencies?.["@mysten/bcs"]).toBeUndefined();
-  expect(manifest.devDependencies?.effect).toBe("4.0.3");
+  expect(manifest.devDependencies?.effect).toBe("4.0.4");
   expect(manifest.devDependencies?.["@unconfirmed/sui-effect"]).toBe("0.3.0");
 });

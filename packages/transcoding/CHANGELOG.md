@@ -4,8 +4,8 @@ All notable changes to `@misofm/transcoding`, newest first.
 
 ## 0.5.0
 
-Moves the package from Effect `4.0.0-rc.112` to stable Effect `4.0.3` and
-`@effect/platform-node` `4.0.3`, on top of `@misofm/streaming` 0.4.0. The public API and the
+Moves the package from Effect `4.0.0-rc.112` to stable Effect `4.0.x` (developed and tested on `4.0.4`, peer floor `4.0.3`) and
+`@effect/platform-node` `4.0.4`, on top of `@misofm/streaming` 0.4.0. The public API and the
 transcode output are unchanged: no export was added, removed or re-typed (the built `.d.ts`
 files are identical to 0.4.0), the source needed no change, and the pinned-FFmpeg golden
 and the cancellation test produce the same results.
@@ -33,15 +33,22 @@ semantics (`Effect.uninterruptible`, `Effect.acquireUseRelease` for the workspac
   (Effect #8585).
 
 The ffmpeg integration test (cancel a running transcode, then acquire the workspace lock;
-byte-golden artifacts under the pinned FFmpeg) passes on both the rc.112 and the 4.0.3
+byte-golden artifacts under the pinned FFmpeg) passes on both the rc.112 and the 4.0.4
 builds. If you wrap a transcode in your own `Effect.race`/timeout, note that losers that are
 still starting are now interrupted.
 
 ### Migrating from 0.4.x
 
-1. Move the whole Effect release train to stable together: `effect@4.0.3` and
-   `@effect/platform-node@4.0.3` (and any other `@effect/*` package). Pin `4.0.x`
-   explicitly; the `rc` dist-tag still points at a release candidate.
+1. Move the whole Effect release train to stable together and pin it to one `4.0.x`
+   version, for example `"effect": "4.0.4"` with `"@effect/platform-node": "4.0.4"` (both are peers of this package) and every
+   other `@effect/*` package you use at `4.0.4` (`4.0.3` works too, if all of them match).
+   Do not rely on the peer range alone: it admits `>=4.0.3 <4.1`, but each `@effect/*` package
+   peers on its own `effect` floor (for example `@effect/platform-node@4.0.4` and its
+   `@effect/platform-node-shared` need `effect ^4.0.4`), so an unpinned install can resolve an
+   invalid tree (npm `ERESOLVE` / `ELSPROBLEMS`). A mixed release-candidate and stable install
+   fails to resolve `effect/*` module paths, and two `effect` copies give the shared
+   `Context.Service` tags and tagged-error classes different identities. The `rc` dist-tag
+   still points at a release candidate.
 2. Nothing to change in code that imports from `@misofm/transcoding`.
 3. Review `partition`/`separate` destructuring in your own code: 4.0.x returns
    `[successes, failures]`.

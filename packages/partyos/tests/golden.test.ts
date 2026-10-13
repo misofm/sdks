@@ -6,7 +6,7 @@
 // holds the exact sponsored TransactionData bytes and digests that
 // `createIndividualParty` / `createGroupParty` produced at
 // misofm/sdks@56af6a7 (the last release on the rc.112 stack); this test pins
-// that the Effect 4.0.3 port builds byte-identical transactions, so a consumer
+// that the Effect 4.0.x port builds byte-identical transactions, so a consumer
 // that reproduces them in another language (the Rust platform, platform-ts)
 // keeps matching.
 
