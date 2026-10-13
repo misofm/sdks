@@ -35,6 +35,35 @@ jobs:
             echo "::endgroup::"
           done
 
+  # The object-model SDKs peer on `@mysten/sui ^2.29.0` but are developed
+  # against the exact 2.29.0 pin. Run their typecheck and tests against the
+  # pin and the next release inside the range, so a widened peer is proven,
+  # not assumed. The lockfile is deliberately not frozen here: the script
+  # rewrites the dev pins first.
+  sui-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sui: ["2.29.0", "2.30.0"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - name: Pin @mysten/sui ${{ matrix.sui }}
+        run: bun scripts/use-sui-version.ts ${{ matrix.sui }}
+      - name: Install dependencies
+        run: bun install
+      - name: Typecheck and test partyos, musicos, platform
+        env:
+          MISO_SUI_VERSION: ${{ matrix.sui }}
+        run: |
+          for pkg in partyos musicos platform; do
+            bun run --filter "@misofm/$pkg" typecheck
+            bun run --filter "@misofm/$pkg" test
+          done
+
   # Packs every workspace package into a real tarball and installs them into
   # an isolated fixture consumer, then typechecks and runs it. Inside the
   # workspace every import resolves locally regardless of a package's

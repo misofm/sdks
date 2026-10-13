@@ -23,8 +23,14 @@ function unscopedName(pkgName: string): string {
   return pkgName.includes("/") ? pkgName.split("/")[1]! : pkgName;
 }
 
+// `@misofm/effect` is deprecated and frozen on `effect@4.0.0-rc.112` (it was
+// not ported to the stable 4.0.x line; sui-effect supersedes it). It cannot
+// share an install with the ported packages, so the consumer fixture does not
+// include it. Its own build and tests still run in the workspace.
+const FROZEN_PACKAGES = new Set(["effect"]);
+
 const packageDirs = readdirSync(packagesDir, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
+  .filter((entry) => entry.isDirectory() && !FROZEN_PACKAGES.has(entry.name))
   .map((entry) => entry.name)
   .sort();
 
@@ -60,10 +66,14 @@ rmSync(join(fixtureDir, "node_modules"), { recursive: true, force: true });
 rmSync(join(fixtureDir, "package-lock.json"), { force: true });
 
 console.log("test:consumer: installing isolated-consumer fixture");
-execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
+// `--strict-peer-deps` and `npm ls` fail on an invalid peer tree (for example
+// an `@effect/*` package whose `effect` peer floor is newer than the pinned
+// `effect`), which npm would otherwise only warn about.
+execFileSync("npm", ["install", "--strict-peer-deps", "--ignore-scripts", "--no-audit", "--no-fund"], {
   cwd: fixtureDir,
   stdio: "inherit",
 });
+execFileSync("npm", ["ls"], { cwd: fixtureDir, stdio: "inherit" });
 
 console.log("test:consumer: running isolated-consumer check (tsc + verify.mjs)");
 execFileSync("npm", ["run", "check"], { cwd: fixtureDir, stdio: "inherit" });

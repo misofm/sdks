@@ -297,7 +297,7 @@ export class Partyos extends Context.Service<Partyos, PartyosService>()("@misofm
   static readonly layerConfig: Layer.Layer<Partyos, Config.ConfigError | PartyosDeploymentError, Sui> =
     Layer.unwrap(
       Effect.gen(function* () {
-        const packageId = yield* Config.nonEmptyString("PACKAGE_ID").pipe(Config.option, Config.nested("PARTYOS"));
+        const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.option, Config.nested("PARTYOS"));
         // The raw config value is handed to `layer` unvalidated: `layer`
         // itself runs it through `validatePartyDeployment` (a typed Effect
         // failure), so a malformed `PARTYOS_PACKAGE_ID` is a

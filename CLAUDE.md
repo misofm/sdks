@@ -70,10 +70,14 @@ opinion Miso's product adds on top — including every `party_*` extension — i
 
 ## Effect conventions
 
-- Effect v4 release candidate, pinned exactly (see any package's `peerDependencies`). Read
+- Stable Effect v4 (`>=4.0.3 <4.1`; see any package's `peerDependencies`). Move `effect` and every
+  `@effect/*` package together. `@misofm/effect` is the exception: deprecated and frozen on
+  `4.0.0-rc.112`, outside the release train. Read
   `node_modules/effect/AGENTS.md` and `ai-docs/` before writing Effect code; v4 is not v3.
-- I/O returns `Effect` with `SuiClient` (from `@misofm/effect`) in the requirements; client
-  extension classes provide the layer internally. PTB builders stay synchronous.
+- I/O returns `Effect` with `Sui` (from `@unconfirmed/sui-effect`; `Miso` also needs
+  `SuiGraphQL`) in the requirements; each service ships `layer`/`layerConfig`/`layerTest`, and
+  the derived Promise registrations (`musicos()`, `partyos()`, `miso()`) provide that service
+  themselves. PTB builders stay synchronous.
 - Failures are `Schema.TaggedError` classes in each package's `src/errors.ts` (`./errors`
   subpath); never throw strings or plain `Error` from public reads.
 - Domain types are `Schema.Class`; generated BCS shapes under `src/contracts/` never appear

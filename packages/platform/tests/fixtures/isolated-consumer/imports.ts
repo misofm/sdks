@@ -1,4 +1,4 @@
-// Proves the published `.d.ts` for @misofm/effect, @misofm/musicos,
+// Proves the published `.d.ts` for @misofm/musicos,
 // @misofm/partyos, @misofm/platform, @misofm/streaming, and
 // @misofm/transcoding are self-contained when installed as real tarballs (see
 // ../../../../scripts/check-consumer.ts, or `bun run test:consumer` at the
@@ -6,9 +6,6 @@
 // value and a type so tsc cannot elide the import — if any packaged
 // declaration file is missing, malformed, or has a broken relative path, this
 // file fails to typecheck with `skipLibCheck: false`.
-
-import { SuiClient } from "@misofm/effect";
-import { SuiRpcError } from "@misofm/effect/errors";
 
 // musicos is a sui-effect extension (misofm/sdks#34): the `Musicos` service,
 // the derived `musicos()` Promise registration, and every curated subpath
@@ -78,9 +75,6 @@ import { ProcessExitError } from "@misofm/transcoding/errors";
 // exported interface/type alias, or (for the curated `contracts` barrels and
 // the raw BCS codecs, which expose no standalone type export) derived from
 // the value itself so it still proves the underlying declaration resolves.
-type _SuiClientLayerArg = Parameters<typeof SuiClient.layer>[0];
-type _SuiRpcError = SuiRpcError;
-
 type _MusicosOptions = MusicosOptions;
 type _MusicosService = MusicosService;
 type _MusicosDeploymentInvalid = MusicosDeploymentInvalid;
@@ -150,8 +144,6 @@ type _TranscodingProcessExitError = ProcessExitError;
 
 // Value-position uses of every imported value.
 void ([
-  SuiClient,
-  SuiRpcError,
   Musicos,
   musicos,
   MusicosDeploymentInvalid,
@@ -196,8 +188,6 @@ void ([
 // Referenced so the otherwise-unused type aliases above cannot be reported as
 // dead code by a stricter consumer tsconfig than this fixture's own.
 export type IsolatedConsumerTypeProbe = [
-  _SuiClientLayerArg,
-  _SuiRpcError,
   _MusicosOptions,
   _MusicosService,
   _MusicosDeploymentInvalid,
