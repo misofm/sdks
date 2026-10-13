@@ -455,7 +455,7 @@ export class Musicos extends Context.Service<Musicos, MusicosService>()("@misofm
    */
   static readonly layerConfig: Layer.Layer<Musicos, Config.ConfigError | MusicosDeploymentInvalid, Sui> = Layer.unwrap(
     Effect.gen(function* () {
-      const packageId = yield* Config.nonEmptyString("PACKAGE_ID").pipe(Config.nested("MUSICOS"), Config.option);
+      const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.nested("MUSICOS"), Config.option);
       return Musicos.layer(Option.isSome(packageId) ? { deployment: { packageId: packageId.value } } : undefined);
     }),
   );

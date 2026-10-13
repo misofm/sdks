@@ -896,7 +896,7 @@ export class Miso extends Context.Service<Miso, MisoService>()("@misofm/platform
    */
   static readonly layerConfig: Layer.Layer<Miso, Config.ConfigError | MisoPlatformDeploymentInvalidError | MisoLayerError, Sui | SuiGraphQL> = Layer.unwrap(
     Effect.gen(function* () {
-      const configuredNetwork = yield* Config.nonEmptyString("MISO_NETWORK").pipe(Config.option);
+      const configuredNetwork = yield* Config.NonEmptyString("MISO_NETWORK").pipe(Config.option);
       const network = configuredNetwork._tag === "Some" ? configuredNetwork.value : (yield* Sui).network;
       const deployment = yield* Effect.try({
         try: () => getMisoPlatformDeployment(network),

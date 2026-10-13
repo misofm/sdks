@@ -1,9 +1,6 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
-import * as effectRoot from "@misofm/effect";
-import * as effectErrors from "@misofm/effect/errors";
-
 import * as musicosRoot from "@misofm/musicos";
 import * as musicosDeployments from "@misofm/musicos/deployments";
 import * as musicosTransactions from "@misofm/musicos/transactions";
@@ -44,13 +41,6 @@ function hasExport(namespace, name) {
 }
 
 // --- module load + expected-export checks -------------------------------
-
-invariant(Object.keys(effectRoot).length > 0, "@misofm/effect root export did not load");
-invariant(hasExport(effectRoot, "SuiClient"), "@misofm/effect root missing SuiClient");
-
-invariant(Object.keys(effectErrors).length > 0, "@misofm/effect/errors export did not load");
-invariant(hasExport(effectErrors, "SuiRpcError"), "@misofm/effect/errors missing SuiRpcError");
-invariant(hasExport(effectErrors, "ObjectNotFoundError"), "@misofm/effect/errors missing ObjectNotFoundError");
 
 invariant(Object.keys(musicosRoot).length > 0, "@misofm/musicos root export did not load");
 invariant(hasExport(musicosRoot, "Musicos"), "@misofm/musicos root missing the Musicos service");
@@ -279,6 +269,11 @@ assertSingleInstance("@mysten/sui");
 // silently breaking `Effect.provide`/`Effect.catchTag` for a consumer that
 // composes programs from more than one `@misofm/*` package.
 assertSingleInstance("effect");
+
+// `@mysten/bcs` is a peer of partyos, musicos and platform (not a bundled
+// dependency), so codecs generated in one package and parsed in another
+// share one `BcsType` implementation.
+assertSingleInstance("@mysten/bcs");
 
 // A consumer that ends up resolving two copies of the same `@misofm/*`
 // package (e.g. because one package pins another at a version distinct from

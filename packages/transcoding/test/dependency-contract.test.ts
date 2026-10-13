@@ -5,14 +5,14 @@ import { join } from "node:path";
 const readJson = async (url: URL): Promise<Record<string, unknown>> =>
   JSON.parse(await readFile(url, "utf8")) as Record<string, unknown>;
 
-test("Effect peers are exact and the runtime dependency is storage-neutral", async () => {
+test("Effect peers are the stable 4.0.x range and the runtime dependency is storage-neutral", async () => {
   const manifest = await readJson(new URL("../package.json", import.meta.url));
   expect(manifest.peerDependencies).toEqual({
-    "@effect/platform-node": "4.0.0-rc.112",
-    effect: "4.0.0-rc.112",
+    "@effect/platform-node": ">=4.0.3 <4.1",
+    effect: ">=4.0.3 <4.1",
   });
   expect(manifest.dependencies).toEqual({
-    "@misofm/streaming": "0.3.0",
+    "@misofm/streaming": "0.4.0",
     "m3u8-parser": "7.2.0",
   });
 });

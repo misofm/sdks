@@ -1,6 +1,6 @@
 {
   "name": "@misofm/streaming",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "packageManager": "bun@1.4.0",
   "description": "The miso-hls/v1 streaming transcode contract (rendition ladder, segment policy, Quilt item naming) plus a browser player for Miso streams.",
   "license": "Apache-2.0",
@@ -50,6 +50,7 @@
     "dist",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "package.json"
   ],
@@ -61,7 +62,7 @@
     "prepare": "rm -rf dist && tsc -p tsconfig.build.json --noCheck"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.112",
+    "effect": ">=4.0.3 <4.1",
     "hls.js": "^1.6"
   },
   "peerDependenciesMeta": {
@@ -71,7 +72,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.4.0",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.3",
     "hls.js": "1.6.13",
     "typescript": "^7.0.2"
   }

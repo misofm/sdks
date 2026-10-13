@@ -56,8 +56,8 @@ if (runtime === "node") {
     "install",
     "--ignore-scripts",
     tarball,
-    "effect@4.0.0-rc.112",
-    "@effect/platform-node@4.0.0-rc.112",
+    "effect@4.0.3",
+    "@effect/platform-node@4.0.3",
   ]);
   await run("node", [
     "--input-type=module",
@@ -70,8 +70,8 @@ if (runtime === "node") {
     "--ignore-scripts",
     tarball,
     ...extras,
-    "effect@4.0.0-rc.112",
-    "@effect/platform-node@4.0.0-rc.112",
+    "effect@4.0.3",
+    "@effect/platform-node@4.0.3",
   ]);
   await run("bun", [
     "-e",
