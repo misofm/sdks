@@ -22,7 +22,7 @@ in this codebase follows.
 bun add @misofm/musicos @unconfirmed/sui-effect effect @mysten/sui @mysten/bcs
 ```
 
-Peer dependencies: `@unconfirmed/sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
+Peer dependencies: `@unconfirmed/sui-effect@>=0.3.0 <0.4.0`, `effect@>=4.0.3 <4.1`,
 `@mysten/sui@^2.28`, `@mysten/bcs@^2.1.1`.
 
 ## Usage

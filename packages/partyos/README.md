@@ -16,11 +16,11 @@ this package. Which Move package generates into which SDK is decided by
 ## Install
 
 ```sh
-bun add @misofm/partyos @unconfirmed/sui-effect effect @mysten/sui
+bun add @misofm/partyos @unconfirmed/sui-effect effect @mysten/sui @mysten/bcs
 ```
 
-`@unconfirmed/sui-effect`, `@mysten/sui` and `effect` (exactly `4.0.0-rc.112`) are peer
-dependencies.
+Peer dependencies: `@unconfirmed/sui-effect@>=0.3.0 <0.4.0`, `effect@>=4.0.3 <4.1`,
+`@mysten/sui@^2.29.0`, `@mysten/bcs@^2.1.1`.
 
 ## Use
 

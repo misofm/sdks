@@ -41,8 +41,9 @@ submissions return `Effect` values that require the `SuiClient` service from
 `@misofm/effect` and fail with tagged errors (`Effect.catchTag`); the client
 extensions (`miso()`, `partyos()`, `misoPlatform()`) provide that service
 themselves so their methods have no requirements; PTB builders stay synchronous.
-Each package's `./errors` subpath lists its failures. Pin `effect` to the exact
-release candidate the packages peer on.
+Each package's `./errors` subpath lists its failures. The packages peer on
+stable Effect `>=4.0.3 <4.1` (and `@unconfirmed/sui-effect` `>=0.3.0 <0.4.0`); install
+`effect` and every `@effect/*` package at the same `4.0.x`.
 
 ## Development
 

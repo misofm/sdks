@@ -66,8 +66,8 @@ just crossing a package boundary.
 bun add @misofm/platform @unconfirmed/sui-effect effect @mysten/sui @mysten/bcs
 ```
 
-Peer dependencies: `@unconfirmed/sui-effect@^0.1.0`, `effect@>=4.0.0-rc.112 <4.1`,
-`@mysten/sui@^2.28`, `@mysten/bcs@^2.1.1`. `@misofm/musicos` and
+Peer dependencies: `@unconfirmed/sui-effect@>=0.3.0 <0.4.0`, `effect@>=4.0.3 <4.1`,
+`@mysten/sui@^2.29.0`, `@mysten/bcs@^2.1.1`. `@misofm/musicos` and
 `@misofm/partyos` resolve transitively through this package, so applications
 get exactly one object-model SDK, one Party-identity SDK, and one compatible
 deployment map without installing either themselves. A custom deployment is

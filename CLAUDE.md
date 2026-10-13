@@ -70,7 +70,9 @@ opinion Miso's product adds on top — including every `party_*` extension — i
 
 ## Effect conventions
 
-- Effect v4 release candidate, pinned exactly (see any package's `peerDependencies`). Read
+- Stable Effect v4 (`>=4.0.3 <4.1`; see any package's `peerDependencies`). Move `effect` and every
+  `@effect/*` package together. `@misofm/effect` is the exception: deprecated and frozen on
+  `4.0.0-rc.112`, outside the release train. Read
   `node_modules/effect/AGENTS.md` and `ai-docs/` before writing Effect code; v4 is not v3.
 - I/O returns `Effect` with `SuiClient` (from `@misofm/effect`) in the requirements; client
   extension classes provide the layer internally. PTB builders stay synchronous.
