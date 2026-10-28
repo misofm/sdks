@@ -23,8 +23,8 @@ export declare class MusicProtocol extends Context.Service<MusicProtocol, MusicP
 The Miso object-model service. `layer(options)` uses `options.deployment`
 when given; otherwise it reads `sui.network` and picks this release's
 bundled manifest (`MISO_DEPLOYMENTS`), failing `MusicProtocolDeploymentInvalid`
-when there is none. `layerConfig` is the same layer with `MUSICOS_PACKAGE_ID`
-(`Config.nested("MUSICOS")`, `Config.NonEmptyString("PACKAGE_ID")`)
+when there is none. `layerConfig` is the same layer with `MUSIC_PROTOCOL_PACKAGE_ID`
+(`Config.nested("MUSIC_PROTOCOL")`, `Config.NonEmptyString("PACKAGE_ID")`)
 overriding the bundled choice. `layerTest` is the real service over a fixed
 (or given) test package id — compose it with `layerExtensionTest` from
 `@unconfirmed/sui-effect/testing`.

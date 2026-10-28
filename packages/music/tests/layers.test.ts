@@ -18,8 +18,8 @@ const padded = (suffix: string) => `0x${"0".repeat(64 - suffix.length)}${suffix}
 const CUSTOM_PACKAGE_ID = padded("c0ffee1");
 
 describe("MusicProtocol.layerConfig", () => {
-  test("reads MUSICOS_PACKAGE_ID from a ConfigProvider, overriding the bundled manifest", async () => {
-    const provider = ConfigProvider.fromEnvRecord({ MUSICOS_PACKAGE_ID: CUSTOM_PACKAGE_ID });
+  test("reads MUSIC_PROTOCOL_PACKAGE_ID from a ConfigProvider, overriding the bundled manifest", async () => {
+    const provider = ConfigProvider.fromEnvRecord({ MUSIC_PROTOCOL_PACKAGE_ID: CUSTOM_PACKAGE_ID });
     const packageId = await Effect.runPromise(
       Effect.provide(
         Effect.map(MusicProtocol, (m) => m.deployment.packageId),
@@ -29,7 +29,7 @@ describe("MusicProtocol.layerConfig", () => {
     expect(packageId).toBe(CUSTOM_PACKAGE_ID);
   });
 
-  test("falls back to the bundled manifest when MUSICOS_PACKAGE_ID is unset", async () => {
+  test("falls back to the bundled manifest when MUSIC_PROTOCOL_PACKAGE_ID is unset", async () => {
     const provider = ConfigProvider.fromEnvRecord({});
     const exit = await Effect.runPromise(
       Effect.exit(
@@ -45,6 +45,21 @@ describe("MusicProtocol.layerConfig", () => {
     // The bundled testnet manifest exists, so this succeeds without needing
     // the environment variable at all.
     expect(exit._tag).toBe("Success");
+  });
+
+  test("ignores the pre-0.9 MUSICOS_PACKAGE_ID name and uses the bundled manifest", async () => {
+    const provider = ConfigProvider.fromEnvRecord({ MUSICOS_PACKAGE_ID: CUSTOM_PACKAGE_ID });
+    const packageId = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(MusicProtocol, (m) => m.deployment.packageId),
+        Layer.provide(
+          MusicProtocol.layerConfig,
+          Layer.merge(layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! }), ConfigProvider.layer(provider)),
+        ),
+      ),
+    );
+    expect(packageId).not.toBe(CUSTOM_PACKAGE_ID);
+    expect(packageId).toMatch(/^0x[0-9a-f]{64}$/);
   });
 });
 

@@ -170,7 +170,7 @@ consumers" above): without it, `client.$extend(partyProtocol({ deployment }))` t
 a Move target is constructed (`assertPartyDeployment`/`normalizePartyDeployment`
 throw synchronously; `validatePartyDeployment` is the Effect-returning counterpart, now
 failing with `PartyProtocolDeploymentError`, for callers composing a config-loading pipeline
-out of Effects). `PartyProtocol.layerConfig` reads `PARTYOS_PACKAGE_ID` from the environment;
+out of Effects). `PartyProtocol.layerConfig` reads `PARTY_PROTOCOL_PACKAGE_ID` from the environment;
 unset, it falls back to the bundled manifest for the client's network.
 
 **Move upgrades.** `PartyDeployment` carries an optional `typeOrigin`, the

@@ -448,14 +448,14 @@ export class MusicProtocol extends Context.Service<MusicProtocol, MusicProtocolS
     Layer.unwrap(Effect.map(resolveDeployment(options), (deployment) => Layer.effect(MusicProtocol, make(deployment))));
 
   /**
-   * The same layer from `MUSICOS_PACKAGE_ID`, falling back to the bundled
+   * The same layer from `MUSIC_PROTOCOL_PACKAGE_ID`, falling back to the bundled
    * manifest for `sui.network` when it is unset.
    *
    * Fails with: `ConfigError`, `MusicProtocolDeploymentInvalid`.
    */
   static readonly layerConfig: Layer.Layer<MusicProtocol, Config.ConfigError | MusicProtocolDeploymentInvalid, Sui> = Layer.unwrap(
     Effect.gen(function* () {
-      const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.nested("MUSICOS"), Config.option);
+      const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.nested("MUSIC_PROTOCOL"), Config.option);
       return MusicProtocol.layer(Option.isSome(packageId) ? { deployment: { packageId: packageId.value } } : undefined);
     }),
   );

@@ -36,13 +36,16 @@ bindings are still generated from the same Move revision as 0.8.0.
 - The `Party` schema identifier moves from `@misofm/partyos/Party` to `@misofm/party/Party`.
 - Error-message prefixes read `@misofm/party:` instead of `@misofm/partyos:`.
 - Release tags for this package are now `party-v*` (were `partyos-v*`).
+- **`PartyProtocol.layerConfig` reads `PARTY_PROTOCOL_PACKAGE_ID`** (was `PARTYOS_PACKAGE_ID`).
+  The old name is not read at all. An environment that still sets only `PARTYOS_PACKAGE_ID`
+  does not fail: the value is ignored and the layer silently falls back to the bundled
+  manifest for the client's network. Set `PARTY_PROTOCOL_PACKAGE_ID` everywhere you set
+  the old name.
 
 ### Unchanged on purpose
 
 - The deployment-manifest key stays `partyos` (`PartyDeployment`, `{ partyos: "0x…" }`): it is
   the Move package name recorded in the publish manifests.
-- `PartyProtocol.layerConfig` still reads `PARTYOS_PACKAGE_ID`, so existing environments keep
-  working.
 
 ### Migrating from `@misofm/partyos` 0.8.x
 
@@ -51,6 +54,9 @@ bindings are still generated from the same Move revision as 0.8.0.
 2. Rename `Partyos` → `PartyProtocol`, `partyos()` → `partyProtocol()`, `client.partyos` →
    `client.partyProtocol`, and the constants, types and error listed above.
 3. Change `catchTag("partyos/…")` to `catchTag("party/…")`.
+4. Rename the environment variable `PARTYOS_PACKAGE_ID` to `PARTY_PROTOCOL_PACKAGE_ID` in every
+   environment, `.env` file and deploy config. Do this before deploying 0.9.0: the old name is
+   ignored, and the bundled manifest is used in its place without any error.
 
 ## 0.8.0
 

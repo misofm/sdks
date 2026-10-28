@@ -31,13 +31,16 @@ npm at 0.8.0 and gets no further releases.
 - `Schema.Class` identifiers move from `@misofm/musicos/<Type>` to `@misofm/music/<Type>`.
 - Error-message prefixes read `@misofm/music:` instead of `@misofm/musicos:`.
 - Release tags for this package are now `music-v*` (were `musicos-v*`).
+- **`MusicProtocol.layerConfig` reads `MUSIC_PROTOCOL_PACKAGE_ID`** (was `MUSICOS_PACKAGE_ID`).
+  The old name is not read at all. An environment that still sets only `MUSICOS_PACKAGE_ID`
+  does not fail: the value is ignored and the layer silently falls back to the bundled
+  manifest for the client's network. Set `MUSIC_PROTOCOL_PACKAGE_ID` everywhere you set
+  the old name.
 
 ### Unchanged on purpose
 
 - The deployment-manifest key stays `musicos` (`MISO_DEPLOYMENTS.mainnet.musicos`,
   `MisoDeployment`): it is the Move package name recorded in the publish manifests.
-- `MusicProtocol.layerConfig` still reads `MUSICOS_PACKAGE_ID`, so existing environments keep
-  working.
 
 ### Migrating from `@misofm/musicos` 0.8.x
 
@@ -46,6 +49,9 @@ npm at 0.8.0 and gets no further releases.
 2. Rename `Musicos` → `MusicProtocol`, `musicos()` → `musicProtocol()`, `client.musicos` →
    `client.musicProtocol`, and the `Musicos*` types and errors as listed above.
 3. Change `catchTag("musicos/…")` to `catchTag("music/…")`.
+4. Rename the environment variable `MUSICOS_PACKAGE_ID` to `MUSIC_PROTOCOL_PACKAGE_ID` in every
+   environment, `.env` file and deploy config. Do this before deploying 0.9.0: the old name is
+   ignored, and the bundled manifest is used in its place without any error.
 
 ## 0.8.0
 

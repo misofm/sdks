@@ -289,7 +289,7 @@ export class PartyProtocol extends Context.Service<PartyProtocol, PartyProtocolS
     );
 
   /**
-   * `layer`, reading `PARTYOS_PACKAGE_ID` from the environment. Unset means
+   * `layer`, reading `PARTY_PROTOCOL_PACKAGE_ID` from the environment. Unset means
    * the bundled manifest for `sui.network`.
    *
    * Fails with: `ConfigError`, `PartyProtocolDeploymentError`.
@@ -297,10 +297,10 @@ export class PartyProtocol extends Context.Service<PartyProtocol, PartyProtocolS
   static readonly layerConfig: Layer.Layer<PartyProtocol, Config.ConfigError | PartyProtocolDeploymentError, Sui> =
     Layer.unwrap(
       Effect.gen(function* () {
-        const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.option, Config.nested("PARTYOS"));
+        const packageId = yield* Config.NonEmptyString("PACKAGE_ID").pipe(Config.option, Config.nested("PARTY_PROTOCOL"));
         // The raw config value is handed to `layer` unvalidated: `layer`
         // itself runs it through `validatePartyDeployment` (a typed Effect
-        // failure), so a malformed `PARTYOS_PACKAGE_ID` is a
+        // failure), so a malformed `PARTY_PROTOCOL_PACKAGE_ID` is a
         // `PartyProtocolDeploymentError`, not a defect from calling the throwing
         // `normalizePartyDeployment` here.
         return PartyProtocol.layer(Option.isSome(packageId) ? { deployment: { partyos: packageId.value } } : {});

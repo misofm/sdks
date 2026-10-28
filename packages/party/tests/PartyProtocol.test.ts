@@ -340,19 +340,51 @@ describe("PartyProtocol.layerConfig", () => {
   const withConfig = (config: Record<string, unknown>) =>
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(config));
 
-  test("reads PARTYOS_PACKAGE_ID", async () => {
+  test("reads PARTY_PROTOCOL_PACKAGE_ID", async () => {
     const configured = padded("c0de");
     const deployment = await Effect.runPromise(
       Effect.provide(
         Effect.map(PartyProtocol, (p) => p.deployment),
         Layer.provide(PartyProtocol.layerConfig, layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! })),
         { local: true },
-      ).pipe(withConfig({ PARTYOS: { PACKAGE_ID: configured } })),
+      ).pipe(withConfig({ PARTY_PROTOCOL: { PACKAGE_ID: configured } })),
     );
     expect(deployment.partyos).toBe(configured);
   });
 
-  test("an unset PARTYOS_PACKAGE_ID falls back to the bundled manifest", async () => {
+  test("reads the exact environment variable PARTY_PROTOCOL_PACKAGE_ID", async () => {
+    const configured = padded("c0de");
+    const deployment = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(PartyProtocol, (p) => p.deployment),
+        Layer.provide(PartyProtocol.layerConfig, layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! })),
+        { local: true },
+      ).pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromEnvRecord({ PARTY_PROTOCOL_PACKAGE_ID: configured }),
+        ),
+      ),
+    );
+    expect(deployment.partyos).toBe(configured);
+  });
+
+  test("ignores the pre-0.9 PARTYOS_PACKAGE_ID name and uses the bundled manifest", async () => {
+    const configured = padded("c0de");
+    const deployment = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(PartyProtocol, (p) => p.deployment),
+        Layer.provide(PartyProtocol.layerConfig, layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! })),
+        { local: true },
+      ).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord({ PARTYOS_PACKAGE_ID: configured })),
+      ),
+    );
+    expect(deployment.partyos).not.toBe(configured);
+    expect(deployment.partyos).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  test("an unset PARTY_PROTOCOL_PACKAGE_ID falls back to the bundled manifest", async () => {
     const deployment = await Effect.runPromise(
       Effect.provide(
         Effect.map(PartyProtocol, (p) => p.deployment),
@@ -363,14 +395,14 @@ describe("PartyProtocol.layerConfig", () => {
     expect(deployment.partyos).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
-  test("a malformed PARTYOS_PACKAGE_ID is a typed PartyProtocolDeploymentError, not a defect", async () => {
+  test("a malformed PARTY_PROTOCOL_PACKAGE_ID is a typed PartyProtocolDeploymentError, not a defect", async () => {
     const exit = await Effect.runPromise(
       Effect.exit(
         Effect.provide(
           Effect.map(PartyProtocol, (p) => p.deployment),
           Layer.provide(PartyProtocol.layerConfig, layerTest({ network: "testnet", chainId: KNOWN_CHAIN_IDS["testnet"]! })),
           { local: true },
-        ).pipe(withConfig({ PARTYOS: { PACKAGE_ID: "not-a-sui-address" } })),
+        ).pipe(withConfig({ PARTY_PROTOCOL: { PACKAGE_ID: "not-a-sui-address" } })),
       ),
     );
     expect(exit._tag).toBe("Failure");

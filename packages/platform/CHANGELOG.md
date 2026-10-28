@@ -19,6 +19,11 @@ transactions and contract bindings are unchanged.
   `MusicProtocolWorkNotFound` (`music/WorkNotFound`), and party reads with
   `party/PartyNotFound` (was `partyos/PartyNotFound`). Update any `Effect.catchTag` call site.
 - `Miso.layerNoDeps` now requires `MusicProtocol | PartyProtocol` (was `Musicos | Partyos`).
+- If you build the object-model layers yourself with `MusicProtocol.layerConfig` /
+  `PartyProtocol.layerConfig`, they now read `MUSIC_PROTOCOL_PACKAGE_ID` /
+  `PARTY_PROTOCOL_PACKAGE_ID`. The old `MUSICOS_PACKAGE_ID` / `PARTYOS_PACKAGE_ID` are ignored
+  and the bundled manifest is used silently, so rename them in every environment.
+  `Miso.layer` and `Miso.layerConfig` read neither.
 
 ### Unchanged on purpose
 
