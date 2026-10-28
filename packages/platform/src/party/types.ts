@@ -4,7 +4,7 @@
 // Public, camelCase result types for the Party EXTENSIONS. The mappers in
 // ./internal.ts turn the generated (snake_case, Move-shaped) parse output into
 // these. The Party object model itself (`Party`, `PartyKind`) is owned by
-// `@misofm/partyos` — import it from there.
+// `@misofm/party` — import it from there.
 
 import { Schema } from "effect";
 

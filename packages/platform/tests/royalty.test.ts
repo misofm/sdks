@@ -3,7 +3,7 @@
 
 // Covers `src/royalty.ts` — the generic royalty-pool / stake / routed-stake
 // derive helpers and PTB builders that used to live on the pre-split protocol package
-// before the musicos/platform split (issue misofm/sdks#26). Vault-gated crank
+// before the object-model/platform split (issue misofm/sdks#26). Vault-gated crank
 // operations (composition/recording royalty pool plugins, routed-stake
 // Actions) are covered by `vault.test.ts`.
 

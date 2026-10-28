@@ -21,8 +21,8 @@
 // transactions without executing, `bcs` exposes the generated struct
 // definitions, `ids` is the address math that replaces a registry, `call` is
 // generated type-safe Move calls, `vault` is Vault/Action/plugin builders and
-// reads, `protocol`/`party` are the converted `@misofm/musicos`/
-// `@misofm/partyos` surfaces.
+// reads, `protocol`/`party` are the converted `@misofm/music`/
+// `@misofm/party` surfaces.
 import type { ClientWithCoreApi, SuiClientRegistration } from "@mysten/sui/client";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Effect, Layer } from "effect";
@@ -42,7 +42,7 @@ export { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatfor
  */
 export type MisoClient = PromiseFace<MisoService> & ExtensionFace;
 
-/** What {@link miso} needs to know. Same options shape as the sibling extensions (`partyos()`, `musicos()`). */
+/** What {@link miso} needs to know. Same options shape as the sibling extensions (`partyProtocol()`, `musicProtocol()`). */
 export interface MisoOptions<Name extends string = "miso"> {
   /** The property the extension takes on the client: `client.<name>`. Defaults to `"miso"`. */
   readonly name?: Name;

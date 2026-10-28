@@ -1,5 +1,5 @@
-// Proves the published `.d.ts` for @misofm/musicos,
-// @misofm/partyos, @misofm/platform, @misofm/streaming, and
+// Proves the published `.d.ts` for @misofm/music,
+// @misofm/party, @misofm/platform, @misofm/streaming, and
 // @misofm/transcoding are self-contained when installed as real tarballs (see
 // ../../../../scripts/check-consumer.ts, or `bun run test:consumer` at the
 // repo root, driving this fixture). Every subpath below is used for both a
@@ -7,31 +7,31 @@
 // declaration file is missing, malformed, or has a broken relative path, this
 // file fails to typecheck with `skipLibCheck: false`.
 
-// musicos is a sui-effect extension (misofm/sdks#34): the `Musicos` service,
-// the derived `musicos()` Promise registration, and every curated subpath
+// @misofm/music is a sui-effect extension (misofm/sdks#34): the `MusicProtocol` service,
+// the derived `musicProtocol()` Promise registration, and every curated subpath
 // the Definition of Done names (`.`, `/errors`, `/transactions`,
 // `/deployments`, `/types`, `/parsers`, `/events`, `/packages`, `/contracts`).
-import { Musicos, musicos, type MusicosOptions, type MusicosService } from "@misofm/musicos";
-import { MusicosDeploymentInvalid, DecodeError as MusicosDecodeError } from "@misofm/musicos/errors";
-import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
-import { MISO_DEPLOYMENTS, type MisoDeployment } from "@misofm/musicos/deployments";
-import type { Composition as MusicosCompositionType } from "@misofm/musicos/types";
-import { parseCompositionPublishedEvent } from "@misofm/musicos/parsers";
-import { eventParsers as musicosEventParsers } from "@misofm/musicos/events";
-import { bindModulePackage } from "@misofm/musicos/packages";
-import { composition as musicosComposition } from "@misofm/musicos/contracts";
+import { MusicProtocol, musicProtocol, type MusicProtocolOptions, type MusicProtocolService } from "@misofm/music";
+import { MusicProtocolDeploymentInvalid, DecodeError as MusicProtocolDecodeError } from "@misofm/music/errors";
+import { createComposition, type CreateCompositionParams } from "@misofm/music/transactions";
+import { MISO_DEPLOYMENTS, type MisoDeployment } from "@misofm/music/deployments";
+import type { Composition as MusicProtocolCompositionType } from "@misofm/music/types";
+import { parseCompositionPublishedEvent } from "@misofm/music/parsers";
+import { eventParsers as musicProtocolEventParsers } from "@misofm/music/events";
+import { bindModulePackage } from "@misofm/music/packages";
+import { composition as musicProtocolComposition } from "@misofm/music/contracts";
 
 // The raw wildcard subpath (`./contracts/*`): a deep module not exposed
 // through the curated barrel.
-import { Composition as CompositionStruct } from "@misofm/musicos/contracts/musicos/composition";
+import { Composition as CompositionStruct } from "@misofm/music/contracts/musicos/composition";
 
-// partyos is also a sui-effect extension (misofm/sdks#34): the `Partyos`
-// service and the derived `partyos()` Promise registration replace the
+// @misofm/party is also a sui-effect extension (misofm/sdks#34): the `PartyProtocol`
+// service and the derived `partyProtocol()` Promise registration replace the
 // predecessor `PartyosClient` class.
-import { Partyos, partyos, type Party as PartyosParty } from "@misofm/partyos";
-import { getPartyDeployment, type PartyDeployment } from "@misofm/partyos/deployments";
-import { Party as PartyStruct } from "@misofm/partyos/contracts/partyos/party";
-import { PartyNotFoundError } from "@misofm/partyos/errors";
+import { PartyProtocol, partyProtocol, type Party as PartyProtocolParty } from "@misofm/party";
+import { getPartyDeployment, type PartyDeployment } from "@misofm/party/deployments";
+import { Party as PartyStruct } from "@misofm/party/contracts/partyos/party";
+import { PartyNotFoundError } from "@misofm/party/errors";
 
 // platform is a sui-effect extension too (misofm/sdks#35): the `Miso`
 // service and the derived `miso()` Promise registration (`./client`)
@@ -75,28 +75,28 @@ import { ProcessExitError } from "@misofm/transcoding/errors";
 // exported interface/type alias, or (for the curated `contracts` barrels and
 // the raw BCS codecs, which expose no standalone type export) derived from
 // the value itself so it still proves the underlying declaration resolves.
-type _MusicosOptions = MusicosOptions;
-type _MusicosService = MusicosService;
-type _MusicosDeploymentInvalid = MusicosDeploymentInvalid;
-type _MusicosDecodeError = MusicosDecodeError;
-type _MusicosCreateCompositionParams = CreateCompositionParams;
-type _MusicosDeployment = MisoDeployment;
-type _MusicosCompositionType = MusicosCompositionType;
-type _MusicosContractsCompositionNewOptions = Parameters<typeof musicosComposition._new>[0];
+type _MusicProtocolOptions = MusicProtocolOptions;
+type _MusicProtocolService = MusicProtocolService;
+type _MusicProtocolDeploymentInvalid = MusicProtocolDeploymentInvalid;
+type _MusicProtocolDecodeError = MusicProtocolDecodeError;
+type _MusicProtocolCreateCompositionParams = CreateCompositionParams;
+type _MusicProtocolDeployment = MisoDeployment;
+type _MusicProtocolCompositionType = MusicProtocolCompositionType;
+type _MusicProtocolContractsCompositionNewOptions = Parameters<typeof musicProtocolComposition._new>[0];
 type _Composition = ReturnType<typeof CompositionStruct.parse>;
-// The registration `musicos()` returns, without ever calling `.register` —
-// this fixture makes no network call — proving `client.$extend(musicos())`
+// The registration `musicProtocol()` returns, without ever calling `.register` —
+// this fixture makes no network call — proving `client.$extend(musicProtocol())`
 // typechecks the way the Definition of Done names it.
-type _MusicosExtensionRegistration = ReturnType<typeof musicos>;
+type _MusicProtocolExtensionRegistration = ReturnType<typeof musicProtocol>;
 
-type _PartyosParty = PartyosParty;
-type _PartyosDeployment = PartyDeployment;
+type _PartyProtocolParty = PartyProtocolParty;
+type _PartyProtocolDeployment = PartyDeployment;
 type _PartyStruct = ReturnType<typeof PartyStruct.parse>;
 type _PartyNotFoundError = PartyNotFoundError;
-// The registration `partyos()` returns, without ever calling `.register` —
-// proving `client.$extend(partyos())` typechecks, the same probe `musicos()`
+// The registration `partyProtocol()` returns, without ever calling `.register` —
+// proving `client.$extend(partyProtocol())` typechecks, the same probe `musicProtocol()`
 // gets above.
-type _PartyosExtensionRegistration = ReturnType<typeof partyos>;
+type _PartyProtocolExtensionRegistration = ReturnType<typeof partyProtocol>;
 
 type _PlatformRootService = typeof PlatformRootService;
 type _PlatformRootOptions = PlatformRootOptions;
@@ -109,7 +109,7 @@ type _PlatformCreditRole = CompositionRole;
 type _PlatformParty = Profile;
 type _PlatformPartyService = MisoPartyService;
 // The registration `miso()` returns (`@misofm/platform/client`), the same
-// "typechecks without calling .register" probe as `musicos()`/`partyos()`.
+// "typechecks without calling .register" probe as `musicProtocol()`/`partyProtocol()`.
 type _MisoExtensionRegistration = ReturnType<typeof miso>;
 
 // A namespace method reached THROUGH the derived Promise face, not just the
@@ -144,19 +144,19 @@ type _TranscodingProcessExitError = ProcessExitError;
 
 // Value-position uses of every imported value.
 void ([
-  Musicos,
-  musicos,
-  MusicosDeploymentInvalid,
-  MusicosDecodeError,
+  MusicProtocol,
+  musicProtocol,
+  MusicProtocolDeploymentInvalid,
+  MusicProtocolDecodeError,
   createComposition,
   MISO_DEPLOYMENTS,
   parseCompositionPublishedEvent,
-  musicosEventParsers,
+  musicProtocolEventParsers,
   bindModulePackage,
-  musicosComposition,
+  musicProtocolComposition,
   CompositionStruct,
-  Partyos,
-  partyos,
+  PartyProtocol,
+  partyProtocol,
   getPartyDeployment,
   PartyStruct,
   PartyNotFoundError,
@@ -188,21 +188,21 @@ void ([
 // Referenced so the otherwise-unused type aliases above cannot be reported as
 // dead code by a stricter consumer tsconfig than this fixture's own.
 export type IsolatedConsumerTypeProbe = [
-  _MusicosOptions,
-  _MusicosService,
-  _MusicosDeploymentInvalid,
-  _MusicosDecodeError,
-  _MusicosCreateCompositionParams,
-  _MusicosDeployment,
-  _MusicosCompositionType,
-  _MusicosContractsCompositionNewOptions,
+  _MusicProtocolOptions,
+  _MusicProtocolService,
+  _MusicProtocolDeploymentInvalid,
+  _MusicProtocolDecodeError,
+  _MusicProtocolCreateCompositionParams,
+  _MusicProtocolDeployment,
+  _MusicProtocolCompositionType,
+  _MusicProtocolContractsCompositionNewOptions,
   _Composition,
-  _MusicosExtensionRegistration,
-  _PartyosParty,
-  _PartyosDeployment,
+  _MusicProtocolExtensionRegistration,
+  _PartyProtocolParty,
+  _PartyProtocolDeployment,
   _PartyStruct,
   _PartyNotFoundError,
-  _PartyosExtensionRegistration,
+  _PartyProtocolExtensionRegistration,
   _PlatformRootService,
   _PlatformRootOptions,
   _PlatformClientOptions,

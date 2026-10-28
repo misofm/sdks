@@ -4,7 +4,7 @@
 // Covers `MisoPlatformPackageBindings` / `misoPlatformPackages` — the
 // extensions/primitives/party package-bound generated calls that used to live
 // on the pre-split protocol package's combined `MisoPackageBindings` before the
-// musicos/platform split (issue misofm/sdks#26).
+// object-model/platform split (issue misofm/sdks#26).
 
 import { expect, test } from "bun:test";
 import { Transaction } from "@mysten/sui/transactions";

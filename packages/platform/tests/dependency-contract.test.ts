@@ -38,13 +38,13 @@ test("Sui is pinned for development and a caret range for consumers", async () =
     // otherwise resolve `@effect/platform-node` to the newest 4.0.x, whose
     // `effect` peer can be newer than the pinned `effect` below.
     "@effect/platform-node",
-    "@misofm/musicos",
-    "@misofm/partyos",
+    "@misofm/music",
+    "@misofm/party",
     "@misofm/platform",
     "@misofm/streaming",
     "@misofm/transcoding",
     "effect",
-    // musicos (misofm/sdks#34) is a sui-effect extension; the isolated
+    // @misofm/music (misofm/sdks#34) is a sui-effect extension; the isolated
     // consumer needs the published `@unconfirmed/sui-effect` package
     // resolvable too, the same way it needs every other dependency a packed
     // @misofm/* tarball's peers name.

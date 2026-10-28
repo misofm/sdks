@@ -1,10 +1,10 @@
 // Copyright (c) Miso Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MisoDeployment, MisoNetwork } from "@misofm/musicos/deployments";
-import { MISO_DEPLOYMENTS } from "@misofm/musicos/deployments";
-import type { PartyDeployment } from "@misofm/partyos/deployments";
-import { PARTYOS_DEPLOYMENTS } from "@misofm/partyos/deployments";
+import type { MisoDeployment, MisoNetwork } from "@misofm/music/deployments";
+import { MISO_DEPLOYMENTS } from "@misofm/music/deployments";
+import type { PartyDeployment } from "@misofm/party/deployments";
+import { PARTY_PROTOCOL_DEPLOYMENTS } from "@misofm/party/deployments";
 import { normalizeSuiAddress, normalizeSuiObjectId } from "@mysten/sui/utils";
 import { Context, Effect, Layer } from "effect";
 import { immutableSnapshot } from "./internal.ts";
@@ -44,7 +44,7 @@ const REQUIRED_PLATFORM_PACKAGE_KEYS = [
   "languageCode",
 ] as const;
 
-/** Every first-party Party extension package (the PartyOS core lives in `@misofm/partyos`). */
+/** Every first-party Party extension package (the party-protocol core lives in `@misofm/party`). */
 const REQUIRED_PARTY_PACKAGE_KEYS = [
   "partyCta",
   "partyGenre",
@@ -223,9 +223,9 @@ export function requireOperationsDeployment(
 
 /**
  * The first-party Party EXTENSION packages (profile, media, roles, tags,
- * genres, CTAs, platform links). The Party object model core (`partyos`) is
- * owned by `@misofm/partyos` — see {@link MisoPlatformDeployment.partyos}.
- * Platform-internal: not re-exported by `@misofm/musicos`, which only ever
+ * genres, CTAs, platform links). The Party object model core (party-protocol) is
+ * owned by `@misofm/party` — see {@link MisoPlatformDeployment.partyos}.
+ * Platform-internal: not re-exported by `@misofm/music`, which only ever
  * knew the object-model core.
  */
 export interface PartyExtensionsDeployment {
@@ -251,9 +251,9 @@ export interface MisoPlatformDeployment {
   readonly network: MisoNetwork;
   /** Full ledger genesis digest used to reject a mislabeled RPC endpoint. */
   readonly chainIdentifier: string;
-  /** The object-model deployment (`@misofm/musicos`) this platform build targets. */
+  /** The object-model deployment (`@misofm/music`) this platform build targets. */
   readonly protocol: MisoDeployment;
-  /** The Party object model deployment (`@misofm/partyos`) this platform build targets. */
+  /** The Party object model deployment (`@misofm/party`) this platform build targets. */
   readonly partyos: PartyDeployment;
   /** The first-party Party extension packages. */
   readonly party: PartyExtensionsDeployment;
@@ -319,7 +319,7 @@ export interface MisoPlatformDeployment {
 /**
  * Validates the `packages` and `party` package-id sets before any Move target
  * is constructed from them: every required id must be a canonical 32-byte Sui
- * package ID, and no two of them (nor the core `musicos` package) may collide.
+ * package ID, and no two of them (nor the core music-protocol package) may collide.
  * Optional generation fields (`recordingGenre`, `recordingStreamingTranscode`,
  * `recordingEngineSession`) are validated only when present.
  */
@@ -334,7 +334,7 @@ export function assertMisoPlatformDeployment(
   const candidate = deployment as Partial<MisoPlatformDeployment>;
   const packages = candidate.packages as Partial<MisoPlatformDeployment["packages"]> | undefined;
   const party = candidate.party as Partial<PartyExtensionsDeployment> | undefined;
-  const partyos = candidate.partyos as Partial<PartyDeployment> | undefined;
+  const partyProtocol = candidate.partyos as Partial<PartyDeployment> | undefined;
   if (!packages || typeof packages !== "object") {
     throw new MisoPlatformDeploymentInvalidError({
       message: "@misofm/platform: deployment is missing its `packages` section.",
@@ -345,7 +345,7 @@ export function assertMisoPlatformDeployment(
       message: "@misofm/platform: deployment is missing its `party` section.",
     });
   }
-  if (!partyos || typeof partyos !== "object") {
+  if (!partyProtocol || typeof partyProtocol !== "object") {
     throw new MisoPlatformDeploymentInvalidError({
       message: "@misofm/platform: deployment is missing its `partyos` section.",
     });
@@ -392,7 +392,7 @@ export function assertMisoPlatformDeployment(
     checkCanonical(`packages.${key}`, packages[key]);
   }
   if (packages.audio !== undefined) checkCanonical("packages.audio", packages.audio);
-  checkCanonical("partyos.partyos", partyos.partyos);
+  checkCanonical("partyos.partyos", partyProtocol.partyos);
   for (const key of REQUIRED_PARTY_PACKAGE_KEYS) {
     // `country_code`/`language_code` are shared dependency packages, deliberately
     // repeated from `packages.*` above rather than distinct party-only ids.
@@ -431,7 +431,7 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
     "network": "mainnet",
     "chainIdentifier": "4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S",
     protocol: MISO_DEPLOYMENTS.mainnet,
-    partyos: PARTYOS_DEPLOYMENTS.mainnet,
+    partyos: PARTY_PROTOCOL_DEPLOYMENTS.mainnet,
     "recordSales": {
       "status": "available",
       "recordPackageId": "0xbc8fc491364d1bafe6602a2c0ff0a60ee7c5fe776d0e5849363c7c35d30197db",
@@ -510,7 +510,7 @@ export const MISO_PLATFORM_DEPLOYMENTS = immutableSnapshot({
     "network": "testnet",
     "chainIdentifier": "69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD",
     "protocol": MISO_DEPLOYMENTS.testnet,
-    "partyos": PARTYOS_DEPLOYMENTS.testnet,
+    "partyos": PARTY_PROTOCOL_DEPLOYMENTS.testnet,
     "recordSales": {
       "status": "available",
       "recordPackageId": "0xf51af0e4a29d764a6880db65d99aaa7d1802774f7be18e7220a05a2d673b4743",

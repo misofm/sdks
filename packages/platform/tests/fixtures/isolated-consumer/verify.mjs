@@ -1,18 +1,18 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
-import * as musicosRoot from "@misofm/musicos";
-import * as musicosDeployments from "@misofm/musicos/deployments";
-import * as musicosTransactions from "@misofm/musicos/transactions";
-import * as musicosParsers from "@misofm/musicos/parsers";
-import * as musicosEvents from "@misofm/musicos/events";
-import * as musicosPackages from "@misofm/musicos/packages";
-import * as musicosContracts from "@misofm/musicos/contracts";
-import * as musicosErrors from "@misofm/musicos/errors";
+import * as musicProtocolRoot from "@misofm/music";
+import * as musicProtocolDeployments from "@misofm/music/deployments";
+import * as musicProtocolTransactions from "@misofm/music/transactions";
+import * as musicProtocolParsers from "@misofm/music/parsers";
+import * as musicProtocolEvents from "@misofm/music/events";
+import * as musicProtocolPackages from "@misofm/music/packages";
+import * as musicProtocolContracts from "@misofm/music/contracts";
+import * as musicProtocolErrors from "@misofm/music/errors";
 
-import * as partyosRoot from "@misofm/partyos";
-import * as partyosContracts from "@misofm/partyos/contracts";
-import * as partyosErrors from "@misofm/partyos/errors";
+import * as partyProtocolRoot from "@misofm/party";
+import * as partyProtocolContracts from "@misofm/party/contracts";
+import * as partyProtocolErrors from "@misofm/party/errors";
 
 import * as platformRoot from "@misofm/platform";
 import * as platformEvents from "@misofm/platform/events";
@@ -42,75 +42,75 @@ function hasExport(namespace, name) {
 
 // --- module load + expected-export checks -------------------------------
 
-invariant(Object.keys(musicosRoot).length > 0, "@misofm/musicos root export did not load");
-invariant(hasExport(musicosRoot, "Musicos"), "@misofm/musicos root missing the Musicos service");
-invariant(hasExport(musicosRoot, "musicos"), "@misofm/musicos root missing the musicos() registration");
-invariant(hasExport(musicosRoot, "contracts"), "@misofm/musicos root missing contracts namespace");
+invariant(Object.keys(musicProtocolRoot).length > 0, "@misofm/music root export did not load");
+invariant(hasExport(musicProtocolRoot, "MusicProtocol"), "@misofm/music root missing the MusicProtocol service");
+invariant(hasExport(musicProtocolRoot, "musicProtocol"), "@misofm/music root missing the musicProtocol() registration");
+invariant(hasExport(musicProtocolRoot, "contracts"), "@misofm/music root missing contracts namespace");
 
-// `musicos()` builds a `SuiClientRegistration` synchronously — no network —
-// so it is safe to call here, proving `client.$extend(musicos())` (the
+// `musicProtocol()` builds a `SuiClientRegistration` synchronously — no network —
+// so it is safe to call here, proving `client.$extend(musicProtocol())` (the
 // Definition of Done's own words) resolves and shapes correctly without this
 // fixture needing a real client.
-const registration = musicosRoot.musicos();
-invariant(registration.name === "musicos", "musicos() registration name is not \"musicos\"");
-invariant(typeof registration.register === "function", "musicos() registration has no register()");
+const registration = musicProtocolRoot.musicProtocol();
+invariant(registration.name === "musicProtocol", "musicProtocol() registration name is not \"musicProtocol\"");
+invariant(typeof registration.register === "function", "musicProtocol() registration has no register()");
 
-invariant(Object.keys(musicosDeployments).length > 0, "@misofm/musicos/deployments export did not load");
-invariant(hasExport(musicosDeployments, "MISO_DEPLOYMENTS"), "@misofm/musicos/deployments missing MISO_DEPLOYMENTS");
+invariant(Object.keys(musicProtocolDeployments).length > 0, "@misofm/music/deployments export did not load");
+invariant(hasExport(musicProtocolDeployments, "MISO_DEPLOYMENTS"), "@misofm/music/deployments missing MISO_DEPLOYMENTS");
 
-invariant(Object.keys(musicosTransactions).length > 0, "@misofm/musicos/transactions export did not load");
-invariant(hasExport(musicosTransactions, "createComposition"), "@misofm/musicos/transactions missing createComposition");
+invariant(Object.keys(musicProtocolTransactions).length > 0, "@misofm/music/transactions export did not load");
+invariant(hasExport(musicProtocolTransactions, "createComposition"), "@misofm/music/transactions missing createComposition");
 
-invariant(Object.keys(musicosParsers).length > 0, "@misofm/musicos/parsers export did not load");
+invariant(Object.keys(musicProtocolParsers).length > 0, "@misofm/music/parsers export did not load");
 invariant(
-  hasExport(musicosParsers, "parseCompositionPublishedEvent"),
-  "@misofm/musicos/parsers missing parseCompositionPublishedEvent",
+  hasExport(musicProtocolParsers, "parseCompositionPublishedEvent"),
+  "@misofm/music/parsers missing parseCompositionPublishedEvent",
 );
 
-invariant(Object.keys(musicosEvents).length > 0, "@misofm/musicos/events export did not load");
-invariant(hasExport(musicosEvents, "eventParsers"), "@misofm/musicos/events missing eventParsers");
+invariant(Object.keys(musicProtocolEvents).length > 0, "@misofm/music/events export did not load");
+invariant(hasExport(musicProtocolEvents, "eventParsers"), "@misofm/music/events missing eventParsers");
 
-invariant(Object.keys(musicosPackages).length > 0, "@misofm/musicos/packages export did not load");
-invariant(hasExport(musicosPackages, "bindModulePackage"), "@misofm/musicos/packages missing bindModulePackage");
+invariant(Object.keys(musicProtocolPackages).length > 0, "@misofm/music/packages export did not load");
+invariant(hasExport(musicProtocolPackages, "bindModulePackage"), "@misofm/music/packages missing bindModulePackage");
 
-invariant(Object.keys(musicosErrors).length > 0, "@misofm/musicos/errors export did not load");
-invariant(hasExport(musicosErrors, "ObjectNotFound"), "@misofm/musicos/errors missing ObjectNotFound");
-invariant(hasExport(musicosErrors, "MusicosDeploymentInvalid"), "@misofm/musicos/errors missing MusicosDeploymentInvalid");
-invariant(hasExport(musicosErrors, "MusicosTreasuryCapNotFound"), "@misofm/musicos/errors missing MusicosTreasuryCapNotFound");
+invariant(Object.keys(musicProtocolErrors).length > 0, "@misofm/music/errors export did not load");
+invariant(hasExport(musicProtocolErrors, "ObjectNotFound"), "@misofm/music/errors missing ObjectNotFound");
+invariant(hasExport(musicProtocolErrors, "MusicProtocolDeploymentInvalid"), "@misofm/music/errors missing MusicProtocolDeploymentInvalid");
+invariant(hasExport(musicProtocolErrors, "MusicProtocolTreasuryCapNotFound"), "@misofm/music/errors missing MusicProtocolTreasuryCapNotFound");
 
-invariant(Object.keys(musicosContracts).length > 0, "@misofm/musicos/contracts export did not load");
-invariant(hasExport(musicosContracts, "composition"), "@misofm/musicos/contracts (curated) missing composition");
+invariant(Object.keys(musicProtocolContracts).length > 0, "@misofm/music/contracts export did not load");
+invariant(hasExport(musicProtocolContracts, "composition"), "@misofm/music/contracts (curated) missing composition");
 invariant(
-  typeof musicosContracts.composition._new === "function",
-  "@misofm/musicos/contracts (curated) composition._new did not load as a function",
+  typeof musicProtocolContracts.composition._new === "function",
+  "@misofm/music/contracts (curated) composition._new did not load as a function",
 );
 invariant(
-  !("uid" in musicosContracts.composition),
-  "@misofm/musicos/contracts (curated) leaked the raw `uid` accessor it is meant to curate away",
+  !("uid" in musicProtocolContracts.composition),
+  "@misofm/music/contracts (curated) leaked the raw `uid` accessor it is meant to curate away",
 );
 
-invariant(Object.keys(partyosRoot).length > 0, "@misofm/partyos root export did not load");
-invariant(hasExport(partyosRoot, "Partyos"), "@misofm/partyos root missing the Partyos service");
-invariant(hasExport(partyosRoot, "partyos"), "@misofm/partyos root missing the partyos() registration");
+invariant(Object.keys(partyProtocolRoot).length > 0, "@misofm/party root export did not load");
+invariant(hasExport(partyProtocolRoot, "PartyProtocol"), "@misofm/party root missing the PartyProtocol service");
+invariant(hasExport(partyProtocolRoot, "partyProtocol"), "@misofm/party root missing the partyProtocol() registration");
 
-// `partyos()` builds a `SuiClientRegistration` synchronously — no network —
-// the same proof `musicos()` gets above.
-const partyosRegistration = partyosRoot.partyos();
-invariant(partyosRegistration.name === "partyos", 'partyos() registration name is not "partyos"');
-invariant(typeof partyosRegistration.register === "function", "partyos() registration has no register()");
+// `partyProtocol()` builds a `SuiClientRegistration` synchronously — no network —
+// the same proof `musicProtocol()` gets above.
+const partyProtocolRegistration = partyProtocolRoot.partyProtocol();
+invariant(partyProtocolRegistration.name === "partyProtocol", 'partyProtocol() registration name is not "partyProtocol"');
+invariant(typeof partyProtocolRegistration.register === "function", "partyProtocol() registration has no register()");
 
-invariant(hasExport(partyosContracts, "party"), "@misofm/partyos/contracts missing party");
-invariant(!("uid" in partyosContracts.party), "@misofm/partyos/contracts leaked the raw `uid` accessor");
+invariant(hasExport(partyProtocolContracts, "party"), "@misofm/party/contracts missing party");
+invariant(!("uid" in partyProtocolContracts.party), "@misofm/party/contracts leaked the raw `uid` accessor");
 
-invariant(Object.keys(partyosErrors).length > 0, "@misofm/partyos/errors export did not load");
-invariant(hasExport(partyosErrors, "PartyNotFoundError"), "@misofm/partyos/errors missing PartyNotFoundError");
+invariant(Object.keys(partyProtocolErrors).length > 0, "@misofm/party/errors export did not load");
+invariant(hasExport(partyProtocolErrors, "PartyNotFoundError"), "@misofm/party/errors missing PartyNotFoundError");
 
 invariant(Object.keys(platformRoot).length > 0, "@misofm/platform root export did not load");
 invariant(hasExport(platformRoot, "Miso"), "@misofm/platform root missing the Miso service");
 invariant(hasExport(platformRoot, "miso"), "@misofm/platform root missing the miso() registration");
 
 // `miso()` builds a `SuiClientRegistration` synchronously — no network —
-// the same proof `musicos()`/`partyos()` get above.
+// the same proof `musicProtocol()`/`partyProtocol()` get above.
 const misoRegistration = platformRoot.miso();
 invariant(misoRegistration.name === "miso", 'miso() registration name is not "miso"');
 invariant(typeof misoRegistration.register === "function", "miso() registration has no register()");
@@ -270,7 +270,7 @@ assertSingleInstance("@mysten/sui");
 // composes programs from more than one `@misofm/*` package.
 assertSingleInstance("effect");
 
-// `@mysten/bcs` is a peer of partyos, musicos and platform (not a bundled
+// `@mysten/bcs` is a peer of party, music and platform (not a bundled
 // dependency). The runtime codecs come through `@mysten/sui/bcs`; the peer is
 // type-only (the generated declarations `import type {} from "@mysten/bcs"`),
 // so one installed copy keeps the `BcsType` types in the packed `.d.ts` files

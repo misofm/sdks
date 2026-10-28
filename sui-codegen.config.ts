@@ -3,19 +3,19 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * The two generated trees, one per npm package. Which tree a Move package
+ * The generated trees, one per npm package. Which tree a Move package
  * lands in is the boundary rule of the SDK split:
  *
- *   `@misofm/musicos` is the object model. Everything Miso offers on top of
+ *   `@misofm/music` is the object model. Everything Miso offers on top of
  *   it is platform.
  *
- * `musicos` (composition, recording, release, track) is the object model of
- * works and `partyos` is the object model of parties; each is its own npm
- * package. Every extension, Action, primitive, plugin, and Record package is
+ * music-protocol (composition, recording, release, track) is the object model
+ * of works and party-protocol is the object model of parties; each is its own
+ * npm package (`@misofm/music`, `@misofm/party`). Every extension, Action, primitive, plugin, and Record package is
  * something Miso chose to offer over them, so all of those — including the
  * `party_*` extensions and `party_wallet` — generate into `@misofm/platform`.
  */
-export type GeneratedTree = "musicos" | "partyos" | "platform";
+export type GeneratedTree = "music" | "party" | "platform";
 
 export interface MisoPackageConfig {
   /**
@@ -53,8 +53,8 @@ export function generatedDirectoryName(packageConfig: MisoPackageConfig): string
 // directly contains `misofm/` (defaults to two levels up from this file;
 // override with `MISO_SDK_CODEGEN_SOURCE_ROOT` for an isolated worktree). The
 // directory names are the GitHub repository names:
-//   misofm/{musicos, musicos-extensions, musicos-actions,
-//           partyos, partyos-extensions, partyos-actions,
+//   misofm/{music-protocol, music-protocol-extensions, musicos-actions,
+//           party-protocol, party-protocol-extensions, party-protocol-actions,
 //           royalty-pool, routed-stake, vault, vault-plugins, genre, cover-art,
 //           record, record-shop, share, pay}
 const sourceRoot = process.env.MISO_SDK_CODEGEN_SOURCE_ROOT
@@ -62,15 +62,15 @@ const sourceRoot = process.env.MISO_SDK_CODEGEN_SOURCE_ROOT
   : fileURLToPath(new URL("../..", import.meta.url));
 const source = (path: string) => resolve(sourceRoot, path);
 
-const musicos = (name: string, path: string): MisoPackageConfig => ({
+const music = (name: string, path: string): MisoPackageConfig => ({
   package: `@local-pkg/${name}`,
   path: source(path),
-  tree: "musicos",
+  tree: "music",
 });
-const partyos = (name: string, path: string): MisoPackageConfig => ({
+const party = (name: string, path: string): MisoPackageConfig => ({
   package: `@local-pkg/${name}`,
   path: source(path),
-  tree: "partyos",
+  tree: "party",
 });
 const platform = (name: string, path: string): MisoPackageConfig => ({
   package: `@local-pkg/${name}`,
@@ -80,51 +80,53 @@ const platform = (name: string, path: string): MisoPackageConfig => ({
 
 const config: MisoCodegenConfig = {
   outputs: {
-    musicos: "./packages/musicos/src/contracts",
-    partyos: "./packages/partyos/src/contracts",
+    music: "./packages/music/src/contracts",
+    party: "./packages/party/src/contracts",
     platform: "./packages/platform/src/contracts",
   },
   importExtension: ".ts",
   generateSummaries: false,
   packages: [
-    // The object models: the only package in each of the musicos and partyos trees.
-    musicos("musicos", "misofm/musicos"),
-    partyos("partyos", "misofm/partyos"),
+    // The object models: the only package in each of the music and party trees.
+    // The labels are the Move package names at the revision these bindings
+    // were generated from (before the miso_music / miso_party rename).
+    music("musicos", "misofm/music-protocol"),
+    party("partyos", "misofm/party-protocol"),
 
     // Party data extensions.
-    platform("party_cta", "misofm/partyos-extensions/party_cta"),
-    platform("party_genre", "misofm/partyos-extensions/party_genre"),
-    platform("party_media", "misofm/partyos-extensions/party_media"),
-    platform("party_music", "misofm/partyos-extensions/party_music"),
-    platform("party_platform_link", "misofm/partyos-extensions/party_platform_link"),
-    platform("party_pro_link", "misofm/partyos-extensions/party_pro_link"),
-    platform("party_profile", "misofm/partyos-extensions/party_profile"),
-    platform("party_roles", "misofm/partyos-extensions/party_roles"),
-    platform("party_social", "misofm/partyos-extensions/party_social"),
-    platform("party_tags", "misofm/partyos-extensions/party_tags"),
+    platform("party_cta", "misofm/party-protocol-extensions/party_cta"),
+    platform("party_genre", "misofm/party-protocol-extensions/party_genre"),
+    platform("party_media", "misofm/party-protocol-extensions/party_media"),
+    platform("party_music", "misofm/party-protocol-extensions/party_music"),
+    platform("party_platform_link", "misofm/party-protocol-extensions/party_platform_link"),
+    platform("party_pro_link", "misofm/party-protocol-extensions/party_pro_link"),
+    platform("party_profile", "misofm/party-protocol-extensions/party_profile"),
+    platform("party_roles", "misofm/party-protocol-extensions/party_roles"),
+    platform("party_social", "misofm/party-protocol-extensions/party_social"),
+    platform("party_tags", "misofm/party-protocol-extensions/party_tags"),
     // Generic platform-link primitive used by party_music, party_social, and
     // party_pro_link. The party_platform_link wrapper is configured separately.
-    platform("platform_link", "misofm/partyos-extensions/lib/platform_link"),
-    // Public, custody-agnostic Actions over Party — lives in partyos-actions,
-    // not partyos-extensions.
-    platform("party_wallet", "misofm/partyos-actions/party_wallet"),
+    platform("platform_link", "misofm/party-protocol-extensions/lib/platform_link"),
+    // Public, custody-agnostic Actions over Party — lives in party-protocol-actions,
+    // not party-protocol-extensions.
+    platform("party_wallet", "misofm/party-protocol-actions/party_wallet"),
 
-    // Work extensions (persistent data attached to a musicos work).
-    platform("composition_lyrics", "misofm/musicos-extensions/composition_lyrics"),
-    platform("composition_credits", "misofm/musicos-extensions/composition_credits"),
-    platform("recording_advisory", "misofm/musicos-extensions/recording_advisory"),
-    platform("recording_credits", "misofm/musicos-extensions/recording_credits"),
-    platform("recording_engine_session", "misofm/musicos-extensions/recording_engine_session"),
-    platform("recording_genre", "misofm/musicos-extensions/recording_genre"),
-    platform("recording_language", "misofm/musicos-extensions/recording_language"),
-    platform("recording_master", "misofm/musicos-extensions/recording_master"),
-    platform("recording_streaming_transcode", "misofm/musicos-extensions/recording_streaming_transcode"),
-    platform("release_cover_art", "misofm/musicos-extensions/release_cover_art"),
-    platform("release_credits", "misofm/musicos-extensions/release_credits"),
-    platform("release_description", "misofm/musicos-extensions/release_description"),
-    platform("release_dsp_link", "misofm/musicos-extensions/release_dsp_link"),
-    platform("release_genre", "misofm/musicos-extensions/release_genre"),
-    platform("release_kind", "misofm/musicos-extensions/release_kind"),
+    // Work extensions (persistent data attached to a music-protocol work).
+    platform("composition_lyrics", "misofm/music-protocol-extensions/composition_lyrics"),
+    platform("composition_credits", "misofm/music-protocol-extensions/composition_credits"),
+    platform("recording_advisory", "misofm/music-protocol-extensions/recording_advisory"),
+    platform("recording_credits", "misofm/music-protocol-extensions/recording_credits"),
+    platform("recording_engine_session", "misofm/music-protocol-extensions/recording_engine_session"),
+    platform("recording_genre", "misofm/music-protocol-extensions/recording_genre"),
+    platform("recording_language", "misofm/music-protocol-extensions/recording_language"),
+    platform("recording_master", "misofm/music-protocol-extensions/recording_master"),
+    platform("recording_streaming_transcode", "misofm/music-protocol-extensions/recording_streaming_transcode"),
+    platform("release_cover_art", "misofm/music-protocol-extensions/release_cover_art"),
+    platform("release_credits", "misofm/music-protocol-extensions/release_credits"),
+    platform("release_description", "misofm/music-protocol-extensions/release_description"),
+    platform("release_dsp_link", "misofm/music-protocol-extensions/release_dsp_link"),
+    platform("release_genre", "misofm/music-protocol-extensions/release_genre"),
+    platform("release_kind", "misofm/music-protocol-extensions/release_kind"),
 
     // Primitives.
     platform("audio", "misofm/audio"),

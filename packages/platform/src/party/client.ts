@@ -4,10 +4,10 @@
 // `MisoPartyService`: the party surface consumers reach through
 // `client.miso.party` (misofm/sdks#35, WP3 "party and protocol composition").
 // It is not a `Context.Service` of its own — it is a plain object `Miso`'s
-// `make` assembles from the converted `@misofm/partyos` `Partyos` service (7
+// `make` assembles from the converted `@misofm/party` `PartyProtocol` service (7
 // core delegations) plus this package's own party EXTENSION reads
 // (`party/queries.ts`, already converted in stage 1) and 25 `tx` fragments
-// (9 from `Partyos.tx`, 16 first-party extension builders), bound to one
+// (9 from `PartyProtocol.tx`, 16 first-party extension builders), bound to one
 // `PartyExtensionsDeployment`. Per sui-effect's `docs/extensions.md` §12
 // ("converting an existing facade", step 3): the service's members are thin —
 // they close over the `Sui` the caller already holds and call the standalone
@@ -21,7 +21,7 @@
 import type { Option } from "effect";
 import { Effect } from "effect";
 import { Sui, type ObjectId, type Recipe, type DecodeError, type SuiService, type TransportError } from "@unconfirmed/sui-effect";
-import { contracts, derivePartyAdminCapId, type PartyosService } from "@misofm/partyos";
+import { contracts, derivePartyAdminCapId, type PartyProtocolService } from "@misofm/party";
 import type { PartyExtensionsDeployment } from "../deployments.ts";
 import * as queries from "./queries.ts";
 import * as profileExt from "./extensions/profile.ts";
@@ -73,8 +73,8 @@ export function bindModulePackage<M extends object, K extends readonly (keyof M)
   return out as BoundModule<M, K[number]>;
 }
 
-/** The 25 `tx` fragments `MisoPartyService.tx` exposes: 9 delegated from `Partyos.tx`, 16 first-party extensions. */
-export type PartyTxBuilders = PartyosService["tx"] & {
+/** The 25 `tx` fragments `MisoPartyService.tx` exposes: 9 delegated from `PartyProtocol.tx`, 16 first-party extensions. */
+export type PartyTxBuilders = PartyProtocolService["tx"] & {
   readonly setProfile: (p: Omit<profileExt.SetProfileParams, "partyProfilePackageId" | "countryCodePackageId" | "languageCodePackageId">) => Recipe;
   readonly clearProfile: (p: Omit<profileExt.ClearProfileParams, "partyProfilePackageId">) => Recipe;
   readonly setMedia: (p: Omit<mediaExt.SetMediaParams, "partyMediaPackageId">) => Recipe;
@@ -95,7 +95,7 @@ export type PartyTxBuilders = PartyosService["tx"] & {
 } & linksExt.LinkTxBuilders;
 
 /**
- * The party surface at `client.miso.party`: the converted `@misofm/partyos`
+ * The party surface at `client.miso.party`: the converted `@misofm/party`
  * core (delegated, unchanged) plus this package's own party EXTENSION reads
  * and transaction fragments, bound to one `PartyExtensionsDeployment`.
  *
@@ -108,15 +108,15 @@ export type PartyTxBuilders = PartyosService["tx"] & {
  * `docs/CONVERSION.md` "Stage 5".
  */
 export type MisoPartyService = {
-  // === Core (delegated to `Partyos`) ===
-  readonly getPartyById: PartyosService["getPartyById"];
-  readonly getPartiesByIds: PartyosService["getPartiesByIds"];
+  // === Core (delegated to `PartyProtocol`) ===
+  readonly getPartyById: PartyProtocolService["getPartyById"];
+  readonly getPartiesByIds: PartyProtocolService["getPartiesByIds"];
   /** Derives a party's `PartyAdminCap` id (it is a `derived_object` off the party UID). Never fails. */
   readonly derivePartyAdminCapId: (partyId: string) => ObjectId;
-  readonly getMemberships: PartyosService["getMemberships"];
-  readonly getPendingInvites: PartyosService["getPendingInvites"];
-  readonly getPendingMemberships: PartyosService["getPendingMemberships"];
-  readonly isMember: PartyosService["isMember"];
+  readonly getMemberships: PartyProtocolService["getMemberships"];
+  readonly getPendingInvites: PartyProtocolService["getPendingInvites"];
+  readonly getPendingMemberships: PartyProtocolService["getPendingMemberships"];
+  readonly isMember: PartyProtocolService["isMember"];
 
   // === Extension queries (this package's own) ===
   /** Fails with: `DecodeError`, `TransportError`. */
@@ -137,7 +137,7 @@ export type MisoPartyService = {
   readonly getLinks: (partyId: string) => Effect.Effect<PlatformLink[], DecodeError | TransportError>;
 
   /**
-   * The 25 `tx` fragments (9 delegated from `Partyos.tx`, 16 first-party
+   * The 25 `tx` fragments (9 delegated from `PartyProtocol.tx`, 16 first-party
    * extension builders) with every package id bound to this deployment.
    * Never fails; a recipe is synchronous and `Tx.build` reports one that
    * throws as a `BuildError`.
@@ -185,13 +185,13 @@ export type MisoPartyService = {
 };
 
 /**
- * Assembles {@link MisoPartyService} from the converted `Partyos` service and
+ * Assembles {@link MisoPartyService} from the converted `PartyProtocol` service and
  * `Sui`, bound to `deployment` — called from `Miso`'s own `make` (which
  * already holds both), per `docs/extensions.md` §12 step 3: a thin service
  * layer over standalone functions, closing over the `Sui` the caller already
  * has rather than adding a requirement of its own.
  */
-export function makeMisoParty(sui: SuiService, partyos: PartyosService, deployment: PartyExtensionsDeployment): MisoPartyService {
+export function makeMisoParty(sui: SuiService, partyProtocol: PartyProtocolService, deployment: PartyExtensionsDeployment): MisoPartyService {
   const withSui = <A, E>(effect: Effect.Effect<A, E, Sui>): Effect.Effect<A, E> =>
     effect.pipe(Effect.provideService(Sui, sui));
 
@@ -211,7 +211,7 @@ export function makeMisoParty(sui: SuiService, partyos: PartyosService, deployme
   };
 
   const tx: PartyTxBuilders = {
-    ...partyos.tx,
+    ...partyProtocol.tx,
     setProfile: (p) => profileExt.setProfile({ ...p, partyProfilePackageId: profilePkg, countryCodePackageId: cc, languageCodePackageId: lc }),
     clearProfile: (p) => profileExt.clearProfile({ ...p, partyProfilePackageId: profilePkg }),
     setMedia: (p) => mediaExt.setMedia({ ...p, partyMediaPackageId: mediaPkg }),
@@ -233,13 +233,13 @@ export function makeMisoParty(sui: SuiService, partyos: PartyosService, deployme
   };
 
   return {
-    getPartyById: partyos.getPartyById,
-    getPartiesByIds: partyos.getPartiesByIds,
-    derivePartyAdminCapId: (partyId) => derivePartyAdminCapId(partyId, partyos.deployment.partyos),
-    getMemberships: partyos.getMemberships,
-    getPendingInvites: partyos.getPendingInvites,
-    getPendingMemberships: partyos.getPendingMemberships,
-    isMember: partyos.isMember,
+    getPartyById: partyProtocol.getPartyById,
+    getPartiesByIds: partyProtocol.getPartiesByIds,
+    derivePartyAdminCapId: (partyId) => derivePartyAdminCapId(partyId, partyProtocol.deployment.partyos),
+    getMemberships: partyProtocol.getMemberships,
+    getPendingInvites: partyProtocol.getPendingInvites,
+    getPendingMemberships: partyProtocol.getPendingMemberships,
+    isMember: partyProtocol.isMember,
 
     getProfile: (partyId) => withSui(queries.getProfile(partyId, profilePkg)),
     getMedia: (partyId) => withSui(queries.getMedia(partyId, mediaPkg)),
@@ -252,7 +252,7 @@ export function makeMisoParty(sui: SuiService, partyos: PartyosService, deployme
 
     tx,
     call: {
-      party: bindModulePackage(contracts.party, partyos.deployment.partyos),
+      party: bindModulePackage(contracts.party, partyProtocol.deployment.partyos),
       profile: bindModulePackage(profileMod, profilePkg, ["profile"] as const),
       media: bindModulePackage(mediaMod, mediaPkg),
       roles: bindModulePackage(rolesMod, rolesPkg),

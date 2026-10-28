@@ -21,7 +21,7 @@
 // math the chain does.
 
 import * as listingContract from "../contracts/record_shop/listing.ts";
-import { extractTypeParams2, Musicos, type MusicosDeploymentInvalid, type MusicosService, type MusicosWorkNotFound } from "@misofm/musicos";
+import { extractTypeParams2, MusicProtocol, type MusicProtocolDeploymentInvalid, type MusicProtocolService, type MusicProtocolWorkNotFound } from "@misofm/music";
 import { normalizeStructTag, normalizeSuiAddress } from "@mysten/sui/utils";
 import { Effect, Result } from "effect";
 import {
@@ -60,25 +60,25 @@ type CompositionRates = Record<string, number | undefined>;
 
 /**
  * `GraphQLUnavailable` lets through, not folded into `TransportError` — see
- * `@misofm/musicos`'s own `queries.ts` (and `read/royalties.ts`) for the
+ * `@misofm/music`'s own `queries.ts` (and `read/royalties.ts`) for the
  * same idiom.
  */
 const graphqlError = (method: string) => (cause: unknown): GraphQLUnavailable | TransportError =>
   cause instanceof GraphQLUnavailable ? cause : TransportError.fromUnknown(method, cause);
 
 /**
- * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
- * hands back the effect it wraps — see `../catalog.ts`'s `withMusicos` for
+ * Builds `MusicProtocol.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `../catalog.ts`'s `withMusicProtocol` for
  * the same idiom (kept file-local; see `docs/CONVERSION-STATUS.md`).
  */
-function withMusicos<A, E>(
+function withMusicProtocol<A, E>(
   packageId: string,
-  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  effect: (musicProtocol: MusicProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicProtocolDeploymentInvalid, Sui> {
   return Effect.gen(function* () {
-    const musicos = yield* Musicos;
-    return yield* effect(musicos);
-  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+    const musicProtocol = yield* MusicProtocol;
+    return yield* effect(musicProtocol);
+  }).pipe(Effect.provide(MusicProtocol.layer({ deployment: { packageId } })));
 }
 
 function coerceU64(v: unknown): bigint | null {
@@ -461,7 +461,7 @@ const salesFromChain = Effect.fn("salesFromChain")(function* (
 const compositionRatesByRecording = Effect.fn("compositionRatesByRecording")(function* (
   recordingIds: string[],
   config: MisoConfig,
-): Effect.fn.Return<CompositionRates, MusicosDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<CompositionRates, MusicProtocolDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   if (recordingIds.length === 0) return {};
 
   const sui = yield* Sui;
@@ -486,8 +486,8 @@ const compositionRatesByRecording = Effect.fn("compositionRatesByRecording")(fun
     config.deployment.musicos,
   );
   const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
-  const compositionResults = yield* withMusicos(config.deployment.musicos, (musicos) =>
-    musicos.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))),
+  const compositionResults = yield* withMusicProtocol(config.deployment.musicos, (musicProtocol) =>
+    musicProtocol.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))),
   );
   const compositions = new Map(
     compositionResults.flatMap((result, index) => (Result.isSuccess(result) ? [[compositionIds[index]!, result.success] as const] : [])),
@@ -544,7 +544,7 @@ type ReceiptError =
   | MalformedRecordSoldEventError
   | DecodeError
   | ReleaseNotFoundError
-  | MusicosWorkNotFound
+  | MusicProtocolWorkNotFound
   | BatchItemError
   | GraphQLUnavailable
   | TransportError;
@@ -554,7 +554,7 @@ const hydratePurchaseReceipt = Effect.fn("hydratePurchaseReceipt")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   PurchaseReceipt | null,
-  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const detail = yield* getPressingDetail(sale.pressingId, config);

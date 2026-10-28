@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { bcs } from "@mysten/sui/bcs";
-import { contracts } from "@misofm/musicos";
+import { contracts } from "@misofm/music";
 import { SuiGraphQL } from "@unconfirmed/sui-effect";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";

@@ -4,7 +4,7 @@
 import { expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
-import { contracts } from "@misofm/musicos";
+import { contracts } from "@misofm/music";
 import { SuiGraphQL } from "@unconfirmed/sui-effect";
 import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { getRecordingTitles, getWorksByIds, parseReleaseObject } from "../../src/read/works.ts";

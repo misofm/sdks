@@ -7,20 +7,20 @@ import {
   contracts,
   extractTypeParams2,
   getWorkAddressesByShareTypes,
-  Musicos,
+  MusicProtocol,
   Composition,
   Recording,
   Release,
-  type MusicosDeploymentInvalid,
-  type MusicosService,
+  type MusicProtocolDeploymentInvalid,
+  type MusicProtocolService,
   type TrackState,
   type WorkAddressesByShareType,
   type WorkShareTypes,
-} from "@misofm/musicos";
+} from "@misofm/music";
 import { ObjectId, Sui, SuiGraphQL, SuiSchema, type DecodeError, type GraphQLUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 
 // `getWorkAddressesByShareTypes` (GraphQL type discovery) is owned by
-// `@misofm/musicos` now — re-exported here so existing platform imports keep
+// `@misofm/music` now — re-exported here so existing platform imports keep
 // working.
 export { getWorkAddressesByShareTypes };
 export type { WorkAddressesByShareType, WorkShareTypes };
@@ -89,20 +89,20 @@ export function parseReleaseObject(id: string, content: Uint8Array): Effect.Effe
 }
 
 /**
- * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
- * hands back the effect it wraps — see `catalog.ts`'s `withMusicos` for the
+ * Builds `MusicProtocol.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `catalog.ts`'s `withMusicProtocol` for the
  * same idiom (kept file-local rather than shared, since each of these
  * standalone functions is a transitional non-facade consumer in its own
  * right; see `docs/CONVERSION-STATUS.md`).
  */
-function withMusicos<A, E>(
+function withMusicProtocol<A, E>(
   packageId: string,
-  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  effect: (musicProtocol: MusicProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicProtocolDeploymentInvalid, Sui> {
   return Effect.gen(function* () {
-    const musicos = yield* Musicos;
-    return yield* effect(musicos);
-  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+    const musicProtocol = yield* MusicProtocol;
+    return yield* effect(musicProtocol);
+  }).pipe(Effect.provide(MusicProtocol.layer({ deployment: { packageId } })));
 }
 
 /** Fetch and parse heterogeneous works through one chunked `sui.getObjects`. */
@@ -149,7 +149,7 @@ export const getWorksByIds = Effect.fn("getWorksByIds")(function* (
 export const getRecordingTitles = Effect.fn("getRecordingTitles")(function* (
   recordingIds: readonly string[],
   misoPackageId: string,
-): Effect.fn.Return<Record<string, string>, MusicosDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<Record<string, string>, MusicProtocolDeploymentInvalid | GraphQLUnavailable | TransportError, Sui | SuiGraphQL> {
   const ids = [...new Set(recordingIds)];
   if (ids.length === 0) return {};
 
@@ -172,7 +172,7 @@ export const getRecordingTitles = Effect.fn("getRecordingTitles")(function* (
     misoPackageId,
   );
   const compositionIds = Object.values(addresses.compositions).filter((id): id is string => !!id);
-  const results = yield* withMusicos(misoPackageId, (musicos) => musicos.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))));
+  const results = yield* withMusicProtocol(misoPackageId, (musicProtocol) => musicProtocol.getCompositionsByIds(compositionIds.map((id) => ObjectId.make(id))));
   const compositionsById = new Map(
     results.flatMap((result, index) => (Result.isSuccess(result) ? [[compositionIds[index]!, result.success] as const] : [])),
   );

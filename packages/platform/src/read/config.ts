@@ -9,8 +9,8 @@
 //
 // Network values derive from the verified deployment bundled by the platform SDK.
 
-import type { MisoDeployment } from "@misofm/musicos/deployments";
-import type { PartyDeployment } from "@misofm/partyos/deployments";
+import type { MisoDeployment } from "@misofm/music/deployments";
+import type { PartyDeployment } from "@misofm/party/deployments";
 import { getMisoPlatformDeployment, type MisoPlatformDeployment, type PartyExtensionsDeployment, type RecordSalesDeployment } from "../deployments.ts";
 import { walrusAggregatorUrl } from "../walrus.ts";
 
@@ -66,7 +66,7 @@ export interface MisoConfig {
   /** Complete package set used by the integrated `client.miso` SDK. */
   deployment: MisoDeployment;
   protocol: ProtocolIds;
-  /** The Party object model deployment (`@misofm/partyos`). */
+  /** The Party object model deployment (`@misofm/party`). */
   partyos: PartyDeployment;
   /** First-party Party extension package ids. */
   party: PartyExtensionsDeployment;

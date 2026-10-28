@@ -5,9 +5,9 @@ Monorepo for the Miso platform-layer TypeScript SDKs.
 | Package                                          | Description                                                                                                                          |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | [`packages/effect`](packages/effect/README.md) | `@misofm/effect` — **deprecated**, superseded by [`sui-effect`](https://github.com/unconfirmedlabs/sui-effect); 0.2.0 is a code-identical final release whose README carries the migration table. |
-| [`packages/musicos`](packages/musicos/README.md) | `@misofm/musicos` — typed bindings, queries, event decoders, and PTB builders for the works object model (Composition, Recording, Release, Track). |
-| [`packages/partyos`](packages/partyos/README.md) | `@misofm/partyos` — typed bindings, queries, and PTB builders for the Party object model (Party, admin cap, group membership). |
-| [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — a [sui-effect](https://github.com/unconfirmedlabs/sui-effect) extension (the `Miso` service): the complete client SDK for the Miso platform layer — work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins — composed over `@misofm/musicos` and `@misofm/partyos`. |
+| [`packages/music`](packages/music/README.md) | `@misofm/music` — typed bindings, queries, event decoders, and PTB builders for the works object model (Composition, Recording, Release, Track). |
+| [`packages/party`](packages/party/README.md) | `@misofm/party` — typed bindings, queries, and PTB builders for the Party object model (Party, admin cap, group membership). |
+| [`packages/platform`](packages/platform/README.md) | `@misofm/platform` — a [sui-effect](https://github.com/unconfirmedlabs/sui-effect) extension (the `Miso` service): the complete client SDK for the Miso platform layer — work and Party extensions, catalog/artist/wallet reads, record production and sale, and Vault custody/Actions/plugins — composed over `@misofm/music` and `@misofm/party`. |
 | [`packages/streaming`](packages/streaming/README.md)           | `@misofm/streaming` — the `miso-hls/v1` streaming transcode contract (ladder, segment policy, Quilt item naming) plus a browser player entry point. |
 | [`packages/transcoding`](packages/transcoding/README.md) | `@misofm/transcoding` — deterministic AAC-LC fMP4 HLS transcoder that produces and verifies the `miso-hls/v1` layout. Node only, FFmpeg required. |
 
@@ -19,16 +19,16 @@ instructions and API surface.
 
 The three Sui packages split along one rule:
 
-> `@misofm/musicos` and `@misofm/partyos` are the object models. Everything Miso
+> `@misofm/music` and `@misofm/party` are the object models. Everything Miso
 > offers on top of them is platform.
 
-`@misofm/musicos` binds only the `musicos` Move package (Composition, Recording,
-Release, Track) and `@misofm/partyos` only the `partyos` Move package (Party,
+`@misofm/music` binds only the music-protocol Move package (Composition, Recording,
+Release, Track) and `@misofm/party` only the party-protocol Move package (Party,
 admin cap, group membership) — the permissionless object models anyone can
 build on. Everything else Miso's own product adds on top — work and Party
 extensions, royalty primitives, Vault, Actions, and every product-specific
 workflow — ships from `@misofm/platform`. Generated bindings follow the same
-split: `packages/musicos/src/contracts/` and `packages/partyos/src/contracts/`
+split: `packages/music/src/contracts/` and `packages/party/src/contracts/`
 hold only their object model, and `packages/platform/src/contracts/` holds
 everything else. `sui-codegen.config.ts`
 is the source of truth for exactly which Move package lands in which tree —
@@ -40,7 +40,7 @@ Every SDK exposes [Effect](https://effect.website) v4 in its public API: reads a
 submissions return `Effect` values that require the `Sui` service from
 [`@unconfirmed/sui-effect`](https://github.com/unconfirmedlabs/sui-effect) (`Miso` also
 needs `SuiGraphQL`) and fail with tagged errors (`Effect.catchTag`); the Promise
-registrations (`musicos()`, `partyos()`, `miso()`, used as `client.$extend(...)`) provide
+registrations (`musicProtocol()`, `partyProtocol()`, `miso()`, used as `client.$extend(...)`) provide
 that service themselves so their methods have no requirements; PTB builders stay synchronous.
 Each package's `./errors` subpath lists its failures. The packages peer on
 stable Effect `>=4.0.3 <4.1` (and `@unconfirmed/sui-effect` `>=0.3.0 <0.4.0`); install

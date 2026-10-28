@@ -12,7 +12,7 @@
 
 import { Effect, Option, Result } from "effect";
 import { ObjectId, Sui, type TransportError } from "@unconfirmed/sui-effect";
-import { Partyos, type PartyosDeploymentError, type PartyReadError } from "@misofm/partyos";
+import { PartyProtocol, type PartyProtocolDeploymentError, type PartyReadError } from "@misofm/party";
 import { getCtas, getGenres, getLinks, getProfile, getRoleValues, getTags } from "../party/queries.ts";
 import { roleDisplayName } from "../party/internal.ts";
 import type { Role } from "../party/extensions/roles.ts";
@@ -37,20 +37,20 @@ export function partyAvatarUrl(apiBaseUrl: string, partyId: string): string {
 }
 
 /**
- * Builds the bound `Partyos` for `config.partyos`, provides it, and hands
+ * Builds the bound `PartyProtocol` for `config.partyos`, provides it, and hands
  * back the effect it wraps — the "converting an existing facade" idiom from
  * sui-effect's `docs/extensions.md`, applied at function granularity: a
  * standalone read composes a sibling extension's own `layer(...)` internally
- * so its own requirement channel stays `Sui`, not `Sui | Partyos`.
+ * so its own requirement channel stays `Sui`, not `Sui | PartyProtocol`.
  */
-function withPartyos<A, E>(
+function withPartyProtocol<A, E>(
   config: MisoConfig,
-  effect: (partyos: Partyos["Service"]) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | PartyosDeploymentError, Sui> {
+  effect: (partyProtocol: PartyProtocol["Service"]) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | PartyProtocolDeploymentError, Sui> {
   return Effect.gen(function* () {
-    const partyos = yield* Partyos;
-    return yield* effect(partyos);
-  }).pipe(Effect.provide(Partyos.layer({ deployment: config.partyos })));
+    const partyProtocol = yield* PartyProtocol;
+    return yield* effect(partyProtocol);
+  }).pipe(Effect.provide(PartyProtocol.layer({ deployment: config.partyos })));
 }
 
 /**
@@ -62,7 +62,7 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
   partyId: string,
   config: MisoConfig,
   options: GetArtistOptions = {},
-): Effect.fn.Return<ArtistProfile, PartyReadError | PartyosDeploymentError, Sui> {
+): Effect.fn.Return<ArtistProfile, PartyReadError | PartyProtocolDeploymentError, Sui> {
   const include = new Set(options.include ?? []);
   const party = config.party;
 
@@ -77,7 +77,7 @@ export const getArtistProfile = Effect.fn("getArtistProfile")(function* (
     include.has("tags")
       ? getTags(partyId, party.partyTags).pipe(Effect.catch(() => Effect.succeed([] as string[])))
       : Effect.succeed(undefined),
-    withPartyos(config, (partyos) => partyos.getPartyById(ObjectId.make(partyId))),
+    withPartyProtocol(config, (partyProtocol) => partyProtocol.getPartyById(ObjectId.make(partyId))),
   ]);
   const profile = Option.getOrNull(profileOpt);
 
@@ -115,7 +115,7 @@ const resolveMembers = Effect.fn("resolveMembers")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<PartyMember[], never, Sui> {
   if (memberIds.length === 0) return [];
-  const results = yield* withPartyos(config, (partyos) => partyos.getPartiesByIds(memberIds.map((id) => ObjectId.make(id)))).pipe(
+  const results = yield* withPartyProtocol(config, (partyProtocol) => partyProtocol.getPartiesByIds(memberIds.map((id) => ObjectId.make(id)))).pipe(
     Effect.catch(() => Effect.succeed([] as ReadonlyArray<never>)),
   );
   const byId = new Map(
@@ -131,9 +131,9 @@ const resolveMembers = Effect.fn("resolveMembers")(function* (
 export const getPartySummaries = Effect.fn("getPartySummaries")(function* (
   ids: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<PartySummary[], TransportError | PartyosDeploymentError, Sui> {
+): Effect.fn.Return<PartySummary[], TransportError | PartyProtocolDeploymentError, Sui> {
   if (ids.length === 0) return [];
-  const results = yield* withPartyos(config, (partyos) => partyos.getPartiesByIds(ids.map((id) => ObjectId.make(id))));
+  const results = yield* withPartyProtocol(config, (partyProtocol) => partyProtocol.getPartiesByIds(ids.map((id) => ObjectId.make(id))));
   const byId = new Map(
     results.flatMap((result, index) => (Result.isSuccess(result) ? [[ids[index]!, result.success] as const] : [])),
   );

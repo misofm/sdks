@@ -16,13 +16,13 @@ import {
   contracts as networkContracts,
   getCompositionByShareType,
   getRecordingByShareType,
-  Musicos,
-  type MusicosDeploymentInvalid,
-  type MusicosService,
-  type MusicosWorkNotFound,
-} from "@misofm/musicos";
-import { party as partyContracts } from "@misofm/partyos/contracts";
-import { derivePartyAdminCapId, Partyos, type PartyosDeploymentError, type PartyosService } from "@misofm/partyos";
+  MusicProtocol,
+  type MusicProtocolDeploymentInvalid,
+  type MusicProtocolService,
+  type MusicProtocolWorkNotFound,
+} from "@misofm/music";
+import { party as partyContracts } from "@misofm/party/contracts";
+import { derivePartyAdminCapId, PartyProtocol, type PartyProtocolDeploymentError, type PartyProtocolService } from "@misofm/party";
 import {
   CoinType,
   DecodeError,
@@ -64,29 +64,29 @@ import { getRecordingTitles, getWorkAddressesByShareTypes, getWorksByIds } from 
 const MAX_OWNED_OBJECTS = 1000;
 
 /**
- * Builds `Musicos.layer({ deployment: { packageId } })` / `Partyos.layer({
+ * Builds `MusicProtocol.layer({ deployment: { packageId } })` / `PartyProtocol.layer({
  * deployment })`, provides it, and hands back the effect it wraps — see
- * `../catalog.ts`'s `withMusicos` for the same idiom (kept file-local; see
+ * `../catalog.ts`'s `withMusicProtocol` for the same idiom (kept file-local; see
  * `docs/CONVERSION-STATUS.md`).
  */
-function withMusicos<A, E>(
+function withMusicProtocol<A, E>(
   packageId: string,
-  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  effect: (musicProtocol: MusicProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicProtocolDeploymentInvalid, Sui> {
   return Effect.gen(function* () {
-    const musicos = yield* Musicos;
-    return yield* effect(musicos);
-  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+    const musicProtocol = yield* MusicProtocol;
+    return yield* effect(musicProtocol);
+  }).pipe(Effect.provide(MusicProtocol.layer({ deployment: { packageId } })));
 }
 
-function withPartyos<A, E>(
-  partyosPackageId: string,
-  effect: (partyos: PartyosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | PartyosDeploymentError, Sui> {
+function withPartyProtocol<A, E>(
+  partyProtocolPackageId: string,
+  effect: (partyProtocol: PartyProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | PartyProtocolDeploymentError, Sui> {
   return Effect.gen(function* () {
-    const partyos = yield* Partyos;
-    return yield* effect(partyos);
-  }).pipe(Effect.provide(Partyos.layer({ deployment: { partyos: partyosPackageId } })));
+    const partyProtocol = yield* PartyProtocol;
+    return yield* effect(partyProtocol);
+  }).pipe(Effect.provide(PartyProtocol.layer({ deployment: { partyos: partyProtocolPackageId } })));
 }
 
 type WorkAdminCapType =
@@ -257,7 +257,7 @@ export const getOwnedRecords = Effect.fn("getOwnedRecords")(function* (
 export const getOwnedParties = Effect.fn("getOwnedParties")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<OwnedParty[], TransportError | PartyosDeploymentError, Sui> {
+): Effect.fn.Return<OwnedParty[], TransportError | PartyProtocolDeploymentError, Sui> {
   const sui = yield* Sui;
   const capType = StructTag.make(`${config.partyos.partyos}::party::PartyAdminCap`);
 
@@ -275,8 +275,8 @@ export const getOwnedParties = Effect.fn("getOwnedParties")(function* (
   });
   if (caps.length === 0) return [];
 
-  const results = yield* withPartyos(config.partyos.partyos, (partyos) =>
-    partyos.getPartiesByIds(caps.map((c) => ObjectId.make(c.partyId))),
+  const results = yield* withPartyProtocol(config.partyos.partyos, (partyProtocol) =>
+    partyProtocol.getPartiesByIds(caps.map((c) => ObjectId.make(c.partyId))),
   );
   const parties = new Map(
     results.flatMap((result, index) => (Result.isSuccess(result) ? [[caps[index]!.partyId, result.success] as const] : [])),
@@ -298,22 +298,22 @@ export const getOwnedParties = Effect.fn("getOwnedParties")(function* (
 export const getPendingMemberships = Effect.fn("getPendingMemberships")(function* (
   owner: string,
   config: MisoConfig,
-): Effect.fn.Return<PendingMembership[], DecodeError | TransportError | PartyosDeploymentError, Sui> {
+): Effect.fn.Return<PendingMembership[], DecodeError | TransportError | PartyProtocolDeploymentError, Sui> {
   const controlled = yield* getOwnedParties(owner, config);
   const individuals = controlled.filter((party) => party.kind === "individual");
   if (individuals.length === 0) return [];
 
-  const invitations = yield* withPartyos(config.partyos.partyos, (partyos) =>
+  const invitations = yield* withPartyProtocol(config.partyos.partyos, (partyProtocol) =>
     Effect.forEach(
       individuals,
-      (member) => partyos.getPendingMemberships(ObjectId.make(member.partyId)).pipe(Effect.map((groupIds) => ({ member, groupIds }))),
+      (member) => partyProtocol.getPendingMemberships(ObjectId.make(member.partyId)).pipe(Effect.map((groupIds) => ({ member, groupIds }))),
       { concurrency: "unbounded" },
     ),
   );
   const groupIds = [...new Set(invitations.flatMap(({ groupIds }) => groupIds))];
   if (groupIds.length === 0) return [];
 
-  const groupResults = yield* withPartyos(config.partyos.partyos, (partyos) => partyos.getPartiesByIds(groupIds));
+  const groupResults = yield* withPartyProtocol(config.partyos.partyos, (partyProtocol) => partyProtocol.getPartiesByIds(groupIds));
   const groups = new Map(
     groupResults.flatMap((result, index) => (Result.isSuccess(result) ? [[groupIds[index]!, result.success] as const] : [])),
   );
@@ -457,7 +457,7 @@ export const getOwnedWorks = Effect.fn("getOwnedWorks")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   OwnedWork[],
-  MusicosDeploymentInvalid | DecodeError | BatchItemError | GraphQLUnavailable | TransportError | OperationsUnavailableError,
+  MusicProtocolDeploymentInvalid | DecodeError | BatchItemError | GraphQLUnavailable | TransportError | OperationsUnavailableError,
   Sui | SuiGraphQL
 > {
   const miso = config.deployment.musicos;
@@ -465,7 +465,7 @@ export const getOwnedWorks = Effect.fn("getOwnedWorks")(function* (
   const [directCompCaps, directRecCaps, directRelCaps, vaulted] = yield* Effect.all([
     ownedGenericCaps(owner, `${miso}::composition::CompositionAdminCap`),
     ownedGenericCaps(owner, `${miso}::recording::RecordingAdminCap`),
-    withMusicos(miso, (musicos) => musicos.getOwnedReleaseAdminCaps(SuiAddress.make(normalizeSuiAddress(owner)))),
+    withMusicProtocol(miso, (musicProtocol) => musicProtocol.getOwnedReleaseAdminCaps(SuiAddress.make(normalizeSuiAddress(owner)))),
     ownedVaultedWorkCaps(owner, config),
   ]);
   const vaultedRelCaps = yield* resolveVaultedReleaseCaps(vaulted.releases, config);
@@ -524,8 +524,8 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   | ObjectDeleted
   | ObjectUnavailable
   | DecodeError
-  | MusicosDeploymentInvalid
-  | MusicosWorkNotFound
+  | MusicProtocolDeploymentInvalid
+  | MusicProtocolWorkNotFound
   | BatchItemError
   | GraphQLUnavailable
   | TransportError
@@ -571,7 +571,7 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
   if (direct?.kind === "release") {
     // `ReleaseAdminCap`'s BCS carries `release_id` directly — no `json` include needed.
     const { release_id: releaseId } = networkContracts.release.ReleaseAdminCap.parse(content);
-    const r = yield* withMusicos(miso, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
+    const r = yield* withMusicProtocol(miso, (musicProtocol) => musicProtocol.getReleaseById(ObjectId.make(releaseId)));
     return {
       capId,
       kind: "release",
@@ -626,7 +626,7 @@ export const getWorkByCap = Effect.fn("getWorkByCap")(function* (
 
   const [releaseCap] = yield* resolveVaultedReleaseCaps([{ id: capId, vaultId }], config);
   if (!releaseCap) throw new Error(`Release vault ${vaultId} carries no release admin cap`);
-  const r = yield* withMusicos(miso, (musicos) => musicos.getReleaseById(ObjectId.make(releaseCap.releaseId)));
+  const r = yield* withMusicProtocol(miso, (musicProtocol) => musicProtocol.getReleaseById(ObjectId.make(releaseCap.releaseId)));
   return {
     capId,
     kind: "release",

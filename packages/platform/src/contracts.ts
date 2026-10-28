@@ -6,11 +6,11 @@ export const recordingMaster = withoutUnsafeCalls(rawRecordingMaster, ["master"]
 // Barrel for the codegen-generated, ABI-bound bindings (BCS structs + type-safe
 // Move calls). Re-exported from the package root as the `contracts` namespace.
 //
-// The object-model core (`musicos`: Composition, Recording, Release, Track)
-// generates into `@misofm/musicos` and is re-exported from ITS `contracts`
+// The object-model core (music-protocol: Composition, Recording, Release, Track)
+// generates into `@misofm/music` and is re-exported from ITS `contracts`
 // namespace — import it from there rather than mirroring it here. Everything
 // else Miso offers on top of the object model — extensions, generic royalty
-// primitives, the Party extensions (the Party core is `@misofm/partyos`),
+// primitives, the Party extensions (the Party core is `@misofm/party`),
 // Record/Record Shop — lives in this barrel.
 
 // Every package here is generated from the current first-party Move source. The
@@ -107,8 +107,8 @@ export * as recordingPartyRole from "./contracts/recording_credits/recording_par
 export const releaseCredits = withoutUnsafeCalls(rawReleaseCredits, ["credits"] as const);
 export * as releasePartyRole from "./contracts/release_credits/release_party_role.ts";
 
-// Party extensions. The Party core (`party`) is owned by `@misofm/partyos` —
-// import it from `@misofm/partyos/contracts` instead of mirroring it here.
+// Party extensions. The Party core (`party`) is owned by `@misofm/party` —
+// import it from `@misofm/party/contracts` instead of mirroring it here.
 export * as partyCta from "./contracts/party_cta/party_cta.ts";
 export * as partyGenre from "./contracts/party_genre/party_genre.ts";
 export * as partyMedia from "./contracts/party_media/party_media.ts";

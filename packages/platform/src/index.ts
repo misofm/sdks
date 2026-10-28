@@ -6,7 +6,7 @@
 // Miso's own product sits on top of the permissionless protocol, and the two
 // ship as separate packages because they have different promises:
 //
-//   @misofm/musicos  PROTOCOL — Composition, Recording, Release. The open layer
+//   @misofm/music  PROTOCOL — Composition, Recording, Release. The open layer
 //                     anyone can build on, and nobody needs Miso's permission to use.
 //   @misofm/platform  PLATFORM — Pressing, Listing, Record, and the first-party
 //                     EXTENSIONS. How MISO sells copies of a release, and the
