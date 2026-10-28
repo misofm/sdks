@@ -55,11 +55,11 @@ jobs:
         run: bun scripts/use-sui-version.ts ${{ matrix.sui }}
       - name: Install dependencies
         run: bun install
-      - name: Typecheck and test partyos, musicos, platform
+      - name: Typecheck and test party, music, platform
         env:
           MISO_SUI_VERSION: ${{ matrix.sui }}
         run: |
-          for pkg in partyos musicos platform; do
+          for pkg in party music platform; do
             bun run --filter "@misofm/$pkg" typecheck
             bun run --filter "@misofm/$pkg" test
           done

@@ -2,6 +2,38 @@
 
 All notable changes to `@misofm/platform`, newest first.
 
+## 0.47.0
+
+Moves onto the renamed object-model SDKs: `@misofm/music` 0.9.0 (was `@misofm/musicos`) and
+`@misofm/party` 0.9.0 (was `@misofm/partyos`). This package's own export names, behaviour,
+transactions and contract bindings are unchanged.
+
+### Changed (breaking)
+
+- **Dependencies `@misofm/musicos` and `@misofm/partyos` are replaced by `@misofm/music` and
+  `@misofm/party` (both `0.9.0`, exact).** Code that imports the object models directly
+  must move with them; see their changelogs.
+- Errors that reach callers from the object models carry the new names and tags:
+  `Miso.layer` can fail with `MusicProtocolDeploymentInvalid` (`music/DeploymentInvalid`) or
+  `PartyProtocolDeploymentError` (`party/DeploymentError`), the catalog reads with
+  `MusicProtocolWorkNotFound` (`music/WorkNotFound`), and party reads with
+  `party/PartyNotFound` (was `partyos/PartyNotFound`). Update any `Effect.catchTag` call site.
+- `Miso.layerNoDeps` now requires `MusicProtocol | PartyProtocol` (was `Musicos | Partyos`).
+- If you build the object-model layers yourself with `MusicProtocol.layerConfig` /
+  `PartyProtocol.layerConfig`, they now read `MUSIC_PROTOCOL_PACKAGE_ID` /
+  `PARTY_PROTOCOL_PACKAGE_ID`. The old `MUSICOS_PACKAGE_ID` / `PARTYOS_PACKAGE_ID` are ignored
+  and the bundled manifest is used silently, so rename them in every environment.
+  `Miso.layer` and `Miso.layerConfig` read neither.
+
+### Unchanged on purpose
+
+- `MisoPlatformDeployment` keeps its `protocol.musicos` and `partyos` keys (Move package names
+  from the publish manifests), so stored deployment manifests stay valid.
+
+### Internal
+
+- The isolated-consumer fixture, docs and CI matrix use the new package names.
+
 ## 0.46.0
 
 Moves the package from Effect `4.0.0-rc.112` to stable Effect `4.0.x` (developed and tested on `4.0.4`, peer floor `4.0.3`) and

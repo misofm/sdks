@@ -3,8 +3,8 @@
 
 // Covers `platformEventParsers` — the extension and generic-primitive event
 // decoders that used to live on the pre-split protocol package's combined `eventParsers`
-// before the musicos/platform split (issue misofm/sdks#26). Core object-model
-// event decoding (`eventParsers.core`) is tested in `@misofm/musicos` itself.
+// before the object-model/platform split (issue misofm/sdks#26). Core object-model
+// event decoding (`eventParsers.core`) is tested in `@misofm/music` itself.
 
 import { expect, test } from "bun:test";
 import { bcs } from "@mysten/sui/bcs";

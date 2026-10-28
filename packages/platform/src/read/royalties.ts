@@ -31,7 +31,7 @@ export const ROYALTY_CLAIMS_PAGE_LIMIT = 50;
 
 /**
  * `GraphQLUnavailable` lets through, not folded into `TransportError` — see
- * `@misofm/musicos`'s own `queries.ts` for the same idiom: under
+ * `@misofm/music`'s own `queries.ts` for the same idiom: under
  * `SuiGraphQL.layerUnavailable`, every call rejects with the same
  * `GraphQLUnavailable` instance, and a caller that wants "no endpoint
  * configured" distinguished from "the endpoint answered badly" needs the

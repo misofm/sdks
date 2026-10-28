@@ -18,7 +18,7 @@
 // PTB, and existing recordings authorized by their admin cap.
 //
 // This is the whole-graph orchestration half of the opinionated publish flow —
-// it composes `@misofm/musicos`'s bare `composition`/`recording`/`track`/
+// it composes `@misofm/music`'s bare `composition`/`recording`/`track`/
 // `release` core call bindings with its
 // own `disperseShares`/`finalizeRelease` helpers into one PTB. Royalty pools are
 // installed later through an admin-cap Vault plugin; the retired raw-cap helper
@@ -26,7 +26,7 @@
 
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import type { Recipe } from "@unconfirmed/sui-effect";
-import { contracts } from "@misofm/musicos";
+import { contracts } from "@misofm/music";
 import { custodyOf, disperseShares, finalizeRelease, recordingAuthorityOf, requiredCommandResult, type AdminCustodyInput, type RecordingAuthorityInput, type ShareRecipient } from "./transactions.ts";
 import { disposeNewAdminCap, invokeWithAdminCap } from "./vault.ts";
 

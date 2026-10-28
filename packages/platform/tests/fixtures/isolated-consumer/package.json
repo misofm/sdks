@@ -7,8 +7,8 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.4",
-    "@misofm/musicos": "file:../misofm-musicos.tgz",
-    "@misofm/partyos": "file:../misofm-partyos.tgz",
+    "@misofm/music": "file:../misofm-music.tgz",
+    "@misofm/party": "file:../misofm-party.tgz",
     "@misofm/platform": "file:../misofm-platform.tgz",
     "@misofm/streaming": "file:../misofm-streaming.tgz",
     "@misofm/transcoding": "file:../misofm-transcoding.tgz",

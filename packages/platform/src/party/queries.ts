@@ -4,7 +4,7 @@
 // Typed reads for the Party EXTENSIONS: fetch an on-chain dynamic field via
 // `Sui`, BCS-parse its value through the generated struct, and map to the
 // public camelCase types. Party core reads (`getPartyById`, group
-// membership, …) live in `@misofm/partyos` — this file only covers
+// membership, …) live in `@misofm/party` — this file only covers
 // profile/media/roles/tags/genres/ctas/links.
 //
 // Each field lives under an empty positional key (Move's implicit

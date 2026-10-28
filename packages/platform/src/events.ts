@@ -7,8 +7,8 @@ import * as recordingMaster from "./contracts/recording_master/recording_master.
  * BCS decoders for platform events. The registry intentionally preserves the
  * generated Move field names and nested layouts: this is the lossless event
  * boundary for indexers and consumers that may not share the SDK's domain
- * models. Core object-model events remain in `@misofm/musicos/events` and
- * `@misofm/partyos/events`.
+ * models. Core object-model events remain in `@misofm/music/events` and
+ * `@misofm/party/events`.
  *
  * Phantom type arguments are represented by the generated codecs' structural
  * layouts and therefore require no BCS type arguments. As with every BCS
@@ -18,8 +18,8 @@ import * as recordingMaster from "./contracts/recording_master/recording_master.
  * VaultAdminCap. Historical Vault IDs must not select these current schemas.
  */
 
-import { decodeEvent } from "@misofm/musicos/events";
-import type { BcsParser } from "@misofm/musicos/queries";
+import { decodeEvent } from "@misofm/music/events";
+import type { BcsParser } from "@misofm/music/queries";
 import type { BcsType } from "@mysten/sui/bcs";
 
 import * as compositionCredits from "./contracts/composition_credits/composition_credits.ts";

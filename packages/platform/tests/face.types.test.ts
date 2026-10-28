@@ -7,7 +7,7 @@
 // `SuiExtension.d.ts`'s own doc comment on `PromiseFace`) — an `interface`
 // is not such a member, even when every one of its own members is. Before
 // `docs/CONVERSION.md` "Stage 5", `MisoService`'s `protocol`, `party`, and
-// `vault` members were typed as interfaces (`MusicosService`,
+// `vault` members were typed as interfaces (`MusicProtocolService`,
 // `MisoPartyService`, `MisoVault`), so `PromiseFace<MisoService>` never
 // recursed into them: `client.miso.protocol.getReleaseById` kept the type
 // `(id) => Effect<...>` at compile time while the derived face actually
@@ -37,7 +37,7 @@ type Assert<T extends true> = T;
 /** Does `F` return a `Promise`, however it is called? */
 type ReturnsPromise<F> = F extends (...args: never[]) => Promise<unknown> ? true : false;
 
-// `protocol.getReleaseById`: an `Effect`-returning member of `MusicosService`
+// `protocol.getReleaseById`: an `Effect`-returning member of `MusicProtocolService`
 // (an external interface `MisoService.protocol` wraps in a homomorphic
 // mapped type — see `Miso.ts`) must resolve to a Promise-returning method
 // through the face, not stay `Effect`-typed.

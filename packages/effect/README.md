@@ -16,7 +16,7 @@ for how to build against it.
 |---|---|---|
 | `SuiClient.layer(client)` | `Sui.layerNoDeps.pipe(Layer.provideMerge(SuiCore.layerFromClient(client)))` | build reads `getChainIdentifier`; fails `NetworkMismatch \| TransportError` on mainnet/testnet mismatch |
 | `SuiClient` (raw reach-through: `yield* SuiClient; client.core.x()`) | `sui.core.x()` or `sui.core.use((client, signal) => ...)` | errors mapped, signal forwarded |
-| `SuiGraphQL` | sui-effect's `SuiGraphQL` service tag (`layer(client)`, `layerConfig`, `layerUnavailable`); sui-effect does not wrap the GraphQL API itself | one shared tag across musicos and platform |
+| `SuiGraphQL` | sui-effect's `SuiGraphQL` service tag (`layer(client)`, `layerConfig`, `layerUnavailable`); sui-effect does not wrap the GraphQL API itself | one shared tag across music and platform |
 | `getObjectContent(id)` | `sui.getObject(ObjectId.make(id))` → `SuiObject<Uint8Array>` | `version` is `bigint`; fails `ObjectNotFound \| ObjectDeleted \| ObjectUnavailable`; ids and addresses are branded |
 | `getOptionalObjectContent` | `sui.getObjectOption` | deleted → `None`; `ObjectUnavailable` still fails |
 | `getObjectsContent(ids)` → `ReadonlyMap` | `sui.getObjects(ids)` → `ReadonlyArray<Result<SuiObject, BatchItemError>>` | **per-item `Result`** — errored ids are no longer silently dropped; chunked by 50, deduped, integrity-checked |
@@ -31,7 +31,7 @@ for how to build against it.
 | `SuiRpcError { operation, cause }` | `TransportError { method, retryable, status?, cause }` | callers that construct it directly must supply `retryable` |
 | `SuiReadError` | `GetObjectError` | |
 | `GraphQLUnavailableError` | sui-effect's `GraphQLUnavailable` (outcome `not_applied`), raised by `SuiGraphQL.layerUnavailable` | |
-| `DeploymentError` | dropped from this package — define an equivalent tag-prefixed `Schema.TaggedError` (e.g. `musicos/DeploymentError`) in each consumer's own `errors.ts`, with `outcome: "not_applied"` | |
+| `DeploymentError` | dropped from this package — define an equivalent tag-prefixed `Schema.TaggedError` (e.g. `music/DeploymentError`) in each consumer's own `errors.ts`, with `outcome: "not_applied"` | |
 | `TxThunk = (tx) => void \| Promise<void>` | `Recipe = (tx) => void` | **async thunks are gone** — every thunk inside these SDKs is synchronous; a consumer's `async (tx) => ...` hoists its `await` before the recipe |
 | `buildTx(...thunks)` → `Transaction` | compose recipes — `(tx) => { a(tx); b(tx) }` — then `Tx.build(recipe, { sender })` for bytes, or `const tx = new Transaction(); recipe(tx)` when the builder object itself is needed | `Tx.build` simulates and sets a `ValidDuring` expiration |
 | `signAndExecute` / `execThunks` | `Tx.run(recipe, { signer: Signer.fromKeypair(kp) })` → `Executed` | **no redundant `waitForTransaction`** — `signAndExecute` sent once and then polled; `Tx.run` returns the execution result directly, holds the sender lock, journals the signed bytes, and re-sends the identical bytes on retryable transport failures |

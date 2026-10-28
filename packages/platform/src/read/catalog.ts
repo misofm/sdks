@@ -49,8 +49,8 @@ import {
   type RecordingEngineSessionView,
 } from "../recording-extensions.ts";
 import { getTrackCreditsByRecordingIds } from "../catalog.ts";
-import { Musicos, type MusicosDeploymentInvalid, type MusicosService, type MusicosWorkNotFound, type ReadError } from "@misofm/musicos";
-import type { Release } from "@misofm/musicos";
+import { MusicProtocol, type MusicProtocolDeploymentInvalid, type MusicProtocolService, type MusicProtocolWorkNotFound, type ReadError } from "@misofm/music";
+import type { Release } from "@misofm/music";
 import {
   DecodeError,
   ObjectId,
@@ -90,18 +90,18 @@ import type {
 } from "./types.ts";
 
 /**
- * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
- * hands back the effect it wraps — see `../catalog.ts`'s `withMusicos` for
+ * Builds `MusicProtocol.layer({ deployment: { packageId } })`, provides it, and
+ * hands back the effect it wraps — see `../catalog.ts`'s `withMusicProtocol` for
  * the same idiom (kept file-local; see `docs/CONVERSION-STATUS.md`).
  */
-function withMusicos<A, E>(
+function withMusicProtocol<A, E>(
   packageId: string,
-  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  effect: (musicProtocol: MusicProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicProtocolDeploymentInvalid, Sui> {
   return Effect.gen(function* () {
-    const musicos = yield* Musicos;
-    return yield* effect(musicos);
-  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+    const musicProtocol = yield* MusicProtocol;
+    return yield* effect(musicProtocol);
+  }).pipe(Effect.provide(MusicProtocol.layer({ deployment: { packageId } })));
 }
 
 // ── Cover references ──────────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
   releaseId: string,
   config: MisoConfig,
   options: GetReleaseOptions = {},
-): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<ReleaseDetail, ReleaseNotFoundError | DecodeError | BatchItemError | GraphQLUnavailable | MusicProtocolWorkNotFound | TransportError, Sui | SuiGraphQL> {
   const [{ release, cover, credits, kind, description }, genreIds] = yield* Effect.all([
     getReleaseResources(releaseId, config, [
       "cover",
@@ -477,7 +477,7 @@ export const getReleaseDetail = Effect.fn("getReleaseDetail")(function* (
 const getTrackCreditsForRecordingIds = Effect.fn("getTrackCreditsForRecordingIds")(function* (
   recordingIds: readonly string[],
   config: MisoConfig,
-): Effect.fn.Return<Record<string, TrackCredits>, BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError, Sui | SuiGraphQL> {
+): Effect.fn.Return<Record<string, TrackCredits>, BatchItemError | GraphQLUnavailable | MusicProtocolWorkNotFound | TransportError, Sui | SuiGraphQL> {
   const { compositionCredits, recordingCredits } = config.protocol;
   const tracks = yield* getTrackCreditsByRecordingIds(recordingIds, {
     misoPackageId: config.deployment.musicos,
@@ -509,10 +509,10 @@ export const getTrackCredits = Effect.fn("getTrackCredits")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   Record<string, TrackCredits>,
-  ReadError | MusicosDeploymentInvalid | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  ReadError | MusicProtocolDeploymentInvalid | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
-  const release = yield* withMusicos(config.deployment.musicos, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
+  const release = yield* withMusicProtocol(config.deployment.musicos, (musicProtocol) => musicProtocol.getReleaseById(ObjectId.make(releaseId)));
   const recordingIds = release.tracks.map((track) => track.recordingId);
   return yield* getTrackCreditsForRecordingIds(recordingIds, config);
 });
@@ -526,7 +526,7 @@ export const getPressingDetail = Effect.fn("getPressingDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   PressingDetail | null,
-  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
@@ -547,7 +547,7 @@ export const getPressingSaleDetail = Effect.fn("getPressingSaleDetail")(function
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  DecodeError | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ReleaseNotFoundError | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const pressing = yield* getPressingView(pressingId, config);
@@ -604,7 +604,7 @@ export const getSaleDetail = Effect.fn("getSaleDetail")(function* (
   options: GetReleaseOptions = {},
 ): Effect.fn.Return<
   SaleDetail | null,
-  DecodeError | ObjectDeleted | ObjectUnavailable | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ObjectDeleted | ObjectUnavailable | ReleaseNotFoundError | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);
@@ -631,7 +631,7 @@ export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
   config: MisoConfig,
 ): Effect.fn.Return<
   DiscoverItem[],
-  DecodeError | ObjectDeleted | ObjectUnavailable | MusicosDeploymentInvalid | TransportError,
+  DecodeError | ObjectDeleted | ObjectUnavailable | MusicProtocolDeploymentInvalid | TransportError,
   Sui
 > {
   const configuredSales = [...config.discoverSales];
@@ -655,7 +655,7 @@ export const getDiscoverShelf = Effect.fn("getDiscoverShelf")(function* (
   if (releaseIds.length === 0) return [];
 
   const [releaseResults, coverViews, credits] = yield* Effect.all([
-    withMusicos(config.deployment.musicos, (musicos) => musicos.getReleasesByIds(releaseIds.map((id) => ObjectId.make(id)))),
+    withMusicProtocol(config.deployment.musicos, (musicProtocol) => musicProtocol.getReleasesByIds(releaseIds.map((id) => ObjectId.make(id)))),
     getReleaseCoversByIds(releaseIds, config.protocol.releaseCoverArt).pipe(
       Effect.catch(() => Effect.succeed({} as Partial<Record<string, ReleaseCoverView>>)),
     ),
@@ -704,7 +704,7 @@ export const getRecordAlbum = Effect.fn("getRecordAlbum")(function* (
   options: GetRecordAlbumOptions = {},
 ): Effect.fn.Return<
   RecordAlbum | null,
-  DecodeError | ObjectUnavailable | ReleaseNotFoundError | MusicosWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
+  DecodeError | ObjectUnavailable | ReleaseNotFoundError | MusicProtocolWorkNotFound | BatchItemError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   const sales = requireRecordSalesDeployment(config.recordSales);

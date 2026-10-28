@@ -1369,3 +1369,12 @@ runtime test but `face.types.test.ts` registers one; B4/B9/B1/B2's new
   "a caller who wants the first per-item failure to fail the whole read").
   A name closer to `getObjectsStrict`/`requireObjects` would read correctly
   without the doc comment.
+
+## Postscript: package rename (platform 0.47.0)
+
+In `@misofm/platform` 0.47.0, `@misofm/musicos` and `@misofm/partyos` were
+renamed to `@misofm/music` and `@misofm/party` (0.9.0), with their services
+`Musicos`/`Partyos` renamed to `MusicProtocol`/`PartyProtocol` and the Promise
+registrations to `musicProtocol()`/`partyProtocol()`. The old names used above
+are historical and describe the codebase as it was at the time of this
+conversion.

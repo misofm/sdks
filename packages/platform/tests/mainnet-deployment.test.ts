@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import evidence from "../../../releases/mainnet-v1-20260916.json";
 import { MISO_PLATFORM_DEPLOYMENTS, assertMisoPlatformDeployment, requireOperationsDeployment, requireRecordSalesDeployment } from "../src/deployments.ts";
 import { Transaction } from "@mysten/sui/transactions";
-import { contracts } from "@misofm/partyos";
+import { contracts } from "@misofm/party";
 
 const deployment = MISO_PLATFORM_DEPLOYMENTS.mainnet;
 

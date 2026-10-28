@@ -5,7 +5,7 @@
  * Package-bound generated APIs for the platform layer: extensions, generic
  * royalty/routed-stake primitives, and Party. The object-model core (composition,
  * recording, release, track) has its own `MisoPackageBindings` in
- * `@misofm/musicos/packages` — this class covers everything else.
+ * `@misofm/music/packages` — this class covers everything else.
  *
  * `@mysten/codegen` intentionally emits `@local-pkg/*` source labels. This
  * adapter replaces those labels with the exact addresses from a complete
@@ -13,14 +13,14 @@
  * Move target.
  */
 
-import { bindModulePackage } from "@misofm/musicos/packages";
-// The Party core's generated bindings live in `@misofm/partyos` now (this
+import { bindModulePackage } from "@misofm/music/packages";
+// The Party core's generated bindings live in `@misofm/party` now (this
 // package's own generated `partyos` tree is gone). Binding `call.party.core`/
-// `bcs.party.core` from partyos's curated barrel — rather than dropping them —
+// `bcs.party.core` from `@misofm/party`'s curated barrel — rather than dropping them —
 // keeps this package's single `MisoPlatformPackageBindings` facade covering
 // every package a platform deployment addresses, core included, which is what
 // `packages.test.ts` exercises.
-import { party as partyCoreContracts } from "@misofm/partyos/contracts";
+import { party as partyCoreContracts } from "@misofm/party/contracts";
 import {
   normalizeMisoPlatformDeployment,
   type MisoPlatformDeployment,
@@ -108,7 +108,7 @@ export class MisoPlatformPackageBindings {
   get call() {
     const p = this.deployment.packages;
     const party_ = this.deployment.party;
-    const partyosPkg = this.deployment.partyos.partyos;
+    const partyProtocolPkg = this.deployment.partyos.partyos;
     return {
       extensions: {
         compositionCredits: {
@@ -166,11 +166,11 @@ export class MisoPlatformPackageBindings {
         routedStake: bindModulePackage(routedStake, p.routedStake, REF_RETURNING_CALLS.routedStake),
       },
       party: {
-        // Party core: `@misofm/partyos`'s curated `contracts.party` barrel is
+        // Party core: `@misofm/party`'s curated `contracts.party` barrel is
         // already stripped of reference-returning calls (its own
         // PARTY_REF_RETURNING_CALLS, the same set as REF_RETURNING_CALLS.party
         // below), so no `unavailable` list is passed here.
-        core: bindModulePackage(partyCoreContracts, partyosPkg),
+        core: bindModulePackage(partyCoreContracts, partyProtocolPkg),
         cta: bindModulePackage(partyCta, party_.partyCta),
         genre: bindModulePackage(partyGenre, party_.partyGenre),
         media: bindModulePackage(partyMedia, party_.partyMedia),

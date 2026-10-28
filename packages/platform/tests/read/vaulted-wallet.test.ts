@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
-import { contracts } from "@misofm/musicos";
+import { contracts } from "@misofm/music";
 import { Sui, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { layerTest, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import * as vaultContract from "../../src/contracts/vault/vault.ts";

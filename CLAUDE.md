@@ -28,21 +28,21 @@ extrapolate from other blockchains.
 
 This is a Bun workspace of publishable packages under `packages/*`:
 
-- `packages/musicos` — `@misofm/musicos`, the works object model SDK (Composition,
+- `packages/music` — `@misofm/music`, the works object model SDK (Composition,
   Recording, Release, Track).
-- `packages/partyos` — `@misofm/partyos`, the Party object model SDK (Party, admin cap,
+- `packages/party` — `@misofm/party`, the Party object model SDK (Party, admin cap,
   group membership).
 - `packages/platform` — `@misofm/platform`, a `sui-effect` extension (the `Miso` service)
   for everything Miso builds on top of the object models (work and Party extensions,
-  royalty primitives, Vault, Actions, product workflows), composed over `@misofm/musicos`
-  and `@misofm/partyos`.
+  royalty primitives, Vault, Actions, product workflows), composed over `@misofm/music`
+  and `@misofm/party`.
 - `packages/effect` — `@misofm/effect`, **deprecated**: superseded by `sui-effect` (the
   Effect v4 foundation every package is being converted to; see the migration table in
   `packages/effect/README.md`). Do not add new code here.
 - `packages/streaming`, `packages/transcoding` — the streaming transcode contract and
   transcoder.
 
-Within `packages/musicos`, `packages/partyos`, and `packages/platform`:
+Within `packages/music`, `packages/party`, and `packages/platform`:
 
 - `src/` — public TypeScript SDK, transaction builders, reads, and generated bindings
 - `src/contracts/` — generated bindings; regenerate with `bun run codegen` at the repo root
@@ -51,20 +51,20 @@ Within `packages/musicos`, `packages/partyos`, and `packages/platform`:
 At the repo root:
 
 - `sui-codegen.config.ts` — the three generated trees' Move package inputs, and the source of
-  truth for which package lands in `packages/musicos/src/contracts/`,
-  `packages/partyos/src/contracts/`, or `packages/platform/src/contracts/`. See the "Expected checkout layout" comment there for
+  truth for which package lands in `packages/music/src/contracts/`,
+  `packages/party/src/contracts/`, or `packages/platform/src/contracts/`. See the "Expected checkout layout" comment there for
   where this repo expects its sibling Move package checkouts to live — do not restate that
   layout elsewhere.
 - `scripts/codegen.ts` — the codegen runner that generates every tree.
 
 ## The object-model / platform boundary
 
-> `@misofm/musicos` and `@misofm/partyos` are the object models. Everything Miso offers on top
+> `@misofm/music` and `@misofm/party` are the object models. Everything Miso offers on top
 > of them is platform.
 
 When adding a feature, decide which package it belongs to using that rule, not convenience:
-if it is intrinsic to a Composition/Recording/Release/Track, it belongs in `musicos`; if it is
-intrinsic to a Party (identity, admin cap, membership), it belongs in `partyos`; if it is an
+if it is intrinsic to a Composition/Recording/Release/Track, it belongs in `music`; if it is
+intrinsic to a Party (identity, admin cap, membership), it belongs in `party`; if it is an
 opinion Miso's product adds on top — including every `party_*` extension — it belongs in
 `platform`.
 
@@ -76,7 +76,7 @@ opinion Miso's product adds on top — including every `party_*` extension — i
   `node_modules/effect/AGENTS.md` and `ai-docs/` before writing Effect code; v4 is not v3.
 - I/O returns `Effect` with `Sui` (from `@unconfirmed/sui-effect`; `Miso` also needs
   `SuiGraphQL`) in the requirements; each service ships `layer`/`layerConfig`/`layerTest`, and
-  the derived Promise registrations (`musicos()`, `partyos()`, `miso()`) provide that service
+  the derived Promise registrations (`musicProtocol()`, `partyProtocol()`, `miso()`) provide that service
   themselves. PTB builders stay synchronous.
 - Failures are `Schema.TaggedError` classes in each package's `src/errors.ts` (`./errors`
   subpath); never throw strings or plain `Error` from public reads.

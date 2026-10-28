@@ -19,9 +19,9 @@ import { ExtensionNotReady, KNOWN_CHAIN_IDS, ObjectId, SuiGraphQL } from "@uncon
 import { FakeOutcome, SuiCoreFake, type FakeObject } from "@unconfirmed/sui-effect/testing";
 import { Signer } from "@unconfirmed/sui-effect/tx";
 import { SuiExtension } from "@unconfirmed/sui-effect/extension";
-import { party as partyCoreContracts } from "@misofm/partyos/contracts";
-import { createComposition, type CreateCompositionParams } from "@misofm/musicos/transactions";
-import * as musicosReleaseContract from "@misofm/musicos/contracts/musicos/release";
+import { party as partyCoreContracts } from "@misofm/party/contracts";
+import { createComposition, type CreateCompositionParams } from "@misofm/music/transactions";
+import * as musicReleaseContract from "@misofm/music/contracts/musicos/release";
 import { ProfileKey as ProfileKeyBcs, Profile as ProfileBcs } from "../src/contracts/party_profile/party_profile.ts";
 import { purchaseRecord } from "../src/pressing.ts";
 import { miso, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError } from "../src/client.ts";
@@ -65,7 +65,7 @@ describe("client.$extend(miso()): warm registration", () => {
 
     // A plain-object value member (`deployment`) is real immediately under `warm`.
     expect(client.miso.deployment.network).toBe("testnet");
-    // Nested namespaces: `protocol` (Musicos) and `party` (Partyos + extensions).
+    // Nested namespaces: `protocol` (MusicProtocol) and `party` (PartyProtocol + extensions).
     expect(typeof client.miso.protocol.getReleaseById).toBe("function");
     expect(typeof client.miso.party.getPartyById).toBe("function");
     expect(client.miso.party.bcs.PartyProfileClearedEvent).toBeDefined();
@@ -98,7 +98,7 @@ describe("client.$extend(...): a cold (non-warm) registration and $ready()", () 
     const fake = await Effect.runPromise(
       Effect.provide(SuiCoreFake, SuiCoreFake.layer({ network: "testnet", chainId: REAL_TESTNET_CHAIN_ID })),
     );
-    // Built without `warm`, the way `musicos()` registers by default —
+    // Built without `warm`, the way `musicProtocol()` registers by default —
     // proves `Miso` supports either mode, not just the `miso()` helper's own
     // choice of `warm`. `SuiGraphQL.layerUnavailable` stands in for
     // `miso()`'s own default (no `graphqlClient` given).
@@ -194,17 +194,17 @@ describe("client.$extend(miso()): error identity through the face", () => {
     await expect(client.miso.getPressing(A)).rejects.toMatchObject({ _tag: "RecordSalesUnavailableError" });
     await expect(client.miso.getPressing(A)).rejects.toBeInstanceOf(RecordSalesUnavailableError);
 
-    // Through the nested `party` namespace: `Partyos.getPartyById` wraps a
+    // Through the nested `party` namespace: `PartyProtocol.getPartyById` wraps a
     // missing object into its own package-specific tag (`PartyNotFound`, not
     // sui-effect's generic `ObjectNotFound`) — the identity guarantee holds
     // for a composed sibling service's own tag too, not only sui-effect's.
     const partyRejection = await client.miso.party.getPartyById(ObjectId.make(A)).catch((error: unknown) => error);
-    expect((partyRejection as { _tag: string })._tag).toBe("partyos/PartyNotFound");
+    expect((partyRejection as { _tag: string })._tag).toBe("party/PartyNotFound");
 
     await client.miso.dispose();
   });
 
-  test("core party reads resolve through the real converted Partyos service", async () => {
+  test("core party reads resolve through the real converted PartyProtocol service", async () => {
     const fake = await Effect.runPromise(
       Effect.provide(
         SuiCoreFake,
@@ -236,7 +236,7 @@ describe("the network-mismatch path at layer build", () => {
   // `Miso.test.ts` for the Effect-level assertions); what changes is WHEN
   // that build happens relative to `$extend`. `miso()`'s default `warm`
   // registration (chosen per this stage's own instructions, matching
-  // `partyos()`) builds the layer synchronously inside `register`, so a
+  // `partyProtocol()`) builds the layer synchronously inside `register`, so a
   // mismatch throws AT `$extend` for "testnet"/"mainnet" — a real deviation
   // from the issue's own migration-map wording ("no longer a synchronous
   // throw... rejects the first call"), which describes a LAZY registration.
@@ -383,7 +383,7 @@ describe("B4 (misofm/sdks#35 verification): the old facade surface, walked", () 
   });
 });
 
-describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved through the face, and a musicos fragment composed with a platform one", () => {
+describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved through the face, and a musicProtocol fragment composed with a platform one", () => {
   test("protocol.getReleaseById and party.getProfile resolve real values through the face, not just typeof", async () => {
     const RELEASE_ID = `0x${"77".repeat(32)}`;
     const PARTY_ID = `0x${"88".repeat(32)}`;
@@ -403,7 +403,7 @@ describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved throug
               objectId: RELEASE_ID,
               type: `${TESTNET.protocol.musicos}::release::Release`,
               version: 1n,
-              content: musicosReleaseContract.Release.serialize({
+              content: musicReleaseContract.Release.serialize({
                 id: RELEASE_ID,
                 state: { Initialized: { registry_id: A, release_digest: [], nonce: "0" } },
                 title: "Through The Face",
@@ -443,14 +443,14 @@ describe("B4 (misofm/sdks#35 verification): protocol/party reads resolved throug
     await client.miso.dispose();
   });
 
-  test("a musicos free-function fragment composes with a platform fragment in one PTB", () => {
-    // `createComposition` (`@misofm/musicos/transactions`) is a standalone
+  test("a musicProtocol free-function fragment composes with a platform fragment in one PTB", () => {
+    // `createComposition` (`@misofm/music/transactions`) is a standalone
     // PRIMITIVE builder — not a service member, not even through `miso()` —
     // proving the two SDKs' fragments compose on one caller-owned
     // `Transaction` with no facade involved at all. (The earlier "warm
     // registration" test in this file composes `client.miso.tx.*` with
     // `client.miso.party.tx.*`, both service members; this is the "a
-    // musicos free-function" case B4 names separately.)
+    // music-protocol free-function" case B4 names separately.)
     const tx = new Transaction();
     const compositionParams: CreateCompositionParams = {
       title: "Fragment Composition",

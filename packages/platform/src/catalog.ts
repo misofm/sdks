@@ -3,7 +3,7 @@
 
 // Composed catalog reads.
 //
-// `@misofm/musicos` exposes one-question reads: fetch an object by id, list the
+// `@misofm/music` exposes one-question reads: fetch an object by id, list the
 // caps an address owns, resolve a share type to its work. Stitching several of
 // those together to answer a PRODUCT question — "show me everything this artist
 // administers" — is orchestration, and it lives here for the same reason the
@@ -15,14 +15,14 @@ import { Effect, Result } from "effect";
 import {
   extractTypeParams2,
   getWorkAddressesByShareTypes,
-  Musicos,
-  MusicosWorkNotFound,
-  type MusicosDeploymentInvalid,
-  type MusicosService,
+  MusicProtocol,
+  MusicProtocolWorkNotFound,
+  type MusicProtocolDeploymentInvalid,
+  type MusicProtocolService,
   type OwnedReadError,
   type ReadError,
   type Recording,
-} from "@misofm/musicos";
+} from "@misofm/music";
 import { ObjectId, Sui, SuiAddress, SuiGraphQL, type BatchItemError, type GraphQLUnavailable, type TransportError } from "@unconfirmed/sui-effect";
 import {
   getCompositionCreditsByIds,
@@ -52,22 +52,22 @@ const EMPTY_RECORDING_CREDITS: RecordingCreditsView = {
 };
 
 /**
- * Builds `Musicos.layer({ deployment: { packageId } })`, provides it, and
+ * Builds `MusicProtocol.layer({ deployment: { packageId } })`, provides it, and
  * hands back the effect it wraps — sui-effect's "converting an existing
  * facade" idiom (`docs/extensions.md`) applied at function granularity, so a
- * standalone catalog read composes the sibling `@misofm/musicos` extension
+ * standalone catalog read composes the sibling `@misofm/music` extension
  * internally and its own requirement channel stays `Sui`, never
- * `Sui | Musicos`. This is what a non-facade consumer (the crank service,
+ * `Sui | MusicProtocol`. This is what a non-facade consumer (the crank service,
  * this module itself) uses in place of a bound `Miso.protocol`.
  */
-function withMusicos<A, E>(
+function withMusicProtocol<A, E>(
   packageId: string,
-  effect: (musicos: MusicosService) => Effect.Effect<A, E, Sui>,
-): Effect.Effect<A, E | MusicosDeploymentInvalid, Sui> {
+  effect: (musicProtocol: MusicProtocolService) => Effect.Effect<A, E, Sui>,
+): Effect.Effect<A, E | MusicProtocolDeploymentInvalid, Sui> {
   return Effect.gen(function* () {
-    const musicos = yield* Musicos;
-    return yield* effect(musicos);
-  }).pipe(Effect.provide(Musicos.layer({ deployment: { packageId } })));
+    const musicProtocol = yield* MusicProtocol;
+    return yield* effect(musicProtocol);
+  }).pipe(Effect.provide(MusicProtocol.layer({ deployment: { packageId } })));
 }
 
 /**
@@ -85,10 +85,10 @@ export const getReleaseTrackCredits = Effect.fn("getReleaseTrackCredits")(functi
   options: GetReleaseTrackCreditsOptions,
 ): Effect.fn.Return<
   Record<string, ReleaseTrackCredits>,
-  ReadError | MusicosDeploymentInvalid | MusicosWorkNotFound | GraphQLUnavailable | TransportError,
+  ReadError | MusicProtocolDeploymentInvalid | MusicProtocolWorkNotFound | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
-  const release = yield* withMusicos(options.misoPackageId, (musicos) => musicos.getReleaseById(ObjectId.make(releaseId)));
+  const release = yield* withMusicProtocol(options.misoPackageId, (musicProtocol) => musicProtocol.getReleaseById(ObjectId.make(releaseId)));
   return yield* getTrackCreditsByRecordingIds(
     release.tracks.map((track) => track.recordingId),
     options,
@@ -105,7 +105,7 @@ export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordi
   options: GetReleaseTrackCreditsOptions,
 ): Effect.fn.Return<
   Record<string, ReleaseTrackCredits>,
-  BatchItemError | GraphQLUnavailable | MusicosWorkNotFound | TransportError,
+  BatchItemError | GraphQLUnavailable | MusicProtocolWorkNotFound | TransportError,
   Sui | SuiGraphQL
 > {
   const recordingIds = [...new Set(recordingIdsInput)];
@@ -135,7 +135,7 @@ export const getTrackCreditsByRecordingIds = Effect.fn("getTrackCreditsByRecordi
   );
   for (const shareType of compositionShareTypes) {
     if (!addresses.compositions[shareType]) {
-      return yield* Effect.fail(new MusicosWorkNotFound({ kind: "composition", shareType }));
+      return yield* Effect.fail(new MusicProtocolWorkNotFound({ kind: "composition", shareType }));
     }
   }
   const compositionIds = [
@@ -183,18 +183,18 @@ export const getAdministeredRecordings = Effect.fn("getAdministeredRecordings")(
   options: GetAdministeredRecordingsOptions = {},
 ): Effect.fn.Return<
   Recording[],
-  MusicosDeploymentInvalid | OwnedReadError | GraphQLUnavailable | TransportError,
+  MusicProtocolDeploymentInvalid | OwnedReadError | GraphQLUnavailable | TransportError,
   Sui | SuiGraphQL
 > {
   void options;
-  const caps = yield* withMusicos(misoPackageId, (musicos) => musicos.getOwnedRecordingAdminCaps(SuiAddress.make(owner)));
+  const caps = yield* withMusicProtocol(misoPackageId, (musicProtocol) => musicProtocol.getOwnedRecordingAdminCaps(SuiAddress.make(owner)));
   if (caps.length === 0) return [];
   const addresses = yield* getWorkAddressesByShareTypes(
     { compositions: [], recordings: caps.map((cap) => cap.shareType) },
     misoPackageId,
   );
   const ids = Object.values(addresses.recordings).filter((id): id is string => id !== undefined);
-  const results = yield* withMusicos(misoPackageId, (musicos) => musicos.getRecordingsByIds(ids.map((id) => ObjectId.make(id))));
+  const results = yield* withMusicProtocol(misoPackageId, (musicProtocol) => musicProtocol.getRecordingsByIds(ids.map((id) => ObjectId.make(id))));
   const byId = new Map(
     results.flatMap((result, index) => (Result.isSuccess(result) ? [[ids[index]!, result.success] as const] : [])),
   );

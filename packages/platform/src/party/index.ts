@@ -12,10 +12,10 @@ export * from "./extensions/genres.ts";
 export * from "./extensions/ctas.ts";
 export * from "./extensions/links.ts";
 
-// === Party core — owned by `@misofm/partyos` ===
+// === Party core — owned by `@misofm/party` ===
 // Re-exported here so `@misofm/platform/party` remains a one-stop import for
 // Party work. The Party object model (identity, admin caps, group membership)
-// itself lives in `@misofm/partyos`; this package only owns the extensions.
+// itself lives in `@misofm/party`; this package only owns the extensions.
 export {
   createIndividualParty,
   createGroupParty,
@@ -36,4 +36,4 @@ export {
   type RevokeInviteParams,
   type LeaveGroupParams,
   type RemoveMemberParams,
-} from "@misofm/partyos";
+} from "@misofm/party";

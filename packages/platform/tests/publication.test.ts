@@ -15,7 +15,7 @@ import {
   deriveCompositionAdminCapId,
   deriveRecordingAdminCapId,
   deriveReleaseAdminCapId,
-} from "@misofm/musicos";
+} from "@misofm/music";
 import {
   assertAtomicPublicationBounds,
   inspectAtomicPublication,
@@ -25,8 +25,8 @@ import {
 } from "../src/publication.ts";
 import { derivePressingAdminCapId, derivePressingId } from "../src/pressing.ts";
 import * as contracts from "../src/contracts.ts";
-import { party } from "@misofm/partyos/contracts";
-import { derivePartyAdminCapId } from "@misofm/partyos";
+import { party } from "@misofm/party/contracts";
+import { derivePartyAdminCapId } from "@misofm/party";
 import { Schema } from "effect";
 import { Executed } from "@unconfirmed/sui-effect";
 

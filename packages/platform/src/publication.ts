@@ -22,9 +22,9 @@ import {
   deriveCompositionAdminCapId,
   deriveRecordingAdminCapId,
   deriveReleaseAdminCapId,
-} from "@misofm/musicos";
-import { party } from "@misofm/partyos/contracts";
-import { derivePartyAdminCapId } from "@misofm/partyos";
+} from "@misofm/music";
+import { party } from "@misofm/party/contracts";
+import { derivePartyAdminCapId } from "@misofm/party";
 import {
   requireOperationsDeployment,
   type AvailableOperationsDeployment,

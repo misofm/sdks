@@ -12,10 +12,10 @@
  * `docs/CONVERSION.md` for what changed and why.
  *
  * Per sui-effect's `docs/extensions.md` ("converting an existing facade"):
- * `Musicos`/`Partyos` are dependencies already extended elsewhere, so this
+ * `MusicProtocol`/`PartyProtocol` are dependencies already extended elsewhere, so this
  * service `Layer.provide`s their own `layer(...)` inside its own so the
  * requirement channel stays `Sui | SuiGraphQL` and never leaks
- * `Musicos | Partyos` to a consumer that only asked for `Miso`. `SuiGraphQL`
+ * `MusicProtocol | PartyProtocol` to a consumer that only asked for `Miso`. `SuiGraphQL`
  * joins the requirement this stage, now that `read.*` and the catalog reads
  * need it (the WP1 skeleton's `Sui`-only requirement was accurate only until
  * this surface existed).
@@ -27,8 +27,8 @@
  */
 import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Config, Context, Effect, Layer } from "effect";
-import { Musicos, type MusicosDeploymentInvalid, type MusicosService } from "@misofm/musicos";
-import { Partyos, type PartyosDeploymentError, type PartyosService } from "@misofm/partyos";
+import { MusicProtocol, type MusicProtocolDeploymentInvalid, type MusicProtocolService } from "@misofm/music";
+import { PartyProtocol, type PartyProtocolDeploymentError, type PartyProtocolService } from "@misofm/party";
 import {
   Sui,
   SuiGraphQL,
@@ -175,8 +175,8 @@ import * as releaseCreditsContract from "./contracts/release_credits/release_cre
 export type MisoLayerError =
   | MisoNetworkMismatchError
   | MisoChainIdentifierMismatchError
-  | MusicosDeploymentInvalid
-  | PartyosDeploymentError;
+  | MusicProtocolDeploymentInvalid
+  | PartyProtocolDeploymentError;
 
 // ── `bindModulePackage`: the allow-listed generated-call binder `call` uses ──
 //
@@ -387,7 +387,7 @@ export type MisoVault = Omit<typeof vaultActions, "getVaultAdminCap" | "resolveR
   readonly resolveReceivingCoins: (coinIds: readonly string[]) => Effect.Effect<vaultActions.ReceivingObjectRef[], BatchItemError | TransportError | OperationsUnavailableError>;
 };
 
-const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | Musicos | Partyos> =>
+const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | MusicProtocol | PartyProtocol> =>
   Effect.gen(function* () {
     const sui = yield* Sui;
     // The exact-ledger check `MisoPlatformClient#ready()` used to perform at
@@ -400,20 +400,20 @@ const make =(deployment: MisoPlatformDeployment): Effect.Effect<MisoService, Mis
     if (sui.chainId !== deployment.chainIdentifier) {
       return yield* new MisoChainIdentifierMismatchError({ actual: sui.chainId, expected: deployment.chainIdentifier });
     }
-    const protocol = yield* Musicos;
-    const partyos = yield* Partyos;
+    const protocol = yield* MusicProtocol;
+    const partyProtocol = yield* PartyProtocol;
     const graphql = yield* SuiGraphQL;
-    return assemble(sui, graphql, protocol, partyos, deployment);
+    return assemble(sui, graphql, protocol, partyProtocol, deployment);
   });
 
 /** `make`, without the exact-chain check — what {@link Miso.layerTest} builds over. */
-const makeUnchecked = (deployment: MisoPlatformDeployment): Effect.Effect<MisoService, never, Sui | SuiGraphQL | Musicos | Partyos> =>
+const makeUnchecked = (deployment: MisoPlatformDeployment): Effect.Effect<MisoService, never, Sui | SuiGraphQL | MusicProtocol | PartyProtocol> =>
   Effect.gen(function* () {
     const sui = yield* Sui;
-    const protocol = yield* Musicos;
-    const partyos = yield* Partyos;
+    const protocol = yield* MusicProtocol;
+    const partyProtocol = yield* PartyProtocol;
     const graphql = yield* SuiGraphQL;
-    return { ...assemble(sui, graphql, protocol, partyos, deployment), chainId: sui.chainId };
+    return { ...assemble(sui, graphql, protocol, partyProtocol, deployment), chainId: sui.chainId };
   });
 
 /**
@@ -425,7 +425,7 @@ const makeUnchecked = (deployment: MisoPlatformDeployment): Effect.Effect<MisoSe
  * mechanism (`docs/extensions.md` §7) is what governs "real before the first
  * await" now, not a second, platform-specific readiness machine.
  */
-function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosService, partyosService: PartyosService, rawDeployment: MisoPlatformDeployment): MisoService {
+function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicProtocolService, partyProtocolService: PartyProtocolService, rawDeployment: MisoPlatformDeployment): MisoService {
   // Recursively frozen snapshot taken at layer-build time, matching the
   // predecessor `MisoPlatformClient`'s own guarantee ("later caller mutation
   // cannot retarget an existing client") — a custom deployment object the
@@ -437,7 +437,7 @@ function assemble(sui: SuiService, graphql: SuiGraphQLClient, protocol: MusicosS
   const withEnv = <A, E>(effect: Effect.Effect<A, E, Sui | SuiGraphQL>): Effect.Effect<A, E> =>
     effect.pipe(Effect.provideService(Sui, sui), Effect.provideService(SuiGraphQL, graphql));
 
-  const party = makeMisoParty(sui, partyosService, deployment.party);
+  const party = makeMisoParty(sui, partyProtocolService, deployment.party);
 
   // ── Sales binding (RecordSalesUnavailableError when unavailable) ─────────
   const sales = (): Extract<RecordSalesDeployment, { status: "available" }> => requireRecordSalesDeployment(deployment.recordSales);
@@ -743,22 +743,22 @@ export interface MisoService {
   /** The chain identifier this instance was validated against (`deployment.chainIdentifier`). */
   readonly chainId: string;
   /**
-   * The converted `@misofm/musicos` protocol service, always present.
+   * The converted `@misofm/music` protocol service, always present.
    *
-   * Typed as a mapped copy of `MusicosService`, not the interface itself:
+   * Typed as a mapped copy of `MusicProtocolService`, not the interface itself:
    * sui-effect 0.1.0's `PromiseFace<S>` recurses only into members assignable
    * to `Record<string, unknown>`, and an `interface` (unlike a mapped type,
    * which resolves to a fresh object type) is not — so `client.miso.protocol`
    * would keep typing every member as `Effect`-returning while the derived
    * Promise face maps them to Promise-returning methods at runtime
    * (misofm/sdks#35 verification, A1; fixed on the 0.1.0 library's behaviour
-   * here since `MusicosService` itself is not this package's to redeclare —
-   * `@misofm/musicos`, not `@unconfirmed/sui-effect`, so 0.1.1's own
+   * here since `MusicProtocolService` itself is not this package's to redeclare —
+   * `@misofm/music`, not `@unconfirmed/sui-effect`, so 0.1.1's own
    * `PromiseFace` fix does not retroactively change this; this mapped-type
    * wrapping stays correct either way). See `docs/CONVERSION.md` "Stage 5".
    */
-  readonly protocol: { readonly [K in keyof MusicosService]: MusicosService[K] };
-  /** The party surface: `@misofm/partyos` core plus this package's own party extensions. */
+  readonly protocol: { readonly [K in keyof MusicProtocolService]: MusicProtocolService[K] };
+  /** The party surface: `@misofm/party` core plus this package's own party extensions. */
   readonly party: MisoPartyService;
 
   /** The run itself, or `null` if this release has never opened one. Fails with `RecordSalesUnavailableError` when this deployment has no Record sales. */
@@ -861,30 +861,30 @@ export interface MisoService {
  */
 export class Miso extends Context.Service<Miso, MisoService>()("@misofm/platform/Miso") {
   /**
-   * The live layer, bound to `deployment`. Composes `Musicos.layer` and
-   * `Partyos.layer` over the same `Sui` internally, so the requirement stays
-   * `Sui | SuiGraphQL` — never `Sui | SuiGraphQL | Musicos | Partyos` — for a
+   * The live layer, bound to `deployment`. Composes `MusicProtocol.layer` and
+   * `PartyProtocol.layer` over the same `Sui` internally, so the requirement stays
+   * `Sui | SuiGraphQL` — never `Sui | SuiGraphQL | MusicProtocol | PartyProtocol` — for a
    * consumer that only asked for `Miso`.
    *
    * Fails with: `MisoNetworkMismatchError`, `MisoChainIdentifierMismatchError`
    * (the client's `sui.network`/`sui.chainId` do not match `deployment`),
-   * plus whatever `Musicos.layer`/`Partyos.layer` fail with for a structurally
+   * plus whatever `MusicProtocol.layer`/`PartyProtocol.layer` fail with for a structurally
    * invalid `deployment.protocol`/`deployment.partyos` (should not happen for
    * an already-`normalizeMisoPlatformDeployment`-validated deployment).
    */
   static readonly layer = (deployment: MisoPlatformDeployment): Layer.Layer<Miso, MisoLayerError, Sui | SuiGraphQL> =>
     Layer.effect(Miso, make(deployment)).pipe(
-      Layer.provide(Musicos.layer({ deployment: deployment.protocol })),
-      Layer.provide(Partyos.layer({ deployment: deployment.partyos })),
+      Layer.provide(MusicProtocol.layer({ deployment: deployment.protocol })),
+      Layer.provide(PartyProtocol.layer({ deployment: deployment.partyos })),
     );
 
   /**
-   * `layer`, over `Musicos`/`Partyos` and `Sui`/`SuiGraphQL` the caller
+   * `layer`, over `MusicProtocol`/`PartyProtocol` and `Sui`/`SuiGraphQL` the caller
    * already provides — the shape `docs/extensions.md` calls `layerNoDeps` for
    * a service that composes other extensions, spelled out for testing or a
    * caller assembling every layer itself.
    */
-  static readonly layerNoDeps = (deployment: MisoPlatformDeployment): Layer.Layer<Miso, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | Musicos | Partyos> =>
+  static readonly layerNoDeps = (deployment: MisoPlatformDeployment): Layer.Layer<Miso, MisoNetworkMismatchError | MisoChainIdentifierMismatchError, Sui | SuiGraphQL | MusicProtocol | PartyProtocol> =>
     Layer.effect(Miso, make(deployment));
 
   /**
@@ -918,8 +918,8 @@ export class Miso extends Context.Service<Miso, MisoService>()("@misofm/platform
   static readonly layerTest = (state: { readonly deployment?: MisoPlatformDeployment } = {}): Layer.Layer<Miso, never, Sui | SuiGraphQL> => {
     const deployment = state.deployment ?? MISO_PLATFORM_DEPLOYMENTS.testnet;
     return Layer.effect(Miso, makeUnchecked(deployment)).pipe(
-      Layer.provide(Musicos.layerTest({ packageId: deployment.protocol.musicos })),
-      Layer.provide(Partyos.layerTest(deployment.partyos)),
+      Layer.provide(MusicProtocol.layerTest({ packageId: deployment.protocol.musicos })),
+      Layer.provide(PartyProtocol.layerTest(deployment.partyos)),
     );
   };
 }

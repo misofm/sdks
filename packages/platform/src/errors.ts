@@ -24,7 +24,7 @@ import type { Outcome } from "@unconfirmed/sui-effect";
 // `TransactionFailedError` becomes `ExecutionFailed`; `GraphQLUnavailableError`
 // becomes sui-effect's own `GraphQLUnavailable`, produced by the bare
 // `SuiGraphQL` tag this package now reads through directly (the same one
-// `@misofm/musicos` reads through — no second, platform-owned GraphQL tag).
+// `@misofm/music` reads through — no second, platform-owned GraphQL tag).
 export {
   DecodeError,
   ExecutionFailed,

@@ -28,9 +28,9 @@
         "typescript": "^5.7 || ^6 || ^7",
       },
     },
-    "packages/musicos": {
-      "name": "@misofm/musicos",
-      "version": "0.8.0",
+    "packages/music": {
+      "name": "@misofm/music",
+      "version": "0.9.0",
       "devDependencies": {
         "@effect/language-service": "0.87.2",
         "@mysten/bcs": "2.1.1",
@@ -50,9 +50,9 @@
         "typescript": "^5.7 || ^6 || ^7",
       },
     },
-    "packages/partyos": {
-      "name": "@misofm/partyos",
-      "version": "0.8.0",
+    "packages/party": {
+      "name": "@misofm/party",
+      "version": "0.9.0",
       "devDependencies": {
         "@mysten/bcs": "2.1.1",
         "@mysten/sui": "2.29.0",
@@ -73,10 +73,10 @@
     },
     "packages/platform": {
       "name": "@misofm/platform",
-      "version": "0.46.0",
+      "version": "0.47.0",
       "dependencies": {
-        "@misofm/musicos": "0.8.0",
-        "@misofm/partyos": "0.8.0",
+        "@misofm/music": "0.9.0",
+        "@misofm/party": "0.9.0",
         "@misofm/streaming": "0.4.0",
       },
       "devDependencies": {
@@ -160,9 +160,9 @@
 
     "@misofm/effect": ["@misofm/effect@workspace:packages/effect"],
 
-    "@misofm/musicos": ["@misofm/musicos@workspace:packages/musicos"],
+    "@misofm/music": ["@misofm/music@workspace:packages/music"],
 
-    "@misofm/partyos": ["@misofm/partyos@workspace:packages/partyos"],
+    "@misofm/party": ["@misofm/party@workspace:packages/party"],
 
     "@misofm/platform": ["@misofm/platform@workspace:packages/platform"],
 
@@ -390,9 +390,9 @@
 
     "@effect/platform-node-shared/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
 
-    "@misofm/musicos/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
+    "@misofm/music/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
 
-    "@misofm/partyos/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
+    "@misofm/party/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
 
     "@misofm/platform/effect": ["effect@4.0.4", "", {}, "sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng=="],
 

@@ -10,10 +10,10 @@
 import { expect, test } from "bun:test";
 import {
   MISO_DEPLOYMENTS as PROTOCOL_MISO_DEPLOYMENTS,
-} from "@misofm/musicos/deployments";
+} from "@misofm/music/deployments";
 import {
-  PARTYOS_DEPLOYMENTS as PROTOCOL_PARTYOS_DEPLOYMENTS,
-} from "@misofm/partyos/deployments";
+  PARTY_PROTOCOL_DEPLOYMENTS as PROTOCOL_PARTY_DEPLOYMENTS,
+} from "@misofm/party/deployments";
 import {
   getMisoPlatformDeployment,
   MISO_PLATFORM_DEPLOYMENTS,
@@ -75,7 +75,7 @@ test("bundled Testnet deployment exactly matches the verified immutable export",
     "network": "testnet",
     "chainIdentifier": "69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD",
     "protocol": PROTOCOL_MISO_DEPLOYMENTS.testnet,
-    "partyos": PROTOCOL_PARTYOS_DEPLOYMENTS.testnet,
+    "partyos": PROTOCOL_PARTY_DEPLOYMENTS.testnet,
     "recordSales": {
       "status": "available",
       "recordPackageId": "0xf51af0e4a29d764a6880db65d99aaa7d1802774f7be18e7220a05a2d673b4743",

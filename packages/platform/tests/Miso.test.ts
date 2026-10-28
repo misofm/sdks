@@ -3,7 +3,7 @@
 
 // The `Miso` service skeleton (misofm/sdks#35, WP1): the exact-chain startup
 // check `layer`/`layerConfig` perform, `layerTest` skipping it, and
-// `protocol`/`party` bound to the real converted `Musicos`/`Partyos`
+// `protocol`/`party` bound to the real converted `MusicProtocol`/`PartyProtocol`
 // services over the in-memory `SuiCore` fake — no network, per
 // sui-effect/docs/extensions.md §10.
 
@@ -12,7 +12,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { ConfigProvider, Effect, Exit, Layer, Cause, Option } from "effect";
 import { KNOWN_CHAIN_IDS, SuiGraphQL } from "@unconfirmed/sui-effect";
 import { layerTest } from "@unconfirmed/sui-effect/testing";
-import { derivePartyAdminCapId } from "@misofm/partyos";
+import { derivePartyAdminCapId } from "@misofm/party";
 import { MISO_PLATFORM_DEPLOYMENTS } from "../src/deployments.ts";
 import { MisoChainIdentifierMismatchError, MisoNetworkMismatchError, MisoPlatformDeploymentInvalidError, OperationsUnavailableError } from "../src/errors.ts";
 import { Miso } from "../src/Miso.ts";
@@ -36,7 +36,7 @@ describe("Miso.layer: the exact-chain startup check", () => {
           chainId: m.chainId,
           protocolPackageId: m.protocol.packageId,
           // `MisoPartyService` has no `.deployment` of its own (WP3); prove it
-          // is bound to this deployment's `partyos` package the same way
+          // is bound to this deployment's party-protocol package the same way
           // `party/client.ts` does — via a synchronous derivation.
           partyAdminCapId: m.party.derivePartyAdminCapId(SOME_PARTY_ID),
         })),
